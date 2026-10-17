@@ -60,7 +60,7 @@ apps/web/                   Next.js site
 agent/skills/               octopus runtime skills (loaded by the thinking agents)
 deploy/                     docker compose (canonical), Railway, Vercel and Coolify notes
 tests/e2e/                  replay suites, fixture tapes, artifact writers
-references/                 gitignored upstream code (read only)
+.upstream/                 gitignored upstream code (read only)
 ```
 
 Each service folder has its own `README.md` with: what it owns, how to run it, its events in and out, and its "Ways it fails" list.

@@ -2,7 +2,7 @@
 
 Jev (TypeSafe's System One model) is the octopus's reflex. It answers typed questions about a state in about 100 to 150 ms, with calibrated probabilities and a confidence value. BettaFish, MiroShark and LLM agents are the slow mind (System Two). **Every slow signal has a fast Jev twin, and the slow mind runs only when Jev is unsure and the stakes justify it.**
 
-Reference docs are mirrored in `references/sites/typesafe/` (all pages as markdown, including every cookbook). Builder skill: `.claude/skills/typesafe-ai`.
+Reference docs are mirrored in `.upstream/sites/typesafe/` (all pages as markdown, including every cookbook). Builder skill: `.claude/skills/typesafe-ai`.
 
 ## Facts we design around
 

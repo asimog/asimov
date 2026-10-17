@@ -1,5 +1,5 @@
-# Reference code: read-only, never committed, never imported. See references/UPSTREAM.md
-/references/
+# Upstream prior-art code: read-only, never committed, never imported. See .upstream/UPSTREAM.md
+/.upstream/
 
 # Secrets
 .env

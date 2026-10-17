@@ -1,6 +1,6 @@
 # Installed dev-agent skills
 
-Copied from `references/repos`. Re-copy to update. Source @ commit.
+Copied from `.upstream/repos`. Re-copy to update. Source @ commit.
 
 | skill | source | commit |
 |---|---|---|

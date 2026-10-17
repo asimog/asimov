@@ -82,9 +82,9 @@ These hold for every agent working in this repo and for the octopus itself. Brea
 - Organs must never read events with `seen_time` after the Clock's now.
 
 ### References
-- `references/` is read-only upstream code. It is gitignored and skipped by default searches (`.ignore`).
+- `.upstream/` is read-only upstream code. It is gitignored and skipped by default searches (`.ignore`).
 - Never import from it, never install its dependencies, never copy large blocks from it. Real dependencies come through `package.json`, `pyproject.toml` or our forks.
-- Search it only on purpose: `rg --no-ignore <pattern> references/`. Index: `references/UPSTREAM.md`.
+- Search it only on purpose: `rg --no-ignore --hidden <pattern> .upstream/`. Index: `.upstream/UPSTREAM.md`.
 - When you use an idea from it, cite the path in your doc change.
 
 ### Code
@@ -117,7 +117,7 @@ These hold for every agent working in this repo and for the octopus itself. Brea
 - Dev skills: `.claude/skills/` (list and sources in `.claude/skills/SKILLS.lock.md`).
 - Octopus runtime skills: `agent/skills/`. They are loaded by the LangGraph thinking agents (`services/agents`), not by builders.
 - Pump.fun skills (`coin-fees`, `create-coin`, `swap`, `tokenized-agents`) say to ask the owner for RPC, signer and mint before coding. Do that.
-- Jev work: `typesafe-ai` skill, plus the mirrored docs and cookbooks in `references/sites/typesafe/`.
+- Jev work: `typesafe-ai` skill, plus the mirrored docs and cookbooks in `.upstream/sites/typesafe/`.
 
 ## Doc map
 
