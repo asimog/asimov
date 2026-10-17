@@ -53,7 +53,7 @@ Roles: `core_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` the
 | `coin_callout` | mint pk, latest callout, author wallet, at. Joins coin signals to callout and caller signals. |
 | `commits` | `cm_` id, kind, sha256, content jsonb (private until revealed), made_at, revealed_at |
 | `desk_clock` | name pk (next_alloc, next_evolve), at, round. Periodic rounds run on Tape time. |
-| `outcome_watch` | callout pk, mint, at, price0, probs jsonb (probability signals at callout time), done int[] (resolved horizons) |
+| `outcome_watch` | callout pk, the callout's event id, mint, author, created_at (platform time), at (`t0`, our seen time), probs jsonb (probability signals at callout time), done int[] (resolved horizons). Prices are read from the Tape at resolution (docs/07) |
 | `scores` | (kind, horizon_min) pk, n, brier_sum, hits, p_sum |
 | `limits` | `version` pk, body jsonb, set_by, set_at | Only the admin path inserts. |
 

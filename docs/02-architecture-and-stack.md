@@ -16,7 +16,7 @@ The shape of the system is in `03-system-model.md`. Agent roles are in `18-agent
 | 8 | `relay` | TS | Public fan-out of SSE events and session frames | `core` (one upstream connection), viewers | Viral traffic must never load the core. |
 | 9 | `web` | TS | Next.js site (asimog.com instruments), share cards | `relay`, `core` public read API | Public surface. Scales on its own. |
 | 10 | `sandbox` | any | Disposable containers for the Builder: git checkout, toolchain, E2E suites; no keys, no production network | `agents` (task in, artifacts out) | Agent-written code never runs next to money. |
-| - | Postgres 17 | - | Tape, Memory, Board, ledgers, agent checkpoints, job table | - | One database for everything we own. |
+| - | Postgres 18 | - | Tape, Memory, Board, ledgers, agent checkpoints, job table. Dev: Docker container `asimog-pg` (AGENTS.md) | - | One database for everything we own. |
 | - | Neo4j | - | MiroShark graph memory | - | Required by MiroShark. |
 | - | Object storage (S3-compatible) | - | Tape archives, HAR files, frames for Rewind, report artifacts | - | Large blobs stay out of Postgres. |
 
@@ -92,7 +92,9 @@ Versions are the latest stable release when Phase 1 starts, pinned in lockfiles.
 | Stats (Py) | numpy, scipy, hmmlearn, scikit-learn | HMM regimes, Caller model fitting. |
 | Forecast baseline | `timesfm` 2.5 weights (Apache-2.0) | Baseline only. |
 | Fly | `wetware` (pip from git, pinned commit) | Connectome reservoir. |
-| Web | Next.js (app router), React 19, TypeScript; `next/og` for share cards | Standard; cards without a headless browser. |
+| Web | Next.js 16 (app router), React 19, TypeScript; `next/og` for share cards | Standard; cards without a headless browser. |
+| Relay | `hono` + `@hono/node-server`, `postgres` | Small HTTP server for SSE and `/v1/snapshot`. The relay reads Postgres with read-only transactions (`default_transaction_read_only`) instead of holding a connection to core, so viewer load never reaches core. |
+| Web state | `zustand` | One live store fed by the relay's SSE; R3F reads it without re-rendering React. |
 | 3D | `three`, `@react-three/fiber`, `@react-three/drei`, `@react-three/postprocessing`, `zustand`; assets through `gltf-transform` and `gltfjsx` | docs/19. |
 | UI components | shadcn registry items from tweenly and rare-ui, restyled to our tokens | Do not rebuild number pop-ins, charts, transitions. |
 | CSS | Tailwind 4 with our tokens as CSS variables; good-css rules | docs/12. |

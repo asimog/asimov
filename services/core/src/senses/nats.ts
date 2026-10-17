@@ -5,7 +5,8 @@ import { log } from "../lib/log.ts";
 
 export type Which = "trades" | "feed";
 
-export async function natsConnect(which: Which): Promise<NatsConnection> {
+/** `onGap(fromMs, toMs)` runs on every reconnect with the interval the connection was down (docs/07 coverage). */
+export async function natsConnect(which: Which, now: () => number, onGap: (fromMs: number, toMs: number) => void): Promise<NatsConnection> {
   const servers = which === "trades" ? env.str("PUMP_NATS_TRADES_URL") : env.str("PUMP_NATS_FEED_URL");
   const pass = which === "trades" ? env.str("PUMP_NATS_PASS") : env.str("PUMP_NATS_FEED_PASS");
   const nc = await wsconnect({
@@ -18,7 +19,15 @@ export async function natsConnect(which: Which): Promise<NatsConnection> {
     pingInterval: 20_000,
   });
   void (async () => {
-    for await (const s of nc.status()) log.info("nats status", { which, type: s.type });
+    let down: number | null = null;
+    for await (const s of nc.status()) {
+      log.info("nats status", { which, type: s.type });
+      if (s.type === "disconnect" && down == null) down = now();
+      if (s.type === "reconnect" && down != null) {
+        onGap(down, now());
+        down = null;
+      }
+    }
   })();
   return nc;
 }

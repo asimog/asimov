@@ -155,7 +155,7 @@ Every metered call writes a `budget.spent` event: analyzer, units (tokens, USD, 
 
 ## Scorecards
 
-The Scorekeeper resolves outcomes at fixed horizons (5 m, 30 m, 2 h, 6 h) and writes scores:
+The Scorekeeper resolves outcomes at the compressed horizons in `OUTCOME_HORIZONS_MIN` (1, 3, 5 min by default; docs/07) and writes scores:
 
 - Signal scores: Brier score for probabilities, error for values.
 - Strategy scores: net return per trade, follower PnL, drawdown, hit rate.
@@ -163,6 +163,20 @@ The Scorekeeper resolves outcomes at fixed horizons (5 m, 30 m, 2 h, 6 h) and wr
 - Session scores: how often a session read changed a decision.
 
 Scores feed the Allocator, the Strategy Pool's selection and the "useless analyzer" flag.
+
+## Evidence classes
+
+Everything the agent says publicly belongs to exactly one class, and pages, case files and data replies keep the classes apart:
+
+| Class | Is | Example | May be stated as |
+|---|---|---|---|
+| Observed | An input event as a sense recorded it, with its source and times | a callout, a trade, a gap | fact about what we saw |
+| Computed | A deterministic number from observed events, with a methodology version | `outcome.measured`, ledgers, indicators | fact, with its denominator and coverage |
+| AI judgment | A recorded model answer (Jev, System Two) | `jev.callout.promo` | "the model judged ..." |
+| Hypothesis | A claim committed before its outcome (commit-reveal) | a forecast | "we expect ...", revealed later |
+| Outcome | What happened to a claim or a callout afterwards | a reveal, a resolved outcome | fact, with corrections kept |
+
+Rules: an AI judgment never becomes a computed fact; an indicator is never called proof; a temporal association is never called a cause; an account's wallet is never called a person.
 
 ## The `core` CLI (and MCP mirror)
 
@@ -175,6 +189,9 @@ One binary for humans and agents. The LangGraph agents use the same commands as 
 | `ctl why <id>` | Walk the noun chain back to the observations. Prints a tree. |
 | `ctl board [subject]` | Live signals for a coin, caller or all. |
 | `ctl coin <mint\|cn_id>` / `ctl caller <id>` | Projection plus recent events. |
+| `ctl case <callout_id> [--md]` | The case file for one callout (docs/07). |
+| `ctl callers [--h 5]` | The caller ledger, methodology `cl1` (docs/07). |
+| `ctl coverage` | Gaps per source, coins called vs. coins with trades, outcomes per coverage status. |
 | `ctl analyzers` | Analyzer list, status, last signal, score, budget. `--useless` flags low-value analyzers. |
 | `ctl jev <pack> <subject> [--dry]` | Show the state Reflex would send and the last answers; `--dry` prints without calling Jev. |
 | `ctl sessions` | 8 sessions: current task, URL, frame rate, health. |

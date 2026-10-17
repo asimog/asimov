@@ -3,7 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { connect, migrate, resetProjections } from "../lib/db.ts";
+import { buildCase, renderCase } from "../hunt/case.ts";
 import { env, redact } from "../lib/env.ts";
+import { coverage, ledger } from "../scorekeeper/ledger.ts";
 
 const [cmd = "help", ...args] = process.argv.slice(2);
 const flag = (n: string) => args.includes(`--${n}`);
@@ -103,6 +105,14 @@ const commands: Record<string, () => Promise<unknown>> = {
   migrate: async () => (await migrate(sql), { ok: true }),
   rebuild: async () => (await resetProjections(sql), { ok: true, note: "projections cleared; restart core to rebuild from the tape" }),
   export: () => exportTape(opt("out") ?? `data/tapes/tape-${Date.now()}.ndjson.gz`, opt("from"), opt("to")),
+  case: async () => {
+    const c = await buildCase(sql, args[0] ?? "");
+    if (!c) throw new Error(`no callout ${args[0]}`);
+    if (!flag("md")) return c;
+    console.log(renderCase(c));
+  },
+  callers: () => ledger(sql, { horizon: Number(opt("h") ?? 5) }),
+  coverage: () => coverage(sql),
   help: async () => ({ commands: Object.keys(commands) }),
 };
 

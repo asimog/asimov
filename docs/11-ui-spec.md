@@ -14,7 +14,7 @@ Rule zero: **every motion is caused by a real event or a real number changing.**
 | `/ledger` | Ledger | Paper | A long ruled table | Every trade, callout, update, markout, cost |
 | `/treasury` | Treasury | Paper | Flow diagram of sweeps, balances, costs and reconciliation | Where the money goes, with proofs |
 | `/charter` | Charter | Paper | The constitution, the soul's version timeline, counsel decisions | Who it is and what binds it |
-| `/integrity` | Integrity | Paper | Caller graph with echo rings | Patterns in the callout feed, with evidence |
+| `/integrity` | Integrity | Paper | Caller graph with echo rings; case files (`/case/[id]`) in six evidence sections; the caller ledger with denominators | Patterns in the callout feed, with evidence, and what it cannot say |
 | `/connectome` | Connectome Lab | Night | Fruit-fly brain point cloud | The 1% fly sleeve |
 | `/rewind` | Rewind | Same as source | Any instrument at a past time | What it knew then |
 | `/calls/[id]`, `/callers/[id]` | Dossiers | Paper | Why-chain trail | One object, fully explained |

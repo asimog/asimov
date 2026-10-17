@@ -105,3 +105,10 @@ One term per thing. If you need a new word, add it here in the same change.
 | Premium | The extra seat price after a sale, fading over about a day. |
 | Entry rank | How many buyers came between a trade's trigger and our fill. |
 | Mode | `replay`, `paper` or `live`. Set by the owner only. |
+| Case file | Everything known about one callout, in time order, split into evidence classes (docs/07). Built by `ctl case`. |
+| Coverage | What a collector actually saw over a window; every outcome carries a coverage status (`ok`, `no_entry`, `no_trades`, `gap`). |
+| Gap | An interval a sense knows it missed, written as `system.gap`. |
+| Evidence class | Observed, computed, AI judgment, hypothesis or outcome (docs/03). |
+| Indicator | A deterministic pattern over observed data (for example `wash_atomic`) with evidence, other explanations and limits. Never an accusation. |
+| Net multiple | SOL back / SOL spent for a round trip of `OUTCOME_REF_SOL` through the fill model. The only multiple that counts as a result. |
+| Caller ledger | The per-caller record of every callout's outcome with denominators and exclusions (`ctl callers`, methodology `cl1`). |

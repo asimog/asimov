@@ -57,6 +57,10 @@ Read this first. Then `CONSTITUTION.md` and `SOUL.md` (who it is), `21-first-pri
 | Jev as System One | 150 ms typed, calibrated answers at almost no cost | LLMs for fast judgments |
 | Math in code | Reproducible | Models doing arithmetic |
 | Paper forecasting from the start | Public, outside-verified record early | Waiting for capital |
+| Outcomes net of costs at our size, with coverage, by versioned methodology | A peak is not a payout; a collector is not the market (docs/research/literature-review.md) | Peak multiples and win rates alone |
+| Evidence classes kept apart: observed, computed, AI judgment, hypothesis, outcome (docs/03) | Claims become valuable when anyone can see what was seen, inferred and tested | One blended "score" |
+| Indicators, not accusations; corrections append, never rewrite | Every pattern has innocent explanations; the Tape is append-only | Naming wrongdoers; editing past claims |
+| Outside datasets and papers are baselines to reproduce, never facts about us | Different units, windows and collectors | Quoting their numbers as ours |
 
 ### Mind and hands
 

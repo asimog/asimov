@@ -63,43 +63,63 @@ export function desk(tape: Tape, clock: Clock): Desk {
   const calloutMint = new Map<string, string>();
   const lastEval = new Map<string, number>();
   const lastExit = new Map<string, number>(); // `${strategy}:${mint}` -> ms
-  const clockRow = { next_alloc: 0, next_evolve: 0, next_sweep: 0, round: 0 };
+  const clockRow = { next_alloc: 0, next_evolve: 0, sweep_bucket: -1, round: 0 };
 
   const emptyStats = (): StatRow => ({ n: 0, sum: 0, sq: 0, rets: [], max_dd: 0, wins: 0, equity: 0, peak: 0, mk60: [], stage: "ghost", share: 0, last_trade_ms: null });
   const push = <K, V>(m: Map<K, V[]>, k: K, v: V) => (m.get(k) ?? m.set(k, []).get(k)!).push(v);
 
   // ---------- load ----------
+  /** Rebuild every cache in the order an uninterrupted run would have built it: map order decides iteration and RNG draws. */
   async function load(tx: Tx) {
     for (const m of [strategies, st, open, closedToday, realized, pending, fills, market, coinCallout, calloutMint, lastEval, lastExit] as Map<unknown, unknown>[]) m.clear();
     const [lim] = await tx`select body from mind.limits order by version desc limit 1`;
     limits = { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits>) ?? {}) };
-    for (const r of await tx`select id, spec, born_at from mind.strategies where retired_at is null`)
+    for (const r of await tx`select id, spec, born_at from mind.strategies where retired_at is null order by born_at, id`)
       strategies.set(r.id as string, { spec: r.spec as Spec, born_ms: (r.born_at as Date).getTime() });
-    for (const r of await tx`select * from mind.stats`)
+    for (const r of await tx`select * from mind.stats order by strategy_id`)
       st.set(r.strategy_id as string, {
         n: r.trades as number, sum: r.net_sum as number, sq: r.net_sq as number, rets: (r.rets as number[]) ?? [], max_dd: r.max_dd as number,
         wins: r.wins as number, equity: r.equity as number, peak: r.peak as number, mk60: (r.mk60 as number[]) ?? [], stage: r.stage as string,
         share: r.share as number, last_trade_ms: r.last_trade_at ? (r.last_trade_at as Date).getTime() : null,
       });
     for (const r of await tx`select strategy_id, sum(net_sol)::float net from mind.positions where closed_at is not null group by 1`) realized.set(r.strategy_id as string, r.net as number);
-    for (const r of await tx`select * from mind.positions where closed_at is null`)
+    for (const r of await tx`select * from mind.positions where closed_at is null order by opened_at, id`)
       push(open, r.mint as string, {
         id: r.id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, callout_id: r.callout_id as string | null,
         opened_ms: (r.opened_at as Date).getTime(), tokens: r.tokens as number, tokens_left: r.tokens_left as number, cost_sol: r.cost_sol as number,
         proceeds_sol: r.proceeds_sol as number, rent_sol: r.rent_sol as number, entry_price: r.entry_price as number,
         bands: r.exit_bands as number[], fired: ((r.exits as { i: number }[]) ?? []).map((x) => x.i), commit_id: r.commit_id as string | null,
       });
-    for (const r of await tx`select * from mind.intents`)
+    for (const r of await tx`select * from mind.intents order by created_at, id`)
       push(pending, r.mint as string, {
         id: r.id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, side: r.side as "buy" | "sell", size_sol: r.size_sol as number | null,
         tokens: r.fraction as number | null, position_id: r.position_id as string | null, reason: r.reason as string,
         created_ms: (r.created_at as Date).getTime(), fill_after_ms: (r.fill_after as Date).getTime(), event_id: r.event_id as string, score: null,
       });
-    for (const r of await tx`select * from mind.fills where not done`)
+    for (const r of await tx`select * from mind.fills where not done order by at, id`)
       push(fills, r.mint as string, { id: r.id as string, intent_id: r.intent_id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, side: r.side as "buy" | "sell", at_ms: (r.at as Date).getTime(), price_sol: r.price_sol as number, mk: r.mk as Record<string, number | null> });
-    for (const r of await tx`select * from mind.coin_callout`) {
+    for (const r of await tx`select * from mind.coin_callout order by at, mint`) {
       coinCallout.set(r.mint as string, { callout_id: r.callout_id as string, author: r.author_wallet as string | null, at_ms: (r.at as Date).getTime() });
       calloutMint.set(r.callout_id as string, r.mint as string);
+      if (r.last_eval) lastEval.set(r.mint as string, (r.last_eval as Date).getTime());
+    }
+    // caches rebuilt from durable state, so a restart decides exactly as an uninterrupted run (e2e/callout-case-replay)
+    for (const r of await tx`select strategy_id, mint, max(closed_at) at from mind.positions where closed_at is not null group by 1, 2`)
+      lastExit.set(`${r.strategy_id}:${r.mint}`, (r.at as Date).getTime());
+    for (const r of await tx`select strategy_id, floor(extract(epoch from closed_at) / 86400)::int8 d, sum(net_sol)::float net from mind.positions
+        where closed_at is not null group by 1, 2 order by 1, 2`)
+      closedToday.set(r.strategy_id as string, { day: Number(r.d), net: r.net as number });
+    const [off] = await tx`select last_seen_time from tape.consumer_offsets where consumer = 'desk'`;
+    const upto = off ? (off.last_seen_time as Date) : null;
+    if (upto && upto.getTime() > 0) {
+      clockRow.sweep_bucket = Math.floor(upto.getTime() / D.sweepMs);
+      const mints = [...new Set([...coinCallout.keys(), ...open.keys(), ...pending.keys()])];
+      for (const r of await tx`select distinct on (subject) subject, topic, seen_time, (body->>'price_sol')::float p from tape.events
+          where subject = any(${mints}) and topic in ('trade.curve', 'trade.amm') and seen_time <= ${upto} and body->>'price_sol' is not null and (body->>'price_sol')::float > 0
+          order by subject, seen_time desc, id desc`) {
+        const graduated = r.topic === "trade.amm";
+        market.set(r.subject as string, { price_sol: r.p as number, at_ms: (r.seen_time as Date).getTime(), graduated, real_sol: graduated ? null : curveFromPrice(r.p as number).realSol });
+      }
     }
     const [cl] = await tx`select at, round from mind.desk_clock where name = 'next_alloc'`;
     const [ce] = await tx`select at from mind.desk_clock where name = 'next_evolve'`;
@@ -162,8 +182,8 @@ export function desk(tape: Tape, clock: Clock): Desk {
       }
     if (!clockRow.next_alloc) clockRow.next_alloc = now + D.allocateMs;
     if (!clockRow.next_evolve) clockRow.next_evolve = now + D.evolveMs;
-    if (now >= clockRow.next_sweep) {
-      clockRow.next_sweep = now + D.sweepMs;
+    if (Math.floor(now / D.sweepMs) > clockRow.sweep_bucket) {
+      clockRow.sweep_bucket = Math.floor(now / D.sweepMs);
       await sweep(tx, e, now);
     }
     if (now >= clockRow.next_alloc) {
@@ -402,6 +422,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     const m = market.get(mint);
     if (!cc || !m || m.graduated || now - cc.at_ms > D.entryWindowMs) return;
     lastEval.set(mint, now);
+    await tx`update mind.coin_callout set last_eval = ${iso(now)} where mint = ${mint}`;
     const board = await boardFor(tx, mint, e.seen_time);
     const quote = quoteFor(m);
     const busy = new Set([...(open.get(mint) ?? []), ...(pending.get(mint) ?? [])].map((x) => x.strategy_id));

@@ -4,14 +4,14 @@ The complete build order for Asimog, from an empty repo to a self-funding, self-
 
 Build **stages** (S0 to S11) are engineering order. Financial **milestones** (Start, M1 to M5, docs/22) are what the firm earns; some work only switches on when a milestone is reached.
 
-## Status (2026-10-17)
+## Status (2026-10-17, Windows)
 
 | Stage | State | Evidence |
 |---|---|---|
 | S0 Discovery | Done | `docs/research/pumpfun-endpoints.md`; fixture `tests/e2e/fixtures/tapes/discovery-10m.ndjson.gz` recorded by the real readers |
-| S1 Foundations | Done (local Postgres 18, zod contracts, Tape, Clock, consumers, `ctl`) | `ctl doctor`, replays |
-| S2 Senses and memory | S2.1 to S2.5 done (feed poll + push, chain trades, memory). S2.6 X Reader open | Live runs: 0 errors, ~0.6 callouts/s, ~25 trades/s |
-| S3 Fast mind | S3.1, S3.2 (age, echo, hawkes, callers, curve), S3.4 Reflex (`callout` pack, budget, queue), S3.5 Scorekeeper, S3.7 no-lookahead done. S3.3 regime HMM, S3.6 attention, packs `coin`, `callers`, `guard` open | `analyzers-replay` |
+| S1 Foundations | Done (Postgres 18, zod contracts, Tape, Clock, consumers, `ctl`). Moved to Windows: Postgres 18 in Docker (`npm run pg:start`), all 6 suites green in 88 s | `ctl doctor`, replays |
+| S2 Senses and memory | S2.1 to S2.5 done (feed poll + push, chain trades, memory). S2.6 X Reader, S2.7 RPC trade backfill open. S2.8 coverage (`system.gap`) in this change | Live runs: 0 errors, ~0.6 callouts/s, ~25 trades/s |
+| S3 Fast mind | S3.1, S3.2 (age, echo, hawkes, callers, curve), S3.4 Reflex (`callout` pack, budget, queue), S3.5 Scorekeeper, S3.7 no-lookahead done. S3.8 callout tracking v2 (outcomes `ov2`, ledger, case files, hunt indicators, `caller.dna` lookahead fix) in this change. S3.3 regime HMM, S3.6 attention, packs `coin`, `callers`, `guard` open | `analyzers-replay`, `callout-case-replay` |
 | S4 Paper desk | S4.1 to S4.8 done (DSL + validator, 30 seeds, fill model, Risk Gate, kernel, markouts, commit-reveal, evolution) | `strategies-replay`, `riskgate-refuses`, `commit-reveal`, `evolution-replay`, `replay-determinism` |
 | S5 to S11 | Open | |
 
@@ -87,6 +87,8 @@ Critical path to live trading: S0 → S1 → S2 → S3 → S4 → S6. S5, S7 and
 | S2.4 | Frame capture: per-session stream, change detection, 2 fps cap, minute snapshots to storage | S2.3 | Frames with read boxes | Frames arrive with boxes matching the read elements |
 | S2.5 | Memory projections: coins, callers, callouts, edges, bars_1m, wallets | S2.1, S2.2 | `mem.*` | Rebuilding from the tape gives identical table hashes |
 | S2.6 | X Reader (read only): posts and profiles linked from callouts, screenshots | S2.3 | `x.post` | `e2e/x-proof` stores a post with its screenshot |
+| S2.7 | RPC trade backfill: on a `trades` gap or when a coin enters the watched set, fetch its recent signatures from RPC (budgeted), decode pump `TradeEvent` logs with the official IDL, write `trade.*` with source `rpc` and the same dedupe keys. Pattern: `myron-dev/pump-indexer` | S2.2, S2.8 | Pre-call and gap trades | `e2e/backfill-replay`: a recorded gap refills; `pre_call_trades` > 0 for most called coins; the coverage report shows NATS vs. RPC overlap (cross-collector check, docs/research/literature-review.md §3) |
+| S2.8 | Coverage: senses write `system.gap` (feed walk exhausted, NATS disconnects, coins dropped from the watched set); `ctl coverage` | S2.1, S2.2 | `system.gap`, coverage report | `e2e/callout-case-replay`: an injected gap marks overlapping outcomes `gap` and the ledger counts them as excluded |
 
 ## S3 · Fast mind (minutes at agent speed)
 
@@ -99,6 +101,8 @@ Critical path to live trading: S0 → S1 → S2 → S3 → S4 → S6. S5, S7 and
 | S3.5 | Scorekeeper: outcomes at 1, 3 and 5 min (compressed); Brier for probability signals | S3.2 | `outcome.*`, `score.*` | Scores appear in the analyzers report |
 | S3.6 | Attention v0 and the escalation gate | S3.4 | `attention.grant`, `jev.escalated` | Escalations happen only when the gate rules fire |
 | S3.7 | No-lookahead check in every replay | S3.2 | Replay check | `e2e/no-lookahead` reports zero violations |
+| S3.8 | Callout tracking v2 (docs/07): outcomes `ov2` (entry basis, peak, trough, time to peak, net multiple at our size through the fill model, phase, coverage, corrections by supersede); caller ledger `cl1`; case files with evidence classes (docs/03); hunt indicators `wash_atomic`, `bundle_buy`, `author_trades`, `ticker_collision`, `no_pump_suffix`, `thin_curve`; `caller.dna` from our own resolved outcomes | S3.5, S2.8 | `ctl case`, `ctl callers`, `ctl coverage` | `e2e/callout-case-replay`: a losing call's case file is written as an artifact and rebuilds byte-identical; the ledger's denominators add up; duplicate ingest and a consumer restart change nothing |
+| S3.9 | Baselines from the literature (docs/research/literature-review.md): graduation probability given curve progress vs. the breakeven `vSol² / 115²`; creator launches in the prior 60 min and metadata host as cheap features (Chrisymcsoup); fastest accumulation (trades to reach a level) | S3.8, longer tapes | `baseline.*` rows in the analyzers report | Numbers computed on our tapes, with coverage, never copied from papers |
 
 ## S4 · Paper desk (minutes at agent speed)
 
@@ -124,6 +128,7 @@ Critical path to live trading: S0 → S1 → S2 → S3 → S4 → S6. S5, S7 and
 | S5.5 | Cortex: procedural brain, lobe lighting, slices, strip | S5.2 | Cortex | `e2e/site-cortex` |
 | S5.6 | Lab: arc with committed cards, threads, rays, counters | S4.7, S5.2 | Lab | `e2e/site-lab` |
 | S5.7 | Ledger, Charter (constitution, soul timeline, disclosure registry), Treasury (proof chain) | S5.2 | Pages | Numbers on screen equal API values |
+| S5.10 | Integrity room v1: case files rendered with the six evidence sections (docs/07), each section visually distinct; the caller ledger with denominators and exclusions | S3.8, S5.2 | `/integrity`, `/case/[id]` | `e2e/site-integrity`: the page text for a fixture case equals the `ctl case` JSON; no section mixes classes |
 | S5.8 | Share cards with `next/og` | S5.2 | `/cards/[id]` | Card images render for 20 sample calls |
 | S5.9 | Deploy asimog.com on the chosen profile | S5.2 | Live site | Site reachable; the Signer unreachable from outside |
 

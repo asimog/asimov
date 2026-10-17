@@ -26,9 +26,13 @@ export async function readTape(file: string): Promise<Row[]> {
 
 export type ReplayResult = { sql: Sql; db: string; inputs: number; windows: number; ms: number; netCalls: string[]; first: string; last: string; consumers: Record<string, unknown> };
 
-export async function replay(tapeFile: string, opts: { tag: string; seed?: number; stepMs?: number }): Promise<ReplayResult> {
+/**
+ * `extra`: input events to add to the tape (for example a recorded gap).
+ * `restartAt`: 0..1 of the tape; there every consumer is rebuilt from scratch, as after a crash, and resumes from its offset.
+ */
+export async function replay(tapeFile: string, opts: { tag: string; seed?: number; stepMs?: number; extra?: Row[]; restartAt?: number }): Promise<ReplayResult> {
   const t0 = performance.now();
-  const rows = (await readTape(tapeFile)).filter((r) => !isDerived(r.topic)).sort((a, b) => (a.seen_time < b.seen_time ? -1 : a.seen_time > b.seen_time ? 1 : a.id < b.id ? -1 : 1));
+  const rows = [...(await readTape(tapeFile)), ...(opts.extra ?? [])].filter((r) => !isDerived(r.topic)).sort((a, b) => (a.seen_time < b.seen_time ? -1 : a.seen_time > b.seen_time ? 1 : a.id < b.id ? -1 : 1));
   if (!rows.length) throw new Error(`empty tape ${tapeFile}`);
 
   // fresh database per run; never touches the working database
@@ -60,11 +64,13 @@ export async function replay(tapeFile: string, opts: { tag: string; seed?: numbe
   const last = rows[rows.length - 1]!.seen_time;
   const clock = replayClock(Date.parse(first), opts.seed ?? 42);
   const tape = new Tape(sql, clock);
-  const consumers = buildConsumers(tape);
+  let consumers = buildConsumers(tape);
   const step = opts.stepMs ?? 1000;
+  const restartMs = opts.restartAt == null ? null : Date.parse(first) + opts.restartAt * (Date.parse(last) - Date.parse(first));
   let windows = 0;
   try {
     for (let t = Date.parse(first); t <= Date.parse(last) + step; t += step) {
+      if (restartMs != null && t >= restartMs && t - step < restartMs) consumers = buildConsumers(tape);
       const until = new Date(t).toISOString();
       for (const c of consumers) await drain(sql, c, until);
       windows++;

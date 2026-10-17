@@ -25,8 +25,8 @@
   "scripts": {
     "dev": "tsx services/core/src/main.ts",
     "ctl": "tsx services/core/src/cli/ctl.ts",
-    "pg:start": "/usr/lib/postgresql/18/bin/pg_ctl -D data/pg -l data/pg.log -w start",
-    "pg:stop": "/usr/lib/postgresql/18/bin/pg_ctl -D data/pg -w stop",
+    "pg:start": "docker start asimog-pg || docker run -d --name asimog-pg --restart unless-stopped -e POSTGRES_USER=asimog -e POSTGRES_DB=asimog -e POSTGRES_HOST_AUTH_METHOD=trust -p 127.0.0.1:54329:5432 -v asimog-pg:/var/lib/postgresql postgres:18 -c synchronous_commit=off",
+    "pg:stop": "docker stop asimog-pg",
     "e2e": "tsx tests/e2e/run.ts",
     "lint": "biome check .",
     "typecheck": "tsc -p services/core --noEmit"

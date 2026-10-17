@@ -168,6 +168,8 @@ Consequences for the desk:
 3. **Social capital is capital.** Followers, engagement on our callouts, site visitors and bounty participants are a balance the kernel allocates to and measures, like SOL (docs/22).
 4. **Markouts are the fastest truth.** Minutes, not weeks, to see whether we trade against smarter flow.
 5. **Public forecasts are free credibility.** Paper forecasts on prediction markets build an outside-verified record from week one.
+6. **Predicting is not profiting** (added 2026-10-17 from the literature, docs/research/literature-review.md). Graduation is predictable from early flow, yet the unconditional graduation curve sits below the buy-and-hold breakeven `vSol² / 115²` (arXiv:2602.14860), and 48 exit rules on the best launch segment all lost 10% to 17% (Chrisymcsoup/solana-launch-study). Our first tape agrees. Every claim of skill is therefore stated net of costs at our size.
+7. **What we see is what our collectors saw.** Coverage and corrections are published with every number (docs/07 coverage).
 
 ## 8. What could we be wrong about?
 
@@ -176,3 +178,4 @@ Consequences for the desk:
 3. The fixture tape may not represent busy hours. Record more tapes at different times before trusting replays as load tests.
 4. The Builder agent may produce plausible but wrong code. Every change goes through E2E suites and a PR until the gate is met.
 5. The Field may be too heavy for phones. It is the first UI prototype for this reason.
+6. Our callers may differ from the literature's. Papers studied creators, Telegram channels and graduated coins; callouts are a newer, platform-native signal. Their numbers are hypotheses to test on our tapes, never facts about Asimog.

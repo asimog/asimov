@@ -2,7 +2,7 @@
 
 Paste this whole file to the next agent as its first message. It replaces the chat history. Read it top to bottom before your first change, then read `AGENTS.md`, `CONSTITUTION.md`, `docs/21-first-principles.md`, `docs/22-firm-architecture.md`, `docs/00-goals-and-decisions.md` and `docs/03-system-model.md`.
 
-Written 2026-10-17 at the end of the first build session. Repo: `https://github.com/asimog/asimov` (public). The owner moves to a **Windows** machine next (not WSL). See "Moving to Windows" at the end.
+Written 2026-10-17 at the end of the first build session, and updated the same day after the second (Windows move, literature, callout tracking v2). Repo: `https://github.com/asimog/asimov` (public). Development now runs on **Windows**; see "Moving to Windows" at the end (done).
 
 ---
 
@@ -77,8 +77,8 @@ Engineering stages S0 to S11 (`docs/13-implementation-phases.md`, with a status 
 |---|---|---|
 | S0 Discovery | Find the feed endpoints, NATS servers, record a tape | Done |
 | S1 Foundations | Postgres, contracts, Tape, Clock, consumers, `ctl` | Done |
-| S2 Senses + memory | Feed Reader (poll + push), Chain Reader (NATS trades), memory projections; X Reader open | Mostly done |
-| S3 Fast mind | Board, cheap analyzers, Reflex (Jev), Scorekeeper, no-lookahead. Open: regime HMM (Python), attention + escalation gate, Jev packs `coin`, `callers`, `guard` | Mostly done |
+| S2 Senses + memory | Feed Reader (poll + push), Chain Reader (NATS trades), memory projections, coverage gaps (`system.gap`, S2.8). Open: X Reader (S2.6), **RPC trade backfill (S2.7)** | Mostly done |
+| S3 Fast mind | Board, cheap analyzers, Reflex (Jev), Scorekeeper, no-lookahead, **callout tracking v2** (S3.8: outcomes `ov2` net of costs with coverage, caller ledger, case files, hunt indicators, `caller.dna` lookahead fix). Open: regime HMM (Python), attention + escalation gate, Jev packs `coin`, `callers`, `guard`, literature baselines (S3.9) | Mostly done |
 | S4 Paper desk | DSL + validator, 30 seeds, fill model, Risk Gate, kernel, markouts, commit-reveal, evolution | Done |
 | S5 Instruments v1 | Relay (SSE), web shell, Field, Cortex, Lab, Ledger, Charter, share cards, deploy | **In progress**: relay done; `apps/web` scaffolded (tokens, live store); Field scene not written |
 | S6 Live desk and books | Signer, Executor, Publisher (posting callouts), books, reconciliation | Open; ask the owner for keypairs, RPC and signer setup first |
@@ -111,7 +111,25 @@ tests/e2e/                        run.ts, lib/ (replay driver, checks, artifacts
 docs/                             00 to 22, GLOSSARY, inspiration/ (4 GIFs + sheets), research/
 ```
 
-All 6 E2E suites pass on the fixture (27 s): `riskgate-refuses`, `analyzers-replay`, `strategies-replay`, `commit-reveal`, `evolution-replay`, `replay-determinism` (two fresh databases, identical hash over 1,044 derived events and 8,707 signals).
+All 7 E2E suites pass on the fixture on Windows, in about 3 minutes with Postgres in Docker: `riskgate-refuses`, `analyzers-replay`, `strategies-replay`, `commit-reveal`, `evolution-replay`, `replay-determinism` (two fresh databases, identical hash) and `callout-case-replay` (below). The first Windows baseline derived 1,144 events, where this file once said 1,044. Determinism held within the run, so the old figure is probably a typo.
+
+Added in the second session (2026-10-17):
+
+```
+services/core/src/scorekeeper/scorekeeper.ts  outcomes ov2: entry basis, peak, trough, time to peak, net multiple at 0.02 SOL through the fill model, coverage, corrections by supersede
+services/core/src/scorekeeper/ledger.ts       caller ledger cl1 (denominators, exclusions by reason, Wilson interval) and the coverage report
+services/core/src/hunt/case.ts                case files: OBSERVED, STATISTICS, AI JUDGMENTS, INDICATORS, UNRESOLVED, OUTCOMES AND CORRECTIONS
+services/core/src/cli/ctl.ts                  ctl case <callout_id> [--md], ctl callers [--h 5], ctl coverage
+services/core/src/senses/*                    system.gap on NATS reconnect, on an exhausted feed gap walk, and when a coin leaves the watched set
+services/core/src/mind/desk.ts                restart-safe: every cache rebuilt from durable state, in tape order
+docs/literature/                              8 papers (PDF); docs/research/literature-review.md; docs/research/prior-art-callout-intelligence.md
+```
+
+What the fixture shows under `ov2` (10 minutes, 381 callouts):
+
+- At 5 minutes, 61 callouts resolved with full coverage. 54 of them lost money net of costs at 0.02 SOL: a net win rate of 11% (95% interval 6% to 22%), median net multiple 0.77.
+- Coverage is the biggest gap. Only 53 of 158 called coins have any trades on the tape, and 44 of those were first traded after their first callout.
+- Pre-call flow stays invisible until the RPC backfill (S2.7) exists.
 
 Key architecture rules learned while building (docs/03):
 
@@ -121,19 +139,38 @@ Key architecture rules learned while building (docs/03):
 - `ctl rebuild` clears only pure projections; deciders are rebuilt by replay into a fresh database.
 - Deciders start at the Tape head in live mode (`startAtHead`), so they never decide on old history.
 - Replay databases `asimog_e2e_*` are kept after runs; deleting them is the owner's call (AGENTS.md: never delete a database without asking).
+- **Restart safety is tested.** A consumer rebuilt halfway through a replay must give the same derived hash (`callout-case-replay`, `E2E_RESTART_AT`). Every in-memory cache must be rebuilt from durable state, and any loop over a Map must not depend on its insertion history (sort it, or load in tape order).
+- **Evidence classes** (docs/03): observed, computed, AI judgment, hypothesis, outcome. Never mix them. Indicators are never accusations. Corrections append; they never rewrite.
 
 ## 7. Next actions, in order
 
-1. Finish S5 Field (`apps/web`): `app/layout.tsx` (Plex Mono, Sans, Sans Condensed via `next/font`), `app/page.tsx`, a GPU particle Field (one `Points` draw: per-coin clouds shaped in the shader from a per-mint seed, density = attention, breathing, flare on `callout.created`, shimmer on `jev.answer`, Core cloud at center, filaments to open paper positions, callouts falling in from above as comets, `uTemperature` amber → crimson from real markout stress), DOM labels projected on the top clouds, click a cloud for its dossier, HUD (MODE PAPER, MANDATE 0.2 SOL, FLOOR −25%, MILESTONE START, POOL, PAPER NET, COUNSEL 0, VIEWERS), a strip of 7 panels (Tape, Positions, Markouts, Equity, Pool, Scores, Rates), footer pages. Label paper trades PAPER. Then Lab (the commit arc: we already have real commits and reveals) and Cortex.
-2. Write `e2e/site-field` with agent-browser screenshots at 1440×900 and 390×844, and the truth check (HUD numbers = API values).
-3. Jev packs `coin`, `callers`, `guard`; attention + escalation gate; regime HMM in `services/analyzers-py` (uv + hmmlearn).
-4. Record longer tapes (30 min, busy hours) so commit-reveal reaches 100 reveals and evolution has evidence.
-5. S6: ask the owner for W_trade, W_creator, W_agent keypairs, RPC and signer placement before writing any money code.
-6. Update `docs/02-architecture-and-stack.md` with rows for relay (hono, postgres) and web (next, react, three, @react-three/fiber, zustand), and note the relay reads Postgres read-only instead of connecting to core.
+1. **S2.7 RPC trade backfill** (docs/13). When a coin enters the watched set or a `trades` gap closes, fetch the coin's recent signatures from RPC (budgeted) and decode pump `TradeEvent` logs with the official IDL. Use the same dedupe keys and source `rpc`. Pattern: `.upstream/repos/myron-dev__pump-indexer`. This does three things:
+   - turns `no_entry` outcomes into real ones;
+   - makes pre-call buying visible, which the `author_trades` indicator needs;
+   - gives a second collector whose overlap with NATS goes into `ctl coverage`.
+2. Finish the S5 Field (`apps/web`):
+   - Base pages: `app/layout.tsx` (Plex Mono, Sans and Sans Condensed via `next/font`) and `app/page.tsx`.
+   - A GPU particle Field in one `Points` draw:
+     - per-coin clouds shaped in the shader from a per-mint seed, with density set by attention and a slow breathing;
+     - a flare on `callout.created` and a shimmer on `jev.answer`;
+     - a Core cloud at the center, with filaments to open paper positions;
+     - callouts falling in from above as comets;
+     - `uTemperature` moving amber → crimson from real markout stress.
+   - DOM labels projected on the top clouds; click a cloud for its dossier.
+   - HUD: MODE PAPER, MANDATE 0.2 SOL, FLOOR −25%, MILESTONE START, POOL, PAPER NET, COUNSEL 0, VIEWERS.
+   - A strip of 7 panels (Tape, Positions, Markouts, Equity, Pool, Scores, Rates) and footer pages. Label paper trades PAPER.
+   - Then the Lab (the commit arc) and the Cortex.
+3. S5.10 Integrity room: render case files (`ctl case` JSON) in their six sections, plus the caller ledger with denominators. Clicking a dossier in the Field opens the coin's latest case file.
+4. Write `e2e/site-field` with agent-browser screenshots at 1440×900 and 390×844, plus the truth check (HUD numbers = API values).
+5. Jev packs `coin`, `callers` and `guard`; attention plus the escalation gate; the regime HMM in `services/analyzers-py` (uv + hmmlearn).
+6. Record longer tapes (30 min, busy hours). Then commit-reveal reaches 100 reveals, evolution has evidence, and the S3.9 literature baselines can be computed: graduation vs. the `vSol² / 115²` breakeven, and the creator-frequency and metadata-host features.
+7. S6: ask the owner for the W_trade, W_creator and W_agent keypairs, the RPC and the signer placement before writing any money code.
+
+Done in the second session: docs/02 rows for relay and web, the Windows move, and the `.upstream` rebuild.
 
 ## 8. Upstream repos and how they link
 
-`.upstream/` holds read-only copies of prior art (gitignored, never imported, never installed). Search it on purpose with `rg --no-ignore --hidden <pattern> .upstream/`. Its index `.upstream/UPSTREAM.md` is not in git, so the list is copied here. Clone with `git clone --depth 1 https://github.com/<owner>/<repo> .upstream/repos/<owner>__<repo>`.
+`.upstream/` holds read-only copies of prior art (gitignored, never imported, never installed). Search it on purpose with `rg --no-ignore --hidden <pattern> .upstream/`. Its index `.upstream/UPSTREAM.md` is not in git, so the list is copied here. Clone with `git clone --depth 1 https://github.com/<owner>/<repo> .upstream/repos/<owner>__<repo>`. Rebuilt from GitHub on Windows on 2026-10-17: 69 repos plus the 4 npm SDKs; Ghidra not cloned. **`greengod63/PumpFun-Bonding_Curve` was removed after Windows Defender flagged its `.vscode/tasks.json` as a trojan. Never re-clone it, and never open an `.upstream` repo in VS Code with automatic tasks allowed.**
 
 | Repo | Verdict | How it links to Asimog |
 |---|---|---|
@@ -154,7 +191,6 @@ Key architecture rules learned while building (docs/03):
 | chainstacklabs/pumpfun-cli, pumpclaw | ASSESS, SKILL | Operator manual trades and dry runs only |
 | chainstacklabs/web3-ai-trading-agent | PATTERN | Synthetic data, distillation, RL ideas for later strategy training |
 | chainstacklabs/chainplot | PATTERN | Hash-joined proven ranges: pattern for treasury proofs |
-| greengod63/PumpFun-Bonding_Curve | PATTERN | Graduation progress alerts |
 | nirholas/visualize-web3-realtime | PATTERN | GPU instanced force graph in one draw call: Integrity caller graph |
 | Roxx0x/wetware | RUN (lab) | Fruit-fly connectome reservoir: Connectome Lab, 1% sleeve |
 | cobanov/fly-connectome-template | PATTERN | Fly anatomy viewer (attribution required) |
@@ -183,7 +219,24 @@ Key architecture rules learned while building (docs/03):
 | ayghri/i-have-adhd | SKILL | Reporting style to the owner |
 | freshtechbro/claudedesignskills | ASSESS | Overlaps the R3F skills |
 
-Also in `.upstream/`: `npm/` (unpacked @pump-fun/pump-sdk 4.1.0, pump-swap-sdk 2.1.0, shared-contracts 0.2.2, agent-payments-sdk 3.0.3) and `sites/` (Pump.fun callout terms page saved 2026-10-16, Pump.fun web bundles, good-css.com, the full docs.typesafe.ai mirror with 20 cookbooks, crawlnet motion reference). `sites/` cannot be re-downloaded identically: copy it.
+Added 2026-10-17 (caller intelligence, collection, datasets). Reasons and licences: `docs/research/prior-art-callout-intelligence.md`.
+
+| Repo | Verdict | How it links to Asimog |
+|---|---|---|
+| Smurfetc/solana-memecoin-calls-dataset | PATTERN + baseline | An honest public call ledger: losers kept, hash-anchored. Baseline for the peak distribution. One caller, peaks only |
+| Chrisymcsoup/solana-launch-study | PATTERN + baseline | No exit rule was profitable after costs. Causal creator-frequency and metadata-host features (S3.9) |
+| myron-dev/pump-indexer | PATTERN | Multi-provider `logsSubscribe` decoding: the model for the S2.7 RPC backfill |
+| BankkRoll/pumpfun-apis | PATTERN | Captured pump.fun endpoint docs; cross-check when an endpoint drifts |
+| rpcpool/yellowstone-grpc | DEP later (client only) | gRPC on a paid plan. The plugin is AGPL and is never vendored |
+| chainstacklabs/grpc-geyser-tutorial | PATTERN | Explains why `logsSubscribe` truncates; read before S2.7 |
+| nirholas/pumpkit, nirholas/pumpfun-claims-bot | PATTERN (read only) | All rights reserved. Only the idea of verified vs. unverified links |
+| madeonsol/madeonsol-sdk, 0xfnzero/sol-parser-sdk (+ nodejs, python), 0xfnzero/solana-streamer, no-limit-nodes/solana-programs-data-streaming-reference | ASSESS | Paid or vendor-specific providers and parsers; possible second collectors later |
+| ian05012/solana-memecoin-dataset, q33wx/pumpfun-pumpswap-market-data, willho/fingerprinter-dataset, PumpArchive/PumpArchive | ASSESS | Survivor-selected, unlicensed or opaque datasets; read only |
+| Solid-Sea/pump-gold-dataset | AVOID as labels | The label compares the path maximum to the path minimum, so it leaks the whole path |
+| AliJuya/QuantOS, TradingChassis/core | PATTERN | Confirm the Tape/Clock design and the Risk Gate boundary |
+| yksanjo/kol-tracker, cadenshokat/SolanAI | AVOID | A leaderboard scrape and a generic dashboard |
+
+Also in `.upstream/`: `npm/` (unpacked @pump-fun/pump-sdk 4.1.0, pump-swap-sdk 2.1.0, shared-contracts 0.2.2, agent-payments-sdk 3.0.3) and `sites/`: the docs.typesafe.ai mirror (128 pages, 20 cookbooks, re-fetched 2026-10-17) and the pump.fun app shell. The WSL-only copies (the callout terms snapshot of 2026-10-16, web bundles, good-css.com, crawlnet) were not carried over, at the owner's call, and were not re-fetched.
 
 ## 9. Platform facts (verified 2026-10-17)
 
@@ -207,16 +260,13 @@ Read `AGENTS.md` Boundaries in full. The ones most likely to bite:
 - Every new topic or signal kind goes in `docs/04-contracts.md` and `packages/contracts` in the same change.
 - No emojis, no em dashes in UI copy and posts. Every UI motion is caused by a real event. Simulated content is labeled SIMULATED; paper trades are labeled PAPER.
 
-## 11. Moving to Windows
+## 11. Moving to Windows (done 2026-10-17)
 
-The owner will clone from GitHub into Windows (not WSL). Things that change:
-
-1. **pnpm:** on Windows the native `pnpm` works; the `npx -y pnpm@10.29.3` workaround in AGENTS.md was only for WSL. Update that line in AGENTS.md after the move.
-2. **Postgres:** the dev cluster lived in `data/pg` (gitignored, Linux binaries) and does not move. Install PostgreSQL 18 for Windows (or Docker Desktop), create user `asimog` and database `asimog` on port 54329 (or change `DATABASE_URL` in `.env.local`), then `npm run ctl migrate`. The `pg:start`/`pg:stop` scripts in `package.json` point at `/usr/lib/postgresql/18/bin/pg_ctl`; replace them with the Windows path or drop them. Old local data is not needed: the fixture tape in the repo is enough to replay.
-3. **`.env.local`** is not in git. Recreate it from `.env.example` with the Helius, OpenRouter, TypeSafe keys, `ONCOJEV_TESTING=1` and the two NATS passwords (copy the file across by hand, never through git).
-4. **agent-browser:** `npx agent-browser install` downloads Chrome for Windows.
-5. **ffmpeg** for the `video-frames` skill: install a Windows build and put it on PATH.
-6. **Python services** (later): `uv` works on Windows.
-7. **Line endings:** `.gitattributes` forces LF (`* text=auto eol=lf`) and marks the tape and images binary.
-8. **Fixture tape** (`tests/e2e/fixtures/tapes/discovery-10m.ndjson.gz`) is binary; Git keeps it as is.
-9. Run `npm run e2e` first: all 6 suites must pass on Windows before any new work.
+1. pnpm: native `pnpm` 10.29.3 works; AGENTS.md is updated.
+2. Postgres: Postgres 18 runs in Docker (`npm run pg:start`; container `asimog-pg`, port 54329) with `synchronous_commit = off`. Docker volumes on Windows made every commit wait 0.3 to 0.6 s, and one replay took over 10 minutes. The old WSL data was not moved; the fixture tape is enough.
+3. `.env.local` exists on this machine with the keys present; `DATABASE_URL` was added.
+4. agent-browser: `npx agent-browser install` has not been run yet. The S5 site suites need it.
+5. ffmpeg: not installed yet. The `video-frames` skill needs it.
+6. Python services: `uv` is installed.
+7. Line endings: `.gitattributes` forces LF in the index. `core.autocrlf=true` on this machine gives CRLF working copies, which is fine. PDFs are marked binary.
+8. All 7 suites pass on Windows.

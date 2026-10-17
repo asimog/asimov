@@ -1,64 +1,125 @@
-// Scorekeeper (docs/07): what happened after each callout, at compressed horizons, and how well the probability
-// signals predicted it (Brier). Resolution happens only after the horizon has passed on the Clock: no lookahead.
+// Scorekeeper (docs/07): what happened after each callout, at compressed horizons, by methodology ov2, and how well
+// the probability signals predicted it (Brier). Every number is computed from the Tape alone, bounded by seen_time,
+// only after the horizon has passed on the Clock: no lookahead. A late system.gap supersedes outcomes; it never edits them.
 import type { BodyOf, Envelope } from "@asimog/contracts";
 import { liveFor } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
+import { fillBuy, fillSell } from "../mind/fill.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 
 const HORIZONS = (env.opt("OUTCOME_HORIZONS_MIN") ?? "1,3,5").split(",").map(Number);
-const MAX_H = Math.max(...HORIZONS);
 const SCORE_EVERY_MS = env.int("SCORE_EVERY_S", 60) * 1000;
+const STALE_MS = env.int("ENTRY_STALE_S", 60) * 1000;
+const GRACE_MS = env.int("OUTCOME_GRACE_S", 60) * 1000;
+export const REF_SOL = env.num("OUTCOME_REF_SOL", 0.02);
 const PROB_KINDS = ["hawkes.wave_p", "callers.wave_p"];
 
 type Prob = { kind: string; p: number; n: number; horizon_min: number };
-type Watch = { callout_id: string; mint: string; at_ms: number; price0: number | null; probs: Prob[]; done: number[] };
+type Watch = { callout_id: string; event_id: string; mint: string; author: string | null; created_ms: number; t0_ms: number; probs: Prob[]; done: number[] };
+type Outcome = BodyOf<"outcome.measured">;
+type Pt = { id: string; at: number; p: number; amm: boolean };
+
+const iso = (ms: number) => new Date(ms).toISOString();
+
+/** Gaps known at `nowIso` that overlap [fromMs, toMs] for this coin. */
+async function gapsFor(tx: Tx, mint: string, fromMs: number, toMs: number, nowIso: string): Promise<string[]> {
+  const rows = await tx`select id from tape.events where topic = 'system.gap' and seen_time <= ${nowIso}
+    and (body->>'scope' is null or body->>'scope' = ${mint})
+    and (body->>'from')::timestamptz <= ${iso(toMs)} and coalesce((body->>'to')::timestamptz, 'infinity') >= ${iso(fromMs)}
+    order by seen_time, id`;
+  return rows.map((r) => r.id as string);
+}
+
+/** Methodology ov2 (docs/07 scorekeeper). */
+async function measure(tx: Tx, w: Watch, h: number, nowIso: string): Promise<Outcome> {
+  const end = w.t0_ms + h * 60_000;
+  const rows = await tx`select id, topic, seen_time, (body->>'price_sol')::float p from tape.events
+    where subject = ${w.mint} and topic in ('trade.curve', 'trade.amm') and seen_time > ${iso(w.t0_ms - STALE_MS)} and seen_time <= ${iso(end)}
+      and body->>'price_sol' is not null order by seen_time, id`;
+  const pts: Pt[] = rows.map((r) => ({ id: r.id as string, at: (r.seen_time as Date).getTime(), p: r.p as number, amm: r.topic === "trade.amm" }));
+  const [pre] = await tx`select count(*)::int n from tape.events where subject = ${w.mint} and topic in ('trade.curve', 'trade.amm') and seen_time < ${iso(w.t0_ms)}`;
+  const [nc] = await tx`select count(distinct body->>'author_wallet')::int n from tape.events where topic = 'callout.created'
+    and seen_time > ${iso(w.t0_ms)} and seen_time <= ${iso(end)} and body->>'mint' = ${w.mint} and body->>'callout_id' <> ${w.callout_id}`;
+  const before = pts.filter((x) => x.at <= w.t0_ms);
+  let entry = before.at(-1) ?? null;
+  const basis: Outcome["entry_basis"] = entry ? "last_before" : pts.length ? "first_after" : "none";
+  if (!entry) entry = pts[0] ?? null;
+  const path = entry ? pts.filter((x) => x.at > entry!.at) : [];
+  const gaps = await gapsFor(tx, w.mint, w.t0_ms - STALE_MS, end, nowIso);
+  const coverage: Outcome["coverage"] = gaps.length ? "gap" : !entry ? "no_entry" : !path.length ? "no_trades" : "ok";
+  const base = {
+    method: "ov2" as const, callout_id: w.callout_id, mint: w.mint, author_wallet: w.author, horizon_min: h, t0: iso(w.t0_ms),
+    call_lag_ms: Number.isFinite(w.created_ms) ? w.t0_ms - w.created_ms : null, entry_basis: basis, ref_sol: REF_SOL,
+    trades: path.length, pre_call_trades: (pre?.n as number) ?? 0, new_callouts: (nc?.n as number) ?? 0, coverage, gaps, supersedes: null,
+  };
+  if (!entry || !path.length)
+    return { ...base, price0_sol: entry?.p ?? null, price_sol: null, multiple: null, peak_multiple: null, trough_multiple: null, t_peak_s: null, net_multiple: null, phase: entry ? (entry.amm ? "amm" : "curve") : null, graduated: false };
+  const last = path.at(-1)!;
+  const peak = path.reduce((a, b) => (b.p > a.p ? b : a));
+  const trough = path.reduce((a, b) => (b.p < a.p ? b : a));
+  const buy = fillBuy({ price_sol: entry.p, at_ms: entry.at, graduated: entry.amm }, REF_SOL);
+  const sell = fillSell({ price_sol: last.p, at_ms: last.at, graduated: last.amm }, buy.tokens);
+  return {
+    ...base, price0_sol: entry.p, price_sol: last.p, multiple: last.p / entry.p, peak_multiple: peak.p / entry.p, trough_multiple: trough.p / entry.p,
+    t_peak_s: (peak.at - w.t0_ms) / 1000, net_multiple: sell.sol / buy.spent_sol, phase: entry.amm ? "amm" : "curve", graduated: !entry.amm && path.some((x) => x.amm),
+  };
+}
 
 export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Record<string, number> } {
-  const stats = { watched: 0, outcomes: 0, scored: 0 };
+  const stats = { watched: 0, outcomes: 0, corrected: 0, scored: 0 };
   let loaded = false;
   const watches = new Map<string, Watch[]>();
-  const price = new Map<string, number>();
-  let nextScore = 0;
-  let nextSweep = 0;
+  let scoredBucket = -1;
 
   async function load(tx: Tx) {
     watches.clear();
-    for (const r of await tx`select * from mind.outcome_watch where cardinality(done) < ${HORIZONS.length}`) {
-      const w: Watch = { callout_id: r.callout_id as string, mint: r.mint as string, at_ms: (r.at as Date).getTime(), price0: r.price0 as number | null, probs: r.probs as Prob[], done: r.done as number[] };
+    for (const r of await tx`select * from mind.outcome_watch where cardinality(done) < ${HORIZONS.length} order by at, event_id`) {
+      const w: Watch = { callout_id: r.callout_id as string, event_id: r.event_id as string, mint: r.mint as string, author: r.author as string | null, created_ms: (r.created_at as Date).getTime(), t0_ms: (r.at as Date).getTime(), probs: r.probs as Prob[], done: r.done as number[] };
       (watches.get(w.mint) ?? watches.set(w.mint, []).get(w.mint)!).push(w);
     }
+    const [s] = await tx`select max(seen_time) at from tape.events where topic = 'score.updated'`;
+    scoredBucket = s?.at ? Math.floor((s.at as Date).getTime() / SCORE_EVERY_MS) : -1;
     loaded = true;
   }
 
-  async function resolve(tx: Tx, w: Watch, now: number, e: Envelope, force = false) {
+  async function resolve(tx: Tx, w: Watch, now: number, e: Envelope) {
     for (const h of HORIZONS) {
-      if (w.done.includes(h) || (now < w.at_ms + h * 60_000 && !force)) continue;
-      const end = new Date(w.at_ms + h * 60_000).toISOString();
-      const [c] = await tx`select count(distinct wallet)::int n from mem.callouts where mint = ${w.mint} and created_at > ${new Date(w.at_ms).toISOString()} and created_at <= ${end} and callout_id <> ${w.callout_id}`;
-      const p1 = price.get(w.mint) ?? null;
-      const newCallouts = (c?.n as number) ?? 0;
-      await tape.emitIn(
-        tx, "outcome.measured",
-        { callout_id: w.callout_id, mint: w.mint, horizon_min: h, price0_sol: w.price0, price_sol: p1, multiple: w.price0 && p1 ? p1 / w.price0 : null, new_callouts: newCallouts },
-        { source: "scorekeeper", subject: w.callout_id, causes: [e.id], after: e.seen_time },
-      );
+      if (w.done.includes(h) || now < w.t0_ms + h * 60_000) continue;
+      const o = await measure(tx, w, h, e.seen_time);
+      await tape.emitIn(tx, "outcome.measured", o, { source: "scorekeeper", subject: w.callout_id, causes: [w.event_id, e.id], after: e.seen_time });
       stats.outcomes++;
-      for (const pr of w.probs.filter((x) => x.horizon_min === h)) {
-        const hit = newCallouts >= pr.n ? 1 : 0;
-        await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${pr.kind}, ${h}, 1, ${(pr.p - hit) ** 2}, ${hit}, ${pr.p})
-          on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, brier_sum = mind.scores.brier_sum + excluded.brier_sum,
-            hits = mind.scores.hits + excluded.hits, p_sum = mind.scores.p_sum + excluded.p_sum`;
-        stats.scored++;
-      }
+      if (o.coverage !== "gap")
+        for (const pr of w.probs.filter((x) => x.horizon_min === h)) {
+          const hit = o.new_callouts >= pr.n ? 1 : 0;
+          await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${pr.kind}, ${h}, 1, ${(pr.p - hit) ** 2}, ${hit}, ${pr.p})
+            on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, brier_sum = mind.scores.brier_sum + excluded.brier_sum,
+              hits = mind.scores.hits + excluded.hits, p_sum = mind.scores.p_sum + excluded.p_sum`;
+          stats.scored++;
+        }
       w.done.push(h);
     }
-    await tx`update mind.outcome_watch set done = ${w.done}, price0 = ${w.price0} where callout_id = ${w.callout_id}`;
+    await tx`update mind.outcome_watch set done = ${w.done} where callout_id = ${w.callout_id}`;
     if (w.done.length === HORIZONS.length) {
       const list = watches.get(w.mint)!;
       list.splice(list.indexOf(w), 1);
       if (!list.length) watches.delete(w.mint);
+    }
+  }
+
+  /** A gap reported after outcomes were written: append corrections that supersede them. */
+  async function correct(tx: Tx, e: Envelope) {
+    const g = e.body as BodyOf<"system.gap">;
+    const rows = await tx`select distinct on (body->>'callout_id', body->>'horizon_min') id, body from tape.events
+      where topic = 'outcome.measured' and seen_time < ${e.seen_time} ${g.scope ? tx`and body->>'mint' = ${g.scope}` : tx``}
+      order by body->>'callout_id', body->>'horizon_min', seen_time desc, id desc`;
+    for (const r of rows) {
+      const o = r.body as Outcome;
+      const t0 = Date.parse(o.t0);
+      if (o.coverage === "gap" || Date.parse(g.from) > t0 + o.horizon_min * 60_000 || (g.to && Date.parse(g.to) < t0 - STALE_MS)) continue;
+      await tape.emitIn(tx, "outcome.measured", { ...o, coverage: "gap", gaps: [e.id], supersedes: r.id as string }, { source: "scorekeeper", subject: o.callout_id, causes: [e.id, r.id as string], after: e.seen_time });
+      stats.corrected++;
     }
   }
 
@@ -75,7 +136,7 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
   return {
     name: "scorekeeper",
     startAtHead: true,
-    topics: ["callout.created", "trade.curve", "trade.amm"],
+    topics: ["callout.created", "trade.curve", "trade.amm", "system.gap"],
     batch: 1000,
     stats,
     async handle(events, tx) {
@@ -84,12 +145,16 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
         for (const e of events) {
           const now = Date.parse(e.seen_time);
           clock.advance?.(now);
-          if (!nextScore) nextScore = now + SCORE_EVERY_MS;
-          if (now >= nextScore) ((nextScore = now + SCORE_EVERY_MS), await publishScores(tx, e));
-          if (now >= nextSweep) {
-            nextSweep = now + 5000;
-            for (const list of [...watches.values()]) for (const w of [...list]) if (now > w.at_ms + (MAX_H + 1) * 60_000) await resolve(tx, w, now, e, true);
+          const bucket = Math.floor(now / SCORE_EVERY_MS);
+          if (scoredBucket < 0) scoredBucket = bucket;
+          if (bucket > scoredBucket) {
+            scoredBucket = bucket;
+            await publishScores(tx, e);
           }
+          // quiet coins: resolve once the horizon plus a grace period has passed
+          // (sorted, so the order never depends on map history: a restarted consumer resolves in the same order)
+          const due = [...watches.values()].flat().filter((w) => HORIZONS.some((h) => !w.done.includes(h) && now >= w.t0_ms + h * 60_000 + GRACE_MS));
+          for (const w of due.sort((a, b) => a.t0_ms - b.t0_ms || (a.event_id < b.event_id ? -1 : 1))) await resolve(tx, w, now, e);
           if (e.topic === "callout.created") {
             const b = e.body as BodyOf<"callout.created">;
             const board = await liveFor(tx, b.mint, e.seen_time);
@@ -97,18 +162,18 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
               const v = board[k]?.value as { p?: number; n?: number; horizon_min?: number } | undefined;
               return v?.p != null && v.n != null && v.horizon_min != null ? [{ kind: k, p: v.p, n: v.n, horizon_min: v.horizon_min }] : [];
             });
-            const w: Watch = { callout_id: b.callout_id, mint: b.mint, at_ms: now, price0: price.get(b.mint) ?? null, probs, done: [] };
-            await tx`insert into mind.outcome_watch (callout_id, mint, at, price0, probs) values (${w.callout_id}, ${w.mint}, ${e.seen_time}, ${w.price0}, ${tx.json(probs as never)}) on conflict do nothing`;
-            (watches.get(w.mint) ?? watches.set(w.mint, []).get(w.mint)!).push(w);
-            stats.watched++;
-          } else {
-            const t = e.body as BodyOf<"trade.curve">;
-            if (!t.price_sol) continue;
-            price.set(t.mint, t.price_sol);
-            for (const w of [...(watches.get(t.mint) ?? [])]) {
-              if (w.price0 == null) w.price0 = t.price_sol;
-              if (HORIZONS.some((h) => !w.done.includes(h) && now >= w.at_ms + h * 60_000)) await resolve(tx, w, now, e);
+            const w: Watch = { callout_id: b.callout_id, event_id: e.id, mint: b.mint, author: b.author_wallet, created_ms: Date.parse(b.created_at), t0_ms: now, probs, done: [] };
+            const ins = await tx`insert into mind.outcome_watch (callout_id, event_id, mint, author, created_at, at, probs)
+              values (${w.callout_id}, ${w.event_id}, ${w.mint}, ${w.author}, ${b.created_at}, ${e.seen_time}, ${tx.json(probs as never)}) on conflict do nothing returning 1`;
+            if (ins.length) {
+              (watches.get(w.mint) ?? watches.set(w.mint, []).get(w.mint)!).push(w);
+              stats.watched++;
             }
+          } else if (e.topic === "system.gap") {
+            await correct(tx, e);
+          } else {
+            for (const w of [...(watches.get((e.body as BodyOf<"trade.curve">).mint) ?? [])])
+              if (HORIZONS.some((h) => !w.done.includes(h) && now >= w.t0_ms + h * 60_000)) await resolve(tx, w, now, e);
           }
         }
       } catch (err) {

@@ -27,7 +27,7 @@ const FAMILIES: Family[] = [
     universe: { all: [curveOpen, { sig: "caller.dna", field: "n", op: ">=", v: 2 }] },
     score: {
       sum: [
-        { w: 0.6, sig: "caller.dna", field: "hit2", missing: "skip" },
+        { w: 0.6, sig: "caller.dna", field: "net_win", missing: "skip" },
         { w: 0.3, sig: "caller.dna", field: "followers_norm", missing: "skip" },
         { w: 0.2, sig: "jev.callout.kind", field: "p.fresh_call", missing: "skip" },
         { w: -0.3, sig: "jev.callout.promo", missing: "skip" },

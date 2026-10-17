@@ -228,14 +228,41 @@ export const KernelAllocation = z.object({
   shares: z.array(z.object({ strategy_id: z.string(), n: num, mean: num.nullable(), lcb: num.nullable(), sample: num, share: num, stage: z.string() })),
 });
 
+/** Callout outcome, methodology ov2 (docs/07 scorekeeper). A correction is a new event with `supersedes`. */
 export const OutcomeMeasured = z.object({
+  method: z.literal("ov2"),
   callout_id: z.string(),
   mint: z.string(),
+  author_wallet: z.string().nullable(),
   horizon_min: num,
+  t0: iso,
+  call_lag_ms: num.nullable(),
+  entry_basis: z.enum(["last_before", "first_after", "none"]),
   price0_sol: num.nullable(),
   price_sol: num.nullable(),
   multiple: num.nullable(),
+  peak_multiple: num.nullable(),
+  trough_multiple: num.nullable(),
+  t_peak_s: num.nullable(),
+  net_multiple: num.nullable(),
+  ref_sol: num,
+  phase: z.enum(["curve", "amm"]).nullable(),
+  graduated: z.boolean(),
+  trades: num,
+  pre_call_trades: num,
   new_callouts: num,
+  coverage: z.enum(["ok", "no_entry", "no_trades", "gap"]),
+  gaps: z.array(z.string()),
+  supersedes: z.string().nullable(),
+});
+
+/** A sense knows it missed data (docs/07 coverage). `to: null` means still missing. */
+export const SystemGap = z.object({
+  source: z.enum(["feed", "feed.push", "trades", "rpc"]),
+  scope: z.string().nullable(),
+  from: iso,
+  to: iso.nullable(),
+  reason: z.string(),
 });
 
 export const ScoreUpdated = z.object({
@@ -273,7 +300,7 @@ export const TOPICS = {
   "outcome.measured": OutcomeMeasured,
   "score.updated": ScoreUpdated,
   "system.note": SystemNote,
-  "system.gap": SystemNote,
+  "system.gap": SystemGap,
   "system.schema_drift": SystemNote,
 } as const;
 export type Topic = keyof typeof TOPICS;
@@ -306,9 +333,12 @@ export const Signal = z.object({
 });
 export type Signal = z.infer<typeof Signal>;
 
-export const SCHEMA_VERSION: Record<Topic, number> = Object.fromEntries(
-  Object.keys(TOPICS).map((t) => [t, 1]),
-) as Record<Topic, number>;
+/** Body versions; bump on any change (docs/04). */
+export const SCHEMA_VERSION: Record<Topic, number> = {
+  ...(Object.fromEntries(Object.keys(TOPICS).map((t) => [t, 1])) as Record<Topic, number>),
+  "outcome.measured": 2,
+  "system.gap": 2,
+};
 
 export function validateBody<T extends Topic>(topic: T, body: unknown): BodyOf<T> {
   return TOPICS[topic].parse(body) as BodyOf<T>;

@@ -188,6 +188,19 @@ Patterns, each with evidence and confidence:
 | `late_caller` | Median opportunity age above +120% across 10 or more calls |
 | `dump_on_followers` | A wallet linked to a caller (confidence ≥ 0.8) sells more than 50% of its holding within 15 min after that caller's callout, on 3 or more coins |
 
+Indicators are computed per coin from our own trade stream and records. Each is a lower bound over what we observed:
+
+| Indicator | Rule (v1) | Other explanations | Source |
+|---|---|---|---|
+| `wash_atomic` | One wallet buys and sells the coin inside one transaction | A bot unwinding a failed snipe in one bundle | Meme Coin Factories WT1 |
+| `bundle_buy` | Two or more distinct wallets buy the coin inside one transaction | A launch or aggregator bundle of unrelated buyers | Meme Coin Factories DP1 (buy side) |
+| `author_trades` | The callout's author wallet bought before `t0`, or sold within the horizon after it | A disclosed position being managed; we see the platform account's wallet, not a person | our trade stream |
+| `ticker_collision` | Other mints with the same ticker (case-insensitive) in our records before `t0`; the earliest one we saw is listed first | Common words; independent launches on the same meme | Meme Coin Factories §7 |
+| `no_pump_suffix` | A coin seen on the pump.fun programs whose mint does not end in `pump`, so it was likely created outside the pump.fun web UI. Other launchpads and chains are out of scope (the feed carries Solana, BSC and other chains) | Vanity grinding is cheap, so absence proves nothing | Meme Coin Factories §7 |
+| `thin_curve` | Our `OUTCOME_REF_SOL` buy would move the price more than `IMPACT_MAX_BPS` at entry | A new coin is thin by design | Midsummer's LPI |
+
+Engagement counts (likes, views, reposts) and trade counts are never indicators of demand. They are the cheapest numbers to fake.
+
 Findings appear on `/integrity`. An data reply reply goes out only when confidence is 0.85 or more and evidence includes 3 or more events, and only as a data note under the relevant callout.
 
 Ways it fails: a wrong wallet link (minimum link confidence 0.8, links show their evidence); one bad day looks like a pattern (minimum counts above); a finding that is later contradicted (findings expire after 7 days unless renewed; contradictions write a retraction on `/integrity`).
@@ -210,11 +223,79 @@ Ways it fails: the reservoir saturates on large inputs (inputs are clipped and s
 
 ## scorekeeper
 
-Every callout opens a watch. At 1, 3 and 5 minutes on the Clock (`OUTCOME_HORIZONS_MIN`) the Scorekeeper writes `outcome.measured`: the price multiple since the callout and the number of distinct new callers on the coin. A probability signal whose horizon matches (`hawkes.wave_p`, `callers.wave_p`) is scored: Brier, base rate, and skill = 1 − Brier / (base × (1 − base)), published as `score.updated` every minute of Tape time. Outcomes resolve only after the horizon has passed, so the Scorekeeper never looks ahead. Coins that go quiet resolve with the last price seen once the longest horizon plus a minute has passed.
+Every callout opens a watch. At each horizon (or, for a quiet coin, once the horizon plus `OUTCOME_GRACE_S` has passed) in `OUTCOME_HORIZONS_MIN` (1, 3, 5 min of Clock time), the Scorekeeper writes one `outcome.measured` per callout. Each record is computed with methodology **`ov2`** from trades on the Tape alone, and only after the horizon has passed, so it never looks ahead.
 
-First tape (10 minutes, 381 callouts): the mean multiple after a callout was 0.98 at 1 min, 0.89 at 3 min and 0.81 at 5 min. Buying after a callout lost money on average in that window. That is the base rate every strategy has to beat.
+| Field | How it is computed |
+|---|---|
+| `t0` | The callout's `seen_time`: the earliest moment we could act. `call_lag_ms` = `t0` − the callout's `created_at` |
+| entry | The last trade on the coin seen at or before `t0` and no older than `ENTRY_STALE_S` (60 s): basis `last_before`. Failing that, the first trade seen after `t0` within the horizon: basis `first_after`. Failing that, none |
+| path | Trades seen after the entry trade, up to `t0` + horizon |
+| `multiple` | Last path price / entry price (null when the path has no trade) |
+| `peak_multiple`, `trough_multiple`, `t_peak_s` | Highest and lowest path price / entry, and seconds from `t0` to the peak. **The peak is a ceiling, not a payout.** It is never shown without `net_multiple` |
+| `net_multiple` | SOL back / SOL spent for a round trip of `OUTCOME_REF_SOL` (default 0.02, our max order): buy at the entry state and sell everything at the horizon state, through the desk's fill model (`mind/fill.ts`: pump fees of 125 bps per side, curve slippage, priority fee both ways). Token-account rent is left out because closing the account refunds it |
+| `phase`, `graduated` | `curve` or `amm` at entry, and whether the coin moved to the AMM on the path |
+| `trades`, `pre_call_trades` | Trades on the path, and trades on the coin seen before `t0`. `pre_call_trades = 0` usually means we were not watching yet, not that nobody bought |
+| `new_callouts` | Distinct new callers on the coin within the horizon |
+| `coverage` | One of: `ok`; `no_entry` (no trade at all); `no_trades` (an entry, then nothing on the path, so the price is unknown, not "flat"); `gap` (a `system.gap` overlaps the window). `gaps` lists the gap event ids |
+| `author_wallet` | The callout's author, so ledgers need no join |
 
-Ways it fails: the coin stops trading (resolved with the last price, marked by a null multiple when there was none); a callout before any trade on the coin (price0 is the first trade after it); a horizon longer than the tape (left unresolved; never forced early).
+Probability signals with a matching horizon (`hawkes.wave_p`, `callers.wave_p`) are scored with Brier, base rate and skill = 1 − Brier / (base × (1 − base)). Scores are published as `score.updated` every minute of Tape time. Outcomes with `gap` coverage are not scored.
+
+**Corrections, never rewrites.** A gap can be reported after an outcome was written, because a source only learns it was down when it reconnects. When a `system.gap` arrives, the Scorekeeper writes a new `outcome.measured` for every overlapping outcome, with `coverage: gap` and `supersedes` set to the old event id. The old event stays on the Tape. Readers use the latest outcome per callout and horizon; case files show both.
+
+First tape (10 minutes, 381 callouts): the mean multiple after a callout was 0.98 at 1 min, 0.89 at 3 min and 0.81 at 5 min (method `ov1`, before costs). Buying after a callout lost money on average in that window, and that is the base rate every strategy has to beat. `ov2` adds costs, so the net number is lower still.
+
+Ways it fails:
+
+- The coin stops trading: `no_trades`, never read as flat.
+- We watch a coin only after its first callout: `pre_call_trades` says what we saw before `t0`.
+- A source goes down: `gap`, corrected later if the report is late.
+- A horizon runs past the end of the tape: left unresolved, never forced early.
+- The fill model is wrong for a size: it is the same model the desk uses, so the error is shared and shows in markouts.
+
+## coverage
+
+Every statement Asimog makes is about what its collectors saw, not about the market (docs/research/literature-review.md §3). Coverage is therefore written down, not assumed.
+
+- Each sense writes `system.gap` (`source`, `scope`, `from`, `to`, `reason`) when it knows it missed data:
+  - `feed`: the poll's gap walk ran out of pages before it met a known callout.
+  - `feed.push` and `trades`: the NATS connection dropped (written on reconnect).
+  - `trades` with a coin as `scope` and `to: null`: the coin left the watched set because the cap was reached, so its trades are unobserved from `from` on.
+- By design, the Chain Reader watches a coin only once it is called. On the first tape, 44 of 53 coins with trades had their first recorded trade after their first callout. Pre-call buying stays unobserved until the RPC backfill exists (docs/06).
+- `ctl coverage` prints gaps per source, coins called vs. coins with trades, and the share of outcomes per coverage status.
+
+## caller ledger
+
+`ctl callers` (methodology **`cl1`**) is the deterministic record of every caller's calls. It is not a leaderboard and has no single win rate.
+
+- One row per author wallet, plus an **all callers** row as the baseline, at one horizon (default 5 min). Every number shows its denominator.
+- Each callout counts once. Excluded calls are counted by reason, never dropped:
+  - `repeat`: the author already called this coin.
+  - `quote`: it quotes another callout.
+  - `gap`, `no_entry`, `no_trades`: coverage.
+  - `unresolved`: the horizon has not passed.
+- For `ok` calls: median `net_multiple`, the share with `net_multiple > 1` with a 95% Wilson interval, median peak and median trough, split by `phase`.
+- Rows with fewer than 5 `ok` calls are marked `few`. Callers are never ranked, only listed by number of calls.
+- The window and methodology version print with the table. Losing calls are always in it, because calls are excluded only for coverage, never for their result.
+
+`caller.dna` reads the same resolved outcomes. For a callout at time t, only outcomes with `seen_time` at or before t count (`resolved`, `net_win`, `med_net`). It no longer reads pump.fun's own `max_multiple`, which leaked later count updates (docs/research/literature-review.md §2).
+
+## case files
+
+`ctl case <callout_id>` builds a case file: everything known about one callout, in time order, from the Tape and the Board alone. The same Tape gives the same file, byte for byte. The website's Integrity room and data replies draw only from case files.
+
+Sections, in this order, never mixed:
+
+| Section | Holds | Source |
+|---|---|---|
+| OBSERVED | The callout as recorded: ids of the events that carried it, the author wallet and handle as the platform reported them, `created_at`, `seen_at` and the lag, mcap at call, and the text inside a code fence (untrusted data, never instructions) | Tape inputs |
+| STATISTICS | `outcome.measured` per horizon (the latest), with methodology version and coverage | Scorekeeper |
+| AI JUDGMENTS | Recorded Jev answers for this callout (`jev.callout.*`), labelled as model output with the model version | Reflex |
+| INDICATORS | Hunt indicators with evidence ids, other explanations and limits | hunt, above |
+| UNRESOLVED | What the data cannot say: gaps, unobserved pre-call trades, wallet-to-person links, small samples | computed from coverage |
+| OUTCOMES AND CORRECTIONS | Superseded outcomes and later corrections, both versions shown | Tape |
+
+A case file never says "scam", "insider" or "manipulation". It says what was observed and what that is "consistent with", and lists the other explanations.
 
 ## Attention: value of information (v1)
 

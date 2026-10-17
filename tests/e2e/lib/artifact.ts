@@ -39,10 +39,14 @@ export type Report = {
   pass: boolean;
 };
 
-export function write(r: Omit<Report, "pass">): Report & { artifact_dir: string; sha256: string } {
-  const report: Report = { ...r, pass: r.checks.every((c) => c.pass) };
+/** `files` are extra outputs (for example a case file); their hashes go into the report, so `sha256.txt` covers them. */
+export function write(r: Omit<Report, "pass">, files: Record<string, string> = {}): Report & { artifact_dir: string; sha256: string } {
+  const sha = (x: string) => crypto.createHash("sha256").update(x).digest("hex");
+  const metrics = Object.keys(files).length ? { ...r.metrics, files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, sha(v)])) } : r.metrics;
+  const report: Report = { ...r, metrics, pass: r.checks.every((c) => c.pass) };
   const dir = path.join("artifacts", "e2e", r.suite, r.run_id);
   fs.mkdirSync(dir, { recursive: true });
+  for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
   fs.writeFileSync(path.join(dir, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
   const digest = crypto.createHash("sha256").update(JSON.stringify(stable(report))).digest("hex");
   fs.writeFileSync(path.join(dir, "sha256.txt"), `${digest}\n`);

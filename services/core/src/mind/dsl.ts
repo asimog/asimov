@@ -13,7 +13,7 @@ export const CATALOG: Record<string, SigInfo> = {
   "hawkes.branching": { subject: "mint", system: 1, unit: ["n"], fields: ["n"] },
   "hawkes.intensity": { subject: "mint", system: 1, unit: [], fields: ["per_min", "callouts_6h"] },
   "callers.wave_p": { subject: "mint", system: 1, unit: ["p"], fields: ["p", "expected_new"] },
-  "caller.dna": { subject: "caller", system: 1, unit: ["hit2", "followers_norm"], fields: ["n", "hit2", "avg_max", "med_age", "med_pre", "followers", "followers_norm"] },
+  "caller.dna": { subject: "caller", system: 1, unit: ["net_win", "followers_norm"], fields: ["n", "resolved", "net_win", "med_net", "med_age", "med_pre", "followers", "followers_norm"] },
   "curve.progress": { subject: "mint", system: 1, unit: ["progress"], fields: ["progress", "real_sol", "mcap_usd"] },
   "jev.callout.kind": { subject: "callout", system: 1, unit: ["p.fresh_call", "p.hype", "p.exit_notice", "p.fud", "p.other"], fields: ["choice"] },
   "jev.callout.thesis_quality": { subject: "callout", system: 1, unit: ["score_norm"], fields: ["score"] },

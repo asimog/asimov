@@ -212,7 +212,8 @@ create table if not exists mind.coin_callout (
   mint text primary key,
   callout_id text not null,
   author_wallet text,
-  at timestamptz not null
+  at timestamptz not null,
+  last_eval timestamptz
 );
 create table if not exists mind.commits (
   commit_id text primary key,
@@ -230,9 +231,11 @@ create table if not exists mind.desk_clock (
 -- scorekeeper: callouts waiting for outcome horizons, and Brier tallies per probability signal
 create table if not exists mind.outcome_watch (
   callout_id text primary key,
+  event_id text not null,
   mint text not null,
+  author text,
+  created_at timestamptz not null,
   at timestamptz not null,
-  price0 double precision,
   probs jsonb not null,
   done int[] not null default '{}'
 );

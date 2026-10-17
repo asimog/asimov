@@ -14,6 +14,7 @@ const p = {
   hawkesBetaPerMin: env.num("HAWKES_BETA_PER_MIN", 1 / 3),
   waveN: env.int("WAVE_N", 3),
   waveHorizonMin: env.num("WAVE_HORIZON_MIN", 5),
+  dnaHorizonMin: env.num("DNA_HORIZON_MIN", 5),
   mcPaths: env.int("HAWKES_MC_PATHS", 300),
   activeCallers: env.int("CALLERS_ACTIVE_MAX", 200),
   quoteSizes: (env.opt("QUOTE_SIZES_SOL") ?? "0.02,0.05,0.1,0.25,0.5").split(",").map(Number),
@@ -148,21 +149,34 @@ async function hawkes(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created"
 // ---------- callers ----------
 async function callers(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created">>) {
   const b = e.body;
+  // only what was seen before this callout: our own resolved outcomes, never pump.fun's later-updated max_multiple
   const [dna] = await tx`
     select count(*)::int n,
       percentile_cont(0.5) within group (order by opportunity_age_min) med_age,
       percentile_cont(0.5) within group (order by pre_move_pct) med_pre,
-      avg(max_multiple)::float avg_max, avg(case when max_multiple >= 2 then 1 else 0 end)::float hit2,
       min(created_at) first_at, max(created_at) last_at
-    from mem.callouts where wallet = ${b.author_wallet} and created_at <= ${b.created_at}`;
+    from mem.callouts where wallet = ${b.author_wallet} and seen_at <= ${e.seen_time}`;
+  const outs = await tx`select id, (body->>'net_multiple')::float net from (
+      select distinct on (body->>'callout_id') id, body from tape.events
+      where topic = 'outcome.measured' and seen_time <= ${e.seen_time} and body->>'author_wallet' = ${b.author_wallet} and (body->>'horizon_min')::int = ${p.dnaHorizonMin}
+      order by body->>'callout_id', seen_time desc, id desc) x
+    where body->>'coverage' = 'ok' order by id`;
+  const nets = outs.map((r) => r.net as number).sort((a, b) => a - b);
   await putSignal(tx, clock, {
     kind: "caller.dna",
     subject: b.author_wallet,
-    value: { ...dna, followers: b.author_followers, handle: b.author_handle },
-    confidence: Math.min(1, ((dna?.n as number) ?? 0) / 20),
+    value: {
+      ...dna,
+      resolved: nets.length,
+      net_win: nets.length ? nets.filter((x) => x > 1).length / nets.length : null,
+      med_net: nets.length ? nets[Math.floor((nets.length - 1) / 2)]! : null,
+      followers: b.author_followers,
+      handle: b.author_handle,
+    },
+    confidence: Math.min(1, nets.length / 20),
     validMs: 24 * 60 * MIN,
-    inputs: [e.id],
-    analyzer: "callers@1",
+    inputs: [e.id, ...outs.map((r) => r.id as string)],
+    analyzer: "callers@2",
     at: e.seen_time,
   });
   // tier 1: who calls this coin within the horizon? base rate x affinity to callers already on the coin

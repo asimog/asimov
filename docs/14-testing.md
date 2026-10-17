@@ -49,6 +49,7 @@ Suites today:
 | `commit-reveal` | Every reveal recomputes to its committed hash and came after it (at least `E2E_MIN_REVEALS`, 20 for the 10 min tape) |
 | `evolution-replay` | Offspring are born from parents with trades, all valid, no near-duplicates, lineage recorded |
 | `replay-determinism` | Two replays in two fresh databases hash identically over derived events and signals |
+| `callout-case-replay` | Callout tracking v2 (docs/07). Every outcome is `ov2` with a coverage status. The caller ledger's denominators add up and losing calls are in it. The worst `ok` call's case file (`case.md`, `case.json` in the artifact) has the six evidence sections, fences the callout text, and rebuilds byte-identical. An injected `trades` gap, reported late, marks overlapping outcomes `gap` by supersede and keeps the originals. A consumer restart halfway gives the same derived hash as an uninterrupted replay. Duplicate trades sent through the Tape writer with sense dedupe keys are written once. `E2E_RESTART_AT` (default 0.5) moves the restart point; 0.23, 0.5 and 0.81 were checked on 2026-10-17 |
 
 Fixture: `tests/e2e/fixtures/tapes/discovery-10m.ndjson.gz` (10 min of live feed, pushes and trades, recorded by the real readers on 2026-10-17; 18,062 events, 381 callouts each with a recorded Jev answer, 3.1 MB).
 
@@ -61,6 +62,7 @@ Every suite writes:
 | `report.json` | Inputs (tape hash, code commit, config hash), checks with pass or fail, metrics |
 | `report.html` | The same, readable, with charts when useful |
 | `sha256.txt` | Hash of `report.json` without the run timestamp |
+| other files | Suites may write named files (for example `case.md`); their sha256 values are listed in `report.json`, so they are covered by `sha256.txt` |
 | `screens/` | Screenshots for site suites (desktop 1440×900, phone 390×844) |
 
 Repeatable means: same tape hash + same commit + same config hash → same `sha256.txt`. `e2e/replay-determinism` checks this on every change to `services/core`.
@@ -79,7 +81,7 @@ Repeatable means: same tape hash + same commit + same config hash → same `sha2
 
 ## Checks that run on every replay
 
-1. No lookahead: every signal's inputs have `seen_time` ≤ `produced_at`.
+1. No lookahead: every signal's inputs have `seen_time` ≤ `produced_at`. `caller.dna` lists the outcome events it used as inputs, so this check covers caller features too.
 2. Why-chains complete: every intent, order and post reaches at least one observation.
 3. No orphan effects: every `order.filled` has an `order.created`, every `post.published` has a `post.queued`.
 4. Budgets respected: no analyzer spends over its cap.

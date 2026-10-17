@@ -116,9 +116,11 @@ These hold for every agent working in this repo and for the agent itself. Breaki
 
 ## Environment
 
-- Dev machine is WSL. The `pnpm` on PATH is the Windows binary and fails on Linux paths. Use `npx -y pnpm@10.29.3 <args>` (or install a Linux pnpm) inside the repo.
+- Dev machine is Windows (moved from WSL on 2026-10-17). Native `pnpm` 10 and Node 24 work. Shell commands in docs use POSIX syntax (Git Bash).
+- Postgres 18 runs in Docker: `npm run pg:start` creates or starts container `asimog-pg` on `127.0.0.1:54329` (user and database `asimog`, volume `asimog-pg`). It runs with `synchronous_commit = off`, because Docker volumes on Windows make every commit wait 0.3 to 0.6 s. Dev only; never on a production database.
 - Workspace: pnpm workspaces for TS (`pnpm-workspace.yaml`), uv for Python services.
-- `ffmpeg` and `ffprobe` (static 7.0.2 build) live in `~/.local/bin`. The `video-frames` skill uses them to look at videos frame by frame.
+- `ffmpeg` and `ffprobe` are needed by the `video-frames` skill: install a Windows build and put it on PATH (not installed yet on this machine).
+- Never open a `.upstream` repo as a VS Code workspace with automatic tasks allowed (a cloned repo shipped a `.vscode/tasks.json` trojan; see `docs/research/prior-art-callout-intelligence.md`).
 
 ## Skills
 
@@ -158,4 +160,5 @@ These hold for every agent working in this repo and for the agent itself. Breaki
 | `docs/21-first-principles.md` | Raw data, methods, outside proof, the three bets, new findings |
 | `docs/22-firm-architecture.md` | Core, frontends, adapters, kernel, social capital, milestones, Builder |
 | `docs/inspiration/` | The four reference videos as GIFs and contact sheets, described |
-| `docs/research/` | Evidence gathered from the platform |
+| `docs/research/` | Evidence gathered from the platform; literature review and prior-art matrix |
+| `docs/literature/` | PDFs of the papers behind callout tracking, coverage and the hunt indicators |

@@ -24,12 +24,12 @@ The reliable path for callouts. It reads the same JSON the web client reads.
 |---|---|
 | Transport | Push channel if Phase 0 finds one (NATS subject or WebSocket); else poll the feed endpoint every 2 s with a cursor. |
 | Dedupe | By `pump_callout_id` and `update_id`. The same callout seen twice yields one `callout.created`; changed counts yield `callout.counts`. |
-| Gap detection | Cursor continuity check each poll. A gap emits `system.gap` and triggers a backfill page walk until the cursors join again. |
+| Gap detection | When every callout on page 1 is new, the poll walks older pages until it meets a known callout (`FEED_GAP_PAGES`, default 10). If the walk runs out of pages first, the reader writes `system.gap` (source `feed`) from the last good poll to the oldest callout it reached. A NATS push disconnect writes `system.gap` (source `feed.push`) on reconnect; the poll still covers the interval. |
 | Backfill at start | Walk back 48 h on first run, then from the last seen cursor. |
 | Rate | Max 1 request per second per host by default, burst 3. Honor `Retry-After`. Back off ×2 to 60 s on 429 or 5xx. |
 | Provenance | Every response body is stored as an observation blob (sha256), and each event cites it. |
 | Coins | The payload's mint is trusted first. If a callout's text names other contract addresses or tickers, the Jev `callout` pack picks the called coin among regex candidates (pre-parsed extraction pattern). An unknown mint triggers a `coins-v2/{mint}` fetch and a NATS subscribe. |
-| Watched set | Coins with a callout in the last 24 h, plus coins with an open position, plus our own coin. |
+| Watched set | Coins with a callout in the last `WATCH_HOURS` (6), newest first, capped at `WATCH_MAX_COINS` (60). Later: plus coins with an open position and our own coin. A coin dropped by the cap gets `system.gap` (source `trades`, scope the mint, `to: null`). |
 
 ### Feed Reader: ways it fails
 
@@ -107,10 +107,11 @@ Money paths use our RPC and confirmed transactions only. NATS data feeds signals
 
 ### Chain Reader: ways it fails
 
-1. NATS disconnects. Reconnect with backoff; on reconnect, fill the gap from RPC transaction history for watched coins (budgeted).
+1. NATS disconnects. Reconnect with backoff (built). On reconnect, write `system.gap` (source `trades`) for the interval (built), so outcomes in it are marked, never silently computed. Filling the gap from RPC history for watched coins is **not built yet** (S2.7, pattern: `myron-dev/pump-indexer`, multi-provider `logsSubscribe` decoding).
 2. NATS and RPC disagree on a trade. RPC wins; emit `system.source_disagree`.
 3. Provider rate limits (free tier) on holder snapshots. Spread pages; fall back to the previous sample and mark the hour "degraded" (payout waits).
 4. Reorgs or dropped transactions. Fills count only after `confirmed`; payouts only after `finalized`.
+5. Trades before a coin is called are not observed, because the watch starts at the first callout. On the first tape, 44 of 53 coins with trades had their first recorded trade after their first callout. Outcomes report `pre_call_trades`; case files list it under UNRESOLVED. S2.7's backfill fixes this for called coins.
 
 ## X Reader
 

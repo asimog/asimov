@@ -57,6 +57,7 @@ export class FeedReader {
   private exitSeen = new Set<string>();
   private nc: NatsConnection | null = null;
   private stopped = false;
+  private lastGoodPoll: number | null = null;
   stats = { polls: 0, pushes: 0, created: 0, gaps: 0, errors: 0 };
 
   constructor(private tape: Tape) {}
@@ -94,14 +95,20 @@ export class FeedReader {
     // gap: every item on page 1 was new -> walk back until we meet a known callout
     let token = page.nextPageToken;
     let pages = 0;
+    let oldest = page.coins.at(-1)?.position?.callout?.calloutTimestamp;
     while (fresh === page.coins.length && token && pages < env.int("FEED_GAP_PAGES", 10)) {
       this.stats.gaps++;
       const older = await this.fetchPage(token);
       if (!older) break;
       fresh = await this.ingestPage(older, "poll");
+      oldest = older.coins.at(-1)?.position?.callout?.calloutTimestamp ?? oldest;
       token = older.nextPageToken;
       pages++;
     }
+    // the walk never met a known callout: callouts between the last good poll and the oldest one reached may be missing
+    if (this.lastGoodPoll && fresh === page.coins.length && page.coins.length && oldest && Date.parse(oldest) > this.lastGoodPoll)
+      this.tape.emit("system.gap", { source: "feed", scope: null, from: new Date(this.lastGoodPoll).toISOString(), to: new Date(oldest).toISOString(), reason: "feed gap walk ran out of pages" }, { source: "feedreader" });
+    this.lastGoodPoll = this.tape.clock.now();
     return fresh;
   }
 
@@ -215,7 +222,9 @@ export class FeedReader {
 
   // ---------- push ----------
   private async startPush() {
-    this.nc = await natsConnect("feed");
+    this.nc = await natsConnect("feed", () => this.tape.clock.now(), (from, to) =>
+      this.tape.emit("system.gap", { source: "feed.push", scope: null, from: new Date(from).toISOString(), to: new Date(to).toISOString(), reason: "NATS feed connection dropped; the poll still covers the interval" }, { source: "feedreader" }),
+    );
     const sub = this.nc.subscribe("followingFeed.user.>");
     void consume(sub, (_subject, data) => {
       const m = decodeJson(data) as {

@@ -49,7 +49,7 @@ export class ChainReader {
   constructor(private tape: Tape, private sql: Sql) {}
 
   async start() {
-    this.nc = await natsConnect("trades");
+    this.nc = await natsConnect("trades", () => this.tape.clock.now(), (from, to) => this.gap(null, from, to, "NATS trades connection dropped"));
     if (env.bool("WATCH_ALL_TRADES", false)) {
       this.listen("unifiedTradeEvent.lite.>");
     } else {
@@ -84,6 +84,11 @@ export class ChainReader {
     });
   }
 
+  private gap(scope: string | null, fromMs: number, toMs: number | null, reason: string) {
+    const to = toMs == null ? null : new Date(toMs).toISOString();
+    this.tape.emit("system.gap", { source: "trades", scope, from: new Date(fromMs).toISOString(), to, reason }, { source: "nats", subject: scope });
+  }
+
   private async watchLoop() {
     while (!this.stopped) {
       try {
@@ -94,7 +99,12 @@ export class ChainReader {
           order by coalesce(first_callout_at, first_seen) desc
           limit ${env.int("WATCH_MAX_COINS", 60)}`;
         const want = new Set(rows.map((r) => `unifiedTradeEvent.processed.${r.mint as string}`));
-        for (const [s, sub] of this.subs) if (!want.has(s)) (sub.unsubscribe(), this.subs.delete(s));
+        for (const [s, sub] of this.subs)
+          if (!want.has(s)) {
+            sub.unsubscribe();
+            this.subs.delete(s);
+            this.gap(s.split(".").at(-1)!, this.tape.clock.now(), null, "coin left the watched set");
+          }
         for (const s of want) if (!this.subs.has(s)) this.listen(s);
         this.stats.watched = this.subs.size;
       } catch (err) {
