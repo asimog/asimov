@@ -22,8 +22,8 @@
   inset-inline-start: 0;
   translate: 12px -50%;
   padding-inline-start: 18px;
-  background: linear-gradient(var(--ink-soft), var(--ink-soft)) left center / 14px 1px no-repeat;
-  color: var(--ink-soft);
+  background: linear-gradient(var(--fg-soft), var(--fg-soft)) left center / 14px 1px no-repeat;
+  color: var(--fg-soft);
   white-space: nowrap;
 }
 .cortex-label[data-lit="yes"] {
@@ -98,33 +98,39 @@ tr[data-lit="yes"] th .mono {
 }
 .arc-line {
   fill: none;
-  stroke: var(--ink);
+  stroke: var(--fg);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 .arc-tick {
-  stroke: var(--rule);
+  stroke: var(--line);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 .arc-commit {
-  stroke: var(--ink-soft);
+  stroke: var(--fg-soft);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 [data-kind="thesis"] .arc-commit {
-  stroke: var(--vermilion);
+  stroke: var(--accent);
 }
 .arc-ray {
-  stroke: color-mix(in oklch, var(--ink) 35%, transparent);
+  stroke: color-mix(in oklch, var(--fg) 35%, transparent);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 [data-match="no"] .arc-ray {
   stroke: var(--crimson);
 }
+.arc-thread {
+  fill: none;
+  stroke: color-mix(in oklch, var(--amber) 22%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
 .arc-dot {
-  fill: var(--vermilion);
+  fill: var(--accent);
 }
 .theses {
   margin: 0;

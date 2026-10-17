@@ -1,5 +1,5 @@
 "use client";
-// The Cortex (docs/11, docs/19): a procedural point-cloud brain on paper. Each lobe is one lane of the firm; it turns teal
+// The Cortex (docs/11, docs/19): a procedural point-cloud brain in the dark. Each lobe is one lane of the firm; it turns teal
 // while its lane writes events (lit for 2 s after each one) and fades back to ink. No mesh, no license: math only.
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
@@ -45,9 +45,9 @@ varying float vA;
 void main() {
   float d = length(gl_PointCoord - 0.5);
   float a = smoothstep(0.5, 0.15, d);
-  vec3 ink = vec3(0.17, 0.16, 0.14);
-  vec3 teal = vec3(0.16, 0.56, 0.62);
-  gl_FragColor = vec4(mix(ink, teal, vLit), a * vA * (0.42 + vLit * 0.5));
+  vec3 bone = vec3(0.62, 0.56, 0.48);
+  vec3 teal = vec3(0.2, 0.52, 0.55); // docs/12 teal; lit lobes change hue, not brightness, so nothing turns neon
+  gl_FragColor = vec4(mix(bone, teal, vLit), a * vA * (0.5 + vLit * 0.2));
 }
 `;
 
@@ -117,7 +117,7 @@ function Brain({ points, labels }: { points: number; labels: React.MutableRefObj
   });
 
   return (
-    <group ref={grp} rotation={[0.16, -0.55, 0]} position={[4, 0, 0]}>
+    <group ref={grp} rotation={[0.55, -0.6, 0]} position={[4, -1, 0]}>
       <points geometry={brain.g} material={brain.m} frustumCulled={false} />
     </group>
   );

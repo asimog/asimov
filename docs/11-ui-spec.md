@@ -8,18 +8,18 @@ Rule zero: **every motion is caused by a real event or a real number changing.**
 
 | Route | Instrument | Mode | Dominant form | What it answers |
 |---|---|---|---|---|
-| `/` | **Field** | Night | Particle clouds, one per market or book, linked by position filaments | Where is the money, and is the firm healthy? |
-| `/cortex` | **Cortex** | Paper, teal | Point-cloud brain whose lobes are the firm's lanes | What is the agent doing and thinking right now? |
-| `/lab` | **Lab** | Paper, vermilion | The arc: a ring of committed hypotheses, evidence threads, outcome rays | What does it believe, and was it right? |
-| `/ledger` | Ledger | Paper | A long ruled table | Every trade, callout, update, markout, cost |
-| `/treasury` | Treasury | Paper | Flow diagram of sweeps, balances, costs and reconciliation | Where the money goes, with proofs |
-| `/charter` | Charter | Paper | The constitution, the soul's version timeline, counsel decisions | Who it is and what binds it |
-| `/integrity` | Integrity | Paper | Caller graph with echo rings; case files (`/case/[id]`) in six evidence sections; the caller ledger with denominators | Patterns in the callout feed, with evidence, and what it cannot say |
-| `/connectome` | Connectome Lab | Night | Fruit-fly brain point cloud | The 1% fly sleeve |
-| `/rewind` | Rewind | Same as source | Any instrument at a past time | What it knew then |
-| `/calls/[id]`, `/callers/[id]` | Dossiers | Paper | Why-chain trail | One object, fully explained |
-| `/reports` | Daily Reports | Paper | Text | The agent's daily report |
-| `/terms`, `/privacy`, `/disclosures` | Legal | Paper | Text | Written by counsel |
+| `/` | **Field** | Dark | Particle clouds, one per market or book, linked by position filaments | Where is the money, and is the firm healthy? |
+| `/cortex` | **Cortex** | Dark | Point-cloud brain whose lobes are the firm's lanes | What is the agent doing and thinking right now? |
+| `/lab` | **Lab** | Dark | The arc: a ring of committed hypotheses, evidence threads, outcome rays | What does it believe, and was it right? |
+| `/ledger` | Ledger | Dark | A long ruled table | Every trade, callout, update, markout, cost |
+| `/treasury` | Treasury | Dark | Flow diagram of sweeps, balances, costs and reconciliation | Where the money goes, with proofs |
+| `/charter` | Charter | Dark | The constitution, the soul's version timeline, counsel decisions | Who it is and what binds it |
+| `/integrity` | Integrity | Dark | Caller graph with echo rings; case files (`/case/[id]`) in six evidence sections; the caller ledger with denominators | Patterns in the callout feed, with evidence, and what it cannot say |
+| `/connectome` | Connectome Lab | Dark | Fruit-fly brain point cloud | The 1% fly sleeve |
+| `/rewind` | Rewind | Dark | Any instrument at a past time | What it knew then |
+| `/calls/[id]`, `/callers/[id]` | Dossiers | Dark | Why-chain trail | One object, fully explained |
+| `/reports` | Daily Reports | Dark | Text | The agent's daily report |
+| `/terms`, `/privacy`, `/disclosures` | Legal | Dark | Text | Written by counsel |
 
 ## Field (`/`)
 

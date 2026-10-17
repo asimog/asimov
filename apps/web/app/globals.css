@@ -1,4 +1,4 @@
-/* Tokens: docs/12-design-guidelines.md. Two modes; the mode belongs to the instrument. */
+/* Tokens: docs/12-design-guidelines.md. One dark world for every room (owner, 2026-10-17). */
 :root {
   --night: oklch(0.14 0.012 60);
   --night-2: oklch(0.19 0.012 60);
@@ -6,12 +6,6 @@
   --amber: oklch(0.8 0.13 75);
   --amber-dim: oklch(0.55 0.08 70);
   --crimson: oklch(0.56 0.17 28);
-  --paper: oklch(0.955 0.008 85);
-  --paper-2: oklch(0.92 0.01 85);
-  --ink: oklch(0.2 0.01 85);
-  --ink-soft: oklch(0.5 0.01 85);
-  --rule: oklch(0.8 0.01 85);
-  --vermilion: oklch(0.62 0.19 33);
   --teal: oklch(0.6 0.09 200);
   --bone: oklch(0.92 0.012 85);
   --bone-soft: oklch(0.68 0.014 80);
@@ -32,16 +26,6 @@
   --med: 200ms;
   --slow: 320ms;
   color-scheme: dark;
-}
-
-[data-mode="paper"] {
-  --ground: var(--paper);
-  --fg: var(--ink);
-  --fg-soft: var(--ink-soft);
-  --line: var(--rule);
-  --panel: var(--paper);
-  --accent: var(--vermilion);
-  color-scheme: light;
 }
 
 *,

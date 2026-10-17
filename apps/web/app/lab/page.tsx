@@ -24,8 +24,22 @@ function Arc({ items }: { items: Item[] }) {
   const at = (t: number) => A0 + ((t - t0) / Math.max(1, t1 - t0)) * (A1 - A0);
   const pt = (a: number, r: number) => [CX + Math.cos(a) * r, CY + Math.sin(a) * r] as const;
   const ticks = Array.from({ length: 69 }, (_, i) => A0 + (i / 68) * (A1 - A0));
+  // threads: commits about the same coin are joined under the arc, so evidence that piles up on one coin reads as a cord
+  const byCoin = new Map<string, Item[]>();
+  for (const it of xs) if (it.sym) (byCoin.get(it.sym) ?? byCoin.set(it.sym, []).get(it.sym)!).push(it);
+  const threads: string[] = [];
+  for (const group of byCoin.values())
+    for (let k = 1; k < group.length; k++) {
+      const [x1, y1] = pt(at(group[k - 1]!.made), R - 26);
+      const [x2, y2] = pt(at(group[k]!.made), R - 26);
+      const sag = 40 + Math.min(260, Math.abs(x2 - x1) * 0.55);
+      threads.push(`M ${x1} ${y1} Q ${(x1 + x2) / 2} ${(y1 + y2) / 2 + sag} ${x2} ${y2}`);
+    }
   return (
     <svg viewBox={`0 120 ${W} ${H - 120}`} className="lab-arc" role="img" aria-label={`${items.length} commits on the arc, ${items.filter((i) => i.revealed).length} revealed`}>
+      {threads.map((d, i) => (
+        <path key={i} d={d} className="arc-thread" />
+      ))}
       <path d={`M ${pt(A0, R).join(" ")} A ${R} ${R} 0 0 1 ${pt(A1, R).join(" ")}`} className="arc-line" />
       {ticks.map((a, i) => {
         const [x1, y1] = pt(a, R);

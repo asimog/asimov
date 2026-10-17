@@ -103,7 +103,7 @@ There is no single strategy. The Strategy Pool (docs/08) holds many, each trades
 ## 5. Callouts: ours and comments on bad ones
 
 - **Our callouts.** Unchanged in principle (docs/09): buy first, disclose, thesis committed before posting. The thesis now cites Index evidence as data ("3 wallets with strong copy records bought in the last 2 min"), never names.
-- **Comments on bad callouts are data replies.** AGENTS.md allows replies that state data only, and no post may call out a person. When a callout's coin breaches the risk floor, Publisher drafts a data reply such as: "Data: 41% of supply bought in the first 3 slots. Top 10 hold 63% excluding the curve. Creator sold 30%." Rules from docs/09 apply: an integrity finding at 0.85 confidence or more with 3 or more evidence events, Guard on the text, no handles, wallets or verdict words. Paper until S6.3, like our callouts.
+- **Comments on bad callouts are data replies.** AGENTS.md allows replies that state data only, and no post may call out a person. When a callout's coin breaches the risk floor, Publisher drafts a data reply such as: "Data: 41% of supply bought in the first 3 slots. Top 10 hold 63% excluding the curve. Creator sold 30%." At most one data reply per coin per `REPLY_COOLDOWN_MIN` (30), however many callouts it gets. Rules from docs/09 apply: an integrity finding at 0.85 confidence or more with 3 or more evidence events, Guard on the text, no handles, wallets or verdict words. Paper until S6.3, like our callouts.
 - **Scoring both.** House callouts are scored as the caller `house`. Data replies are scored too: was the flagged coin down 50% or more within 24 h? A reply rule that is often wrong is retired.
 
 ## 6. Ways it fails

@@ -90,6 +90,58 @@ body {
 }
 
 /* ---------- Field ---------- */
+.field-leaders {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  pointer-events: none;
+}
+.field-leaders line {
+  stroke: color-mix(in oklch, var(--bone) 70%, transparent);
+  stroke-width: 1;
+  opacity: 0;
+}
+.field-box {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  max-inline-size: 260px;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in oklch, var(--bone) 55%, transparent);
+  background: color-mix(in oklch, var(--night) 82%, transparent);
+  color: var(--bone);
+  font-size: var(--step--2);
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  opacity: 0;
+}
+.field-region {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  white-space: nowrap;
+  color: color-mix(in oklch, var(--amber) 75%, var(--bone));
+  opacity: 0;
+}
+.field-legend {
+  position: absolute;
+  inset-inline-end: calc(var(--gap) * 6);
+  inset-block-end: calc(var(--gap) * 7);
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px calc(var(--gap) * 4);
+  margin: 0;
+  pointer-events: none;
+}
+.field-legend div {
+  display: contents;
+}
+.field-legend dd {
+  margin: 0;
+  color: var(--bone);
+  text-align: end;
+}
 .field-stage {
   position: relative;
   block-size: calc(100svh - 53px);
@@ -149,12 +201,6 @@ body {
   overflow-wrap: anywhere;
   text-transform: none;
   letter-spacing: 0.02em;
-}
-.field-hint {
-  position: absolute;
-  inset-inline-end: calc(var(--gap) * 6);
-  inset-block-end: calc(var(--gap) * 8);
-  margin: 0;
 }
 .field-fallback {
   position: absolute;
@@ -404,7 +450,7 @@ body {
   line-height: 1;
 }
 
-/* ---------- paper rooms ---------- */
+/* ---------- rooms ---------- */
 .room {
   padding: calc(var(--gap) * 8) calc(var(--gap) * 6) calc(var(--gap) * 12);
   display: grid;
@@ -561,7 +607,8 @@ body {
     inset-inline: calc(var(--gap) * 4);
     inset-block-end: calc(var(--gap) * 6);
   }
-  .field-hint {
+  .field-legend,
+  .field-region {
     display: none;
   }
   .panel {

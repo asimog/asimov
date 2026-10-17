@@ -11,6 +11,7 @@ import type { Tape } from "../tape/tape.ts";
 import { checkText } from "./text-checks.ts";
 
 const MIN_FACTS = env.int("REPLY_MIN_FACTS", 2);
+const COOLDOWN_MIN = env.num("REPLY_COOLDOWN_MIN", 30); // one data reply per coin per window, however many callouts it gets
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 type Risk = { bundle_share: number; top10_share: number | null; fresh_share: number; creator_sold: number; breaches: number };
@@ -40,6 +41,9 @@ export function replies(tape: Tape, clock: Clock): Consumer & { stats: Record<st
         const r = (await liveFor(tx, e.body.mint, e.seen_time))["risk.state"];
         const v = r?.value as Risk | undefined;
         if (!v || v.breaches < MIN_FACTS) continue;
+        const [recent] = await tx`select 1 from tape.events where topic = 'post.queued' and body->>'kind' = 'reply' and body->>'mint' = ${e.body.mint}
+          and seen_time > ${new Date(Date.parse(e.seen_time) - COOLDOWN_MIN * 60_000).toISOString()} and seen_time <= ${e.seen_time} limit 1`;
+        if (recent) continue;
         const [lim] = await tx`select body from mind.limits order by version desc limit 1`;
         const L: Limits = { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits>) ?? {}) };
         const { text, facts } = replyText(v, { bundle: L.max_bundle_share, top10: L.max_top10_share, fresh: L.max_fresh_share, sold: L.max_creator_sold });

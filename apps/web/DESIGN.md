@@ -1,11 +1,10 @@
 # Design
 
-The visual world is **Instrument**, defined in `docs/12-design-guidelines.md` (tokens, two modes, bans) and `docs/11-ui-spec.md` (instruments, event-to-motion map). This file records how the built site applies it; when they disagree, docs/12 wins and this file is fixed.
+The visual world is **Instrument**, defined in `docs/12-design-guidelines.md` (tokens, one dark world, bans) and `docs/11-ui-spec.md` (instruments, event-to-motion map). This file records how the built site applies it; when they disagree, docs/12 wins and this file is fixed.
 
-## Modes
+## One dark world
 
-- **Night** (`/`, the Field): warm black ground, bone text, amber for particles and live state, crimson for stress. Set on `<html data-mode>` before first paint (inline script in `app/layout.tsx`).
-- **Paper** (every other room): warm paper ground, ink text, vermilion for money and the one hot number, teal only on the Cortex.
+Every room is dark and uniform (owner, 2026-10-17): warm black ground, bone text, amber for money, positions, live state and the one hot number, crimson for stress, teal only for Cortex lobes.
 
 ## Structure
 

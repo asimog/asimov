@@ -17,15 +17,11 @@ export const metadata: Metadata = {
   description: "An autonomous firm trading Pump.fun callouts in public. Every motion on this page is a real event.",
 };
 
-export const viewport: Viewport = { themeColor: "#1d1813", colorScheme: "dark light" };
+export const viewport: Viewport = { themeColor: "#1d1813", colorScheme: "dark" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-mode="night" className={`${mono.variable} ${sans.variable} ${cond.variable}`} suppressHydrationWarning>
-      <head>
-        {/* the instrument's mode before first paint: the Field is night, every other room is paper (docs/12) */}
-        <script dangerouslySetInnerHTML={{ __html: `document.documentElement.dataset.mode=location.pathname==="/"?"night":"paper"` }} />
-      </head>
+    <html lang="en" className={`${mono.variable} ${sans.variable} ${cond.variable}`}>
       <body>
         <Nav />
         {children}

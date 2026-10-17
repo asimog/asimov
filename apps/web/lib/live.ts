@@ -6,7 +6,7 @@ import { create } from "zustand";
 
 export const RELAY = process.env.NEXT_PUBLIC_RELAY_URL ?? "http://localhost:7401";
 
-export type Line = { id: string; t: number; topic: string; mint: string | null; text: string; v?: number; side?: string; family?: string };
+export type Line = { id: string; t: number; topic: string; mint: string | null; text: string; v?: number; side?: string; family?: string; who?: string };
 export type Coin = { mint: string; sym: string; callout_count: number; mcap: number | null; progress: number | null; wave_p: number | null; last_trade_at: string | null; first_callout_at: string | null };
 export type Position = { id: string; strategy_id: string; mint: string; cost_sol: number; entry_price: number; opened_at: string; family: string; left_frac: number };
 export type Snapshot = {
@@ -26,10 +26,12 @@ export type Snapshot = {
   scores: { kind: string; horizon_min: number; n: number; brier: number; base: number }[];
   tape: Line[];
   viewers: number;
+  edges: { a: string; b: string; n: number }[];
+  graduated: string[];
 };
 
 /** A cue is one real event the scene may show. Scenes drain this queue each frame. */
-export type Cue = { seq: number; kind: "callout" | "trade" | "jev" | "fill" | "close" | "refused" | "commit" | "watch" | "post"; mint: string | null; v: number; side?: string; t: number };
+export type Cue = { seq: number; kind: "callout" | "trade" | "jev" | "fill" | "close" | "refused" | "commit" | "watch" | "post"; mint: string | null; v: number; side?: string; t: number; from?: string; text?: string };
 export const cues: Cue[] = [];
 let seq = 0;
 const cue = (c: Omit<Cue, "seq">) => void cues.push({ ...c, seq: ++seq });
@@ -63,6 +65,10 @@ const emptyLanes = () => Object.fromEntries(LANES.map((l) => [l, { at: 0, n: 0, 
 export const useLive = create<State>(() => ({ snap: null, lines: [], coins: new Map(), lastEventAt: 0, connected: false, error: null, price: new Map(), lanes: emptyLanes() }));
 
 const QUIET = new Set(["trade.curve", "trade.amm"]);
+const lastCoinOf = new Map<string, string>(); // caller wallet -> the last coin they called (this session)
+/** Caller links learned from the live stream, added to the snapshot's edges. */
+export const liveEdges: { a: string; b: string; n: number }[] = [];
+export const graduatedLive = new Set<string>();
 
 function ingest(lines: Line[]) {
   const s = useLive.getState();
@@ -73,8 +79,14 @@ function ingest(lines: Line[]) {
       const c = coins.get(mint);
       const sym = l.text.match(/\$(\S+)/)?.[1] ?? mint.slice(0, 4);
       coins.set(mint, c ? { ...c, callout_count: c.callout_count + 1 } : { mint, sym, callout_count: 1, mcap: null, progress: null, wave_p: null, last_trade_at: null, first_callout_at: new Date(l.t).toISOString() });
-      cue({ kind: "callout", mint, v: l.v ?? 0, t: l.t });
+      // the caller moved: if they called another coin recently, the Field links the two (from = that coin)
+      const prev = l.who ? lastCoinOf.get(l.who) : undefined;
+      if (l.who) lastCoinOf.set(l.who, mint);
+      if (prev && prev !== mint) liveEdges.push({ a: prev, b: mint, n: 1 });
+      if (liveEdges.length > 200) liveEdges.splice(0, liveEdges.length - 200);
+      cue({ kind: "callout", mint, v: l.v ?? 0, t: l.t, from: prev && prev !== mint ? prev : undefined, text: l.text });
     } else if (QUIET.has(l.topic) && mint) {
+      if (l.topic === "trade.amm") graduatedLive.add(mint);
       cue({ kind: "trade", mint, v: l.v ?? 0, side: l.side, t: l.t });
     } else if (l.topic === "jev.answer") cue({ kind: "jev", mint: null, v: l.v ?? 0, t: l.t });
     else if (l.topic === "intent.ghost_filled") cue({ kind: "fill", mint, v: l.v ?? 0, side: l.side, t: l.t });

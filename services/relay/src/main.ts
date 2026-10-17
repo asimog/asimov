@@ -22,7 +22,7 @@ const familyOf = (sid: string) => sid.replace(/^sr_seed_\d+_/, "").replace(/_(fa
 
 // ---------- event -> plain line (terse voice: facts, numbers, no adjectives) ----------
 type Row = { id: string; topic: string; seen_time: Date; subject: string | null; body: Record<string, any>; causes: string[] };
-export type Line = { id: string; t: number; topic: string; mint: string | null; text: string; v?: number; side?: string; family?: string };
+export type Line = { id: string; t: number; topic: string; mint: string | null; text: string; v?: number; side?: string; family?: string; who?: string };
 
 function line(r: Row): Line | null {
   const b = r.body;
@@ -30,7 +30,8 @@ function line(r: Row): Line | null {
   switch (r.topic) {
     case "callout.created":
       if (b.symbol) symbols.set(b.mint, b.symbol);
-      return { ...base, mint: b.mint, text: `callout ${sym(b.mint)} by ${b.author_handle ?? b.author_wallet.slice(0, 4)}${b.mcap_at_call_usd ? ` at $${Math.round(b.mcap_at_call_usd / 1000)}k` : ""}`, v: b.author_followers ?? 0 };
+      if (b.via === "history") return null; // the Index's backfill is memory, not news
+      return { ...base, mint: b.mint, text: `callout ${sym(b.mint)} by ${b.author_handle ?? b.author_wallet.slice(0, 4)}${b.mcap_at_call_usd ? ` at $${Math.round(b.mcap_at_call_usd / 1000)}k` : ""}`, v: b.author_followers ?? 0, who: b.author_wallet };
     case "trade.curve":
     case "trade.amm":
       return { ...base, mint: b.mint, text: `${b.side} ${b.sol.toFixed(3)} SOL ${sym(b.mint)}`, v: b.sol, side: b.side };
@@ -113,6 +114,12 @@ async function snapshot() {
     select s.family, count(*) filter (where s.retired_at is null)::int alive, coalesce(sum(st.trades), 0)::int trades, coalesce(sum(st.equity), 0)::float net
     from mind.strategies s left join mind.stats st on st.strategy_id = s.id group by 1 order by 1`;
   const scores = await sql`select kind, horizon_min, n, brier_sum / nullif(n, 0) brier, hits::float / nullif(n, 0) base from mind.scores order by kind`;
+  // the caller network: two coins are linked when the same caller called both in the last 6 hours (the Field's strands)
+  const edges = await sql`
+    select a.mint a, b.mint b, count(distinct a.wallet)::int n from mem.callouts a join mem.callouts b on b.wallet = a.wallet and b.mint > a.mint
+    where a.created_at > ${now}::timestamptz - interval '6 hours' and b.created_at > ${now}::timestamptz - interval '6 hours'
+    group by 1, 2 order by 3 desc limit 160`;
+  const graduated = (await sql`select distinct subject mint from tape.events where topic = 'trade.amm' and seen_time > ${now}::timestamptz - interval '60 minutes'`).map((r) => r.mint as string);
   const recent = (await sql`select id, topic, seen_time, subject, body, causes from tape.events
     where topic not like 'trade.%' and topic not in ('callout.counts', 'observation.raw', 'coin.seen', 'outcome.measured', 'caller.position', 'callout.updated')
     order by seen_time desc limit 60`) as unknown as Row[];
@@ -132,6 +139,8 @@ async function snapshot() {
     markouts,
     families,
     scores,
+    edges,
+    graduated,
     tape: recent.map(line).filter(Boolean).reverse(),
     viewers: clients.size,
   };

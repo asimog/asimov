@@ -56,6 +56,7 @@ Ground rules: no backward compatibility and no data migrations; replace what you
 - Add a line at the top of Lessons: "When X, do Y". Same mistake twice: rewrite that lesson. Over 20: merge and show me.
 
 ## Lessons
+- When building UI, every room is dark (warm black, bone, amber, crimson, teal for the Cortex) and uniform; there is no paper or white mode.
 - When the owner asks to build, typecheck and run a short live smoke; run full E2E suites only at milestones.
 - When reporting to the owner, use simple words and explain each term once; the owner is learning.
 - When using outside prior art (hackathon projects, repos, papers, datasets), judge it by our goals: Pump-native callout intelligence, the visuals, and a near-autonomous trading agent (BettaFish, MiroShark). Never by prizes.

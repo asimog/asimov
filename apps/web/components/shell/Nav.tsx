@@ -1,6 +1,5 @@
 "use client";
-// The instrument bar: wordmark, the instruments, and the live state of the stream. It also sets the page mode:
-// the Field and the Connectome are night, every other instrument is paper (docs/12).
+// The instrument bar: wordmark, the instruments, and the live state of the stream.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -15,8 +14,6 @@ const ROOMS = [
   { href: "/charter", label: "Charter" },
 ] as const;
 
-const NIGHT = new Set(["/"]);
-
 export function Nav() {
   const path = usePathname();
   const connected = useLive((s) => s.connected);
@@ -25,9 +22,6 @@ export function Nav() {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => startLive(), []);
-  useEffect(() => {
-    document.documentElement.dataset.mode = NIGHT.has(path) ? "night" : "paper";
-  }, [path]);
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);

@@ -45,7 +45,9 @@ export default function IntegrityPage() {
                     <th scope="row" className="mono">{c.who}</th>
                     <td className="num">{c.calls}</td>
                     <td className="num">{c.ok}</td>
-                    <td className="num">{c.wins}</td>
+                    <td className="num" title={c.wallet === "house:reply" ? "A data reply is right when the coin then fell: measured minus won" : undefined}>
+                      {c.wallet === "house:reply" ? `${c.ok - c.wins} right` : c.wins}
+                    </td>
                     <td className="num" data-sign={c.med_net != null && c.med_net < 1 ? "down" : undefined}>{c.med_net == null ? "·" : `${c.med_net.toFixed(2)}x`}</td>
                   </tr>
                 ))}

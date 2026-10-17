@@ -11,14 +11,9 @@
 
 Asimog's site is a set of scientific instruments for watching an autonomous firm work. Each screen is one instrument: one dominant form that fills the canvas, and a strip of small dense panels under it. Futuristic through precision and live data, not through effects. References: the four videos in `docs/inspiration/`.
 
-## Two modes, one accent each
+## One dark world (owner, 2026-10-17)
 
-| Mode | Used by | Ground | Ink | Accent | Stress |
-|---|---|---|---|---|---|
-| **Night** | The Field (markets, money in motion) | warm black | bone | amber (particles, positions) | crimson (drawdown, crisis regime) |
-| **Paper** | Cortex, Lab, Ledger, Treasury, Charter | warm paper | near-black ink | vermilion for money and actions; teal for the mind (Cortex only) | vermilion fill |
-
-The mode belongs to the instrument, not to the visitor. Moving from the Field to the Lab crosses from night to paper with a view transition.
+Every room is dark: warm black ground, bone ink, amber for money, positions and the one hot number, crimson for stress (drawdown, crisis regime, kill), teal only for the mind (Cortex lobes). The design is uniform across rooms: same ground, rules, type and HUD. The earlier Paper mode is retired.
 
 ## Tokens
 
@@ -31,16 +26,10 @@ Colors in OKLCH. Variants with `color-mix()`. Grays use hue `none`.
 | `--amber` | `oklch(0.80 0.13 75)` | Particles, positions, live state |
 | `--amber-dim` | `oklch(0.55 0.08 70)` | Filaments, quiet labels |
 | `--crimson` | `oklch(0.56 0.17 28)` | Stress: drawdown, crisis regime, kill |
-| `--paper` | `oklch(0.955 0.008 85)` | Paper ground (never pure white) |
-| `--paper-2` | `oklch(0.92 0.01 85)` | Panels on paper |
-| `--ink` | `oklch(0.20 0.01 85)` | Text and hairlines on paper |
-| `--ink-soft` | `oklch(0.50 0.01 85)` | Secondary text |
-| `--rule` | `oklch(0.80 0.01 85)` | Rules and panel borders |
-| `--vermilion` | `oklch(0.62 0.19 33)` | Money, actions, the one hot number |
 | `--teal` | `oklch(0.60 0.09 200)` | The mind (Cortex lobes and tracts) |
 | `--bone` | `oklch(0.92 0.012 85)` | Text on night |
 
-Chroma ceiling 0.19 (vermilion only); everything else ≤ 0.13. Nothing neon.
+Chroma ceiling 0.17 (crimson); everything else ≤ 0.13. Nothing neon.
 
 | Type role | Face | Use |
 |---|---|---|
@@ -53,7 +42,7 @@ Type scale: one fluid `clamp()` scale (good-css). KPI numerals are the only larg
 | Other | Value |
 |---|---|
 | Radius | 0. Chips 2 px. |
-| Borders | 1 px `--rule` on paper, `--night-2` lines on night |
+| Borders | 1 px `--night-3` lines |
 | Shadows | None |
 | Glow | Only additive blending on particles and filaments in the Field. Never on UI chrome. |
 | Spacing | 4 px base; gaps, not margins |
@@ -74,7 +63,7 @@ Type scale: one fluid `clamp()` scale (good-css). KPI numerals are the only larg
 |---|---|
 | Harsh gradients | None. Night ground is flat; depth comes from particle density |
 | Lucide icons | Our own small glyph set drawn as hairline SVG at cap height |
-| Pure white background | `--paper`, never `#fff` |
+| Pure white background | Never: every room is dark |
 | Rainbow coloring | One accent per mode plus stress |
 | Drop shadows | None |
 | 3 feature cards in a row | No marketing cards. Instruments only |
@@ -101,7 +90,7 @@ Type scale: one fluid `clamp()` scale (good-css). KPI numerals are the only larg
 | No privacy policy | `/privacy` in every footer |
 | Hover animations | No hover motion. Focus rings and press feedback only |
 | Neon colors | Chroma ceiling 0.19, amber 0.13 |
-| Basic pastel colors | Paper, ink, amber, vermilion, teal, crimson only |
+| Basic pastel colors | Night, bone, amber, teal, crimson only |
 
 ## CSS rules (from good-css)
 

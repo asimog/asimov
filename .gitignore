@@ -25,3 +25,4 @@ artifacts/
 # Owner's raw reference videos (GIFs and sheets live in docs/inspiration)
 uxinsipirevideos/
 *:Zone.Identifier
+.impeccable/
