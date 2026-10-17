@@ -1,0 +1,3 @@
+# ripgrep, fd and agent search tools: skip reference code by default.
+# To search references on purpose: rg --no-ignore <pattern> references/
+/references/

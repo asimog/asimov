@@ -1,0 +1,16 @@
+{
+  "name": "@octopus/octo",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@pump-fun/agent-payments-sdk": "3.0.3",
+    "@pump-fun/pump-sdk": "4.1.0",
+    "@pump-fun/pump-swap-sdk": "2.1.0",
+    "@pump-fun/shared-contracts": "0.2.2",
+    "@solana/web3.js": "^1.99.0",
+    "@typesafe-ai/sdk": "^0.7.0",
+    "agent-browser": "0.39.1",
+    "bn.js": "^5.2.5",
+    "xactions": "4.0.1"
+  }
+}

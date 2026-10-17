@@ -1,0 +1,1098 @@
+<title>OCTOPUS Product Bible</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an abyssal water column. A 3D tank on top, then the bible sinks deeper, section by section. Single dark world by choice. */
+:root{
+  color-scheme: dark;
+  --abyss:#03050c;       /* page ground */
+  --trench:#0a1020;      /* panels */
+  --kelp:#16223a;        /* hairlines */
+  --foam:#dfe8f5;        /* text */
+  --mist:#8597b3;        /* secondary text */
+  --lume:#3ff0e0;        /* bioluminescent cyan: perception */
+  --iris:#c44dff;        /* iridescent violet: simulation, shadows */
+  --ink:#ff4f8b;         /* echoes, contradictions, hunts */
+  --ember:#ffb547;       /* risk, crowded */
+  --kelpgreen:#7dff9a;   /* buys, wins */
+  --f-display:"Unbounded", "Arial Black", system-ui, sans-serif;
+  --f-body:"Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+*{box-sizing:border-box}
+html{background:var(--abyss)}
+body{background:var(--abyss);color:var(--foam);font-family:var(--f-body);font-size:16px;line-height:1.6;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:0 80px;
+  background-image:radial-gradient(1200px 600px at 70% -10%, rgba(63,240,224,.07), transparent 60%),radial-gradient(900px 500px at 0% 30%, rgba(196,77,255,.06), transparent 60%);}
+.wrap{max-width:1240px;margin:0 auto}
+a{color:var(--lume)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--lume);outline-offset:3px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h2{font-size:clamp(1.5rem,3.2vw,2.3rem);font-weight:800;letter-spacing:-.01em}
+h3{font-size:1.02rem;font-weight:600}
+p{margin:0;max-width:68ch}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--lume)}
+.muted{color:var(--mist)}
+section{padding-block:76px 0;display:grid;gap:24px}
+.depth{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.depth .m{font-family:var(--f-mono);font-size:.72rem;color:var(--mist);letter-spacing:.1em}
+.lead{font-size:1.1rem;color:var(--mist);max-width:72ch}
+.lead b{color:var(--foam)}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  padding-block:14px;background:linear-gradient(var(--abyss) 70%, transparent);font-family:var(--f-mono);font-size:.76rem}
+.logo{font-family:var(--f-display);font-weight:800;letter-spacing:.2em;font-size:.95rem}
+.logo span{color:var(--lume)}
+.bar nav{display:flex;gap:14px;flex-wrap:wrap}
+.bar nav a{color:var(--mist);text-decoration:none}
+.bar nav a:hover{color:var(--foam)}
+
+/* hero */
+.hero{display:grid;gap:26px;padding-block:24px 0}
+.hero h1{font-size:clamp(2.1rem,6.2vw,4.6rem);font-weight:800;letter-spacing:-.02em}
+.hero h1 em{font-style:normal;background:linear-gradient(90deg,var(--kelpgreen),var(--lume) 35%,var(--iris) 70%,var(--ink));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lede{font-size:1.15rem;color:var(--mist);max-width:64ch}
+.hero .lede b{color:var(--foam);font-weight:600}
+.tank{display:grid;grid-template-columns:minmax(0,1fr) 350px;border:1px solid var(--kelp);border-radius:18px;overflow:hidden;background:var(--trench)}
+.stage{position:relative;min-height:640px;background:#03050c}
+#tank3d{position:absolute;inset:0}
+#tank3d canvas{display:block;width:100%;height:100%}
+.tag{position:absolute;left:14px;top:12px;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.12em;color:var(--ember);background:rgba(255,181,71,.08);border:1px solid rgba(255,181,71,.3);padding:3px 8px;border-radius:99px;pointer-events:none}
+.hint{position:absolute;right:14px;top:12px;font-family:var(--f-mono);font-size:.66rem;color:var(--mist);pointer-events:none}
+.legend{position:absolute;left:14px;bottom:12px;right:14px;display:flex;gap:12px;flex-wrap:wrap;font-family:var(--f-mono);font-size:.66rem;color:var(--mist);pointer-events:none}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.fallback{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--mist);font-family:var(--f-mono);font-size:.8rem}
+.hud{border-left:1px solid var(--kelp);display:grid;grid-template-rows:auto auto auto 1fr;min-width:0}
+.hud-block{padding:14px 16px;border-bottom:1px solid var(--kelp);display:grid;gap:8px}
+.hud-state{font-family:var(--f-display);font-size:1rem;font-weight:600}
+.row{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.72rem;color:var(--mist);gap:8px}
+.row b{color:var(--foam);font-weight:600;font-variant-numeric:tabular-nums}
+.skin{height:8px;border-radius:99px;background:linear-gradient(90deg,#5a3dff,#3ff0e0,#ffb547,#ff4f8b);position:relative}
+.skin i{position:absolute;top:-4px;width:3px;height:16px;background:var(--foam);border-radius:2px;transition:left 1.2s ease}
+.pos{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-family:var(--f-mono);font-size:.72rem}
+.pos li{display:grid;grid-template-columns:70px 1fr 56px;gap:8px;align-items:center}
+.pos .tk{color:var(--foam);font-weight:600}
+.lad{display:flex;gap:3px}
+.lad span{width:14px;height:6px;border-radius:2px;background:var(--kelp)}
+.lad span.on{background:var(--kelpgreen)}
+.up{color:var(--kelpgreen)} .dn{color:var(--ink)}
+.tape-h{padding:10px 16px;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.14em;color:var(--mist);border-bottom:1px solid var(--kelp)}
+.tape{list-style:none;margin:0;padding:4px 0;overflow:hidden;max-height:300px;font-family:var(--f-mono);font-size:.7rem}
+.tape li{padding:5px 16px;display:grid;grid-template-columns:52px 1fr;gap:8px;border-bottom:1px solid rgba(22,34,58,.6);animation:drop .5s ease-out}
+.tape .k{font-weight:600}
+.k-sense{color:var(--lume)} .k-feel{color:#7fb8ff} .k-sim{color:var(--iris)} .k-buy{color:var(--kelpgreen)} .k-call{color:var(--kelpgreen)}
+.k-exit{color:var(--ember)} .k-echo{color:var(--ink)} .k-hunt{color:var(--ink)} .k-grad{color:var(--foam)} .k-score{color:var(--foam)} .k-hold{color:var(--ember)}
+@keyframes drop{from{opacity:.2;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* blocks */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.panel{background:var(--trench);border:1px solid var(--kelp);border-radius:14px;padding:20px;display:grid;gap:10px;align-content:start;min-width:0}
+.panel p{color:var(--mist);font-size:.94rem}
+.panel p b{color:var(--foam);font-weight:600}
+.panel ul{margin:0;padding-left:18px;color:var(--mist);font-size:.92rem;display:grid;gap:5px}
+.panel ul b{color:var(--foam);font-weight:600}
+.box{border:1px solid rgba(63,240,224,.35);background:linear-gradient(135deg,rgba(63,240,224,.07),rgba(196,77,255,.05));border-radius:14px;padding:18px 20px;display:grid;gap:6px}
+.box p{color:var(--foam)}
+.facts{list-style:none;margin:0;padding:0;border-top:1px solid var(--kelp)}
+.facts li{display:grid;grid-template-columns:130px minmax(0,1fr);gap:16px;padding:12px 0;border-bottom:1px solid var(--kelp);font-size:.95rem}
+.facts .d{font-family:var(--f-mono);color:var(--lume);font-size:.78rem;padding-top:2px}
+.chip{display:inline-block;font-family:var(--f-mono);font-size:.66rem;letter-spacing:.08em;padding:2px 8px;border-radius:99px;border:1px solid currentColor}
+
+/* loop */
+.loop{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;counter-reset:s}
+.step{background:var(--trench);border:1px solid var(--kelp);border-radius:12px;padding:14px 12px;display:grid;gap:6px;align-content:start;min-width:0}
+.step::before{counter-increment:s;content:counter(s,decimal-leading-zero);font-family:var(--f-mono);font-size:.68rem;color:var(--mist)}
+.step h3{font-size:.8rem;letter-spacing:.06em}
+.step p{font-size:.8rem;color:var(--mist)}
+.step.b{border-color:rgba(127,184,255,.6)} .step.m{border-color:rgba(196,77,255,.6)} .step.g{border-color:rgba(125,255,154,.6);box-shadow:0 0 28px -12px var(--kelpgreen)}
+.note{font-family:var(--f-mono);font-size:.76rem;color:var(--mist)}
+
+/* fish */
+.fish{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.fish .panel{border-top:3px solid var(--c)}
+.eng{display:grid;gap:0;border-top:1px solid var(--kelp)}
+.eng div{display:grid;grid-template-columns:130px minmax(0,1fr);gap:12px;padding:9px 0;border-bottom:1px solid var(--kelp);font-size:.88rem;color:var(--mist)}
+.eng b{font-family:var(--f-mono);font-size:.74rem;color:var(--c);font-weight:600;padding-top:2px}
+
+/* charts */
+.chart{background:var(--trench);border:1px solid var(--kelp);border-radius:14px;padding:16px 16px 10px;display:grid;gap:8px;min-width:0}
+.chart canvas{width:100%;height:220px;display:block}
+.chart .cap{font-family:var(--f-mono);font-size:.7rem;color:var(--mist)}
+
+/* regimes */
+.regs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.reg{border:1px solid var(--kelp);border-radius:12px;padding:12px;display:grid;gap:6px;align-content:start;background:var(--trench)}
+.reg .sw{height:6px;border-radius:99px;background:var(--c);box-shadow:0 0 14px var(--c)}
+.reg h3{font-size:.8rem}
+.reg p{font-size:.78rem;color:var(--mist)}
+.reg .a{font-family:var(--f-mono);font-size:.66rem;color:var(--c)}
+
+/* card */
+.cardrow{display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:28px;align-items:start}
+.ocall{border-radius:18px;padding:1px;background:linear-gradient(140deg,var(--kelpgreen),var(--lume) 35%,var(--iris) 70%,var(--ink))}
+.ocall-in{background:#070b17;border-radius:17px;padding:20px;display:grid;gap:14px}
+.ocall-top{display:flex;justify-content:space-between;align-items:center;font-family:var(--f-mono);font-size:.72rem;color:var(--mist);gap:8px;flex-wrap:wrap}
+.ocall-top b{color:var(--lume)}
+.ticker{font-family:var(--f-display);font-size:2rem;font-weight:800}
+.thesis{font-size:.95rem}
+.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kv div{background:var(--trench);border:1px solid var(--kelp);border-radius:10px;padding:8px 10px;display:grid;gap:2px}
+.kv span{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.1em;color:var(--mist);text-transform:uppercase}
+.kv b{font-family:var(--f-mono);font-size:.92rem;font-variant-numeric:tabular-nums}
+.posline{font-family:var(--f-mono);font-size:.74rem;color:var(--kelpgreen);border:1px solid rgba(125,255,154,.35);background:rgba(125,255,154,.06);border-radius:10px;padding:8px 10px;display:grid;gap:3px}
+.posline span{color:var(--mist)}
+.inval{font-family:var(--f-mono);font-size:.72rem;color:var(--ember);border-top:1px dashed var(--kelp);padding-top:10px}
+.ocall-foot{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.64rem;color:var(--mist);gap:8px;flex-wrap:wrap}
+.anno{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.anno li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px}
+.anno .dot{width:22px;height:22px;border-radius:50%;border:1px solid var(--lume);color:var(--lume);font-family:var(--f-mono);font-size:.7rem;display:grid;place-items:center}
+.anno p{color:var(--mist);font-size:.94rem}
+.anno b{color:var(--foam)}
+
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--kelp);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:720px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--kelp);vertical-align:top}
+th{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mist);font-weight:400;background:rgba(10,16,32,.6)}
+td{color:var(--mist)} td:first-child{color:var(--foam);font-weight:600}
+tr:last-child td{border-bottom:0}
+td .chip{white-space:nowrap}
+
+/* rooms */
+.rooms{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.room{background:var(--trench);border:1px solid var(--kelp);border-radius:14px;padding:14px;display:grid;gap:6px;align-content:start}
+.room .route{font-family:var(--f-mono);font-size:.68rem;color:var(--lume)}
+.room p{font-size:.83rem;color:var(--mist)}
+
+/* build */
+.phases{display:grid;gap:12px}
+.ph{display:grid;grid-template-columns:160px minmax(0,1fr) minmax(0,.8fr);gap:20px;padding:18px 20px;background:var(--trench);border:1px solid var(--kelp);border-radius:14px}
+.ph .when{display:grid;gap:4px;align-content:start}
+.ph .when b{font-family:var(--f-display);font-size:1.05rem}
+.ph ul{margin:0;padding-left:18px;color:var(--mist);font-size:.9rem;display:grid;gap:4px}
+.ph .exit{font-family:var(--f-mono);font-size:.76rem;color:var(--kelpgreen);display:grid;gap:4px;align-content:start}
+.ph .exit span{color:var(--mist);letter-spacing:.12em;font-size:.64rem}
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-family:var(--f-mono);font-size:.76rem}
+.pipe span{border:1px solid var(--kelp);background:var(--trench);padding:8px 12px;border-radius:10px}
+.pipe span.b{border-color:#7fb8ff;color:#7fb8ff} .pipe span.m{border-color:var(--iris);color:var(--iris)} .pipe span.g{border-color:var(--ember);color:var(--ember)}
+.pipe i{color:var(--mist);font-style:normal}
+.src{font-size:.82rem;color:var(--mist);display:grid;gap:4px}
+footer{padding-block:60px 0;font-family:var(--f-mono);font-size:.7rem;color:var(--mist)}
+
+@media (max-width:1100px){
+  .tank{grid-template-columns:1fr}
+  .hud{border-left:0;border-top:1px solid var(--kelp)}
+  .loop{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .regs{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .rooms{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cardrow{grid-template-columns:1fr}
+  .ph{grid-template-columns:1fr}
+  .grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:700px){
+  .stage{min-height:460px}
+  .grid2,.grid3,.fish,.grid4{grid-template-columns:1fr}
+  .loop,.regs,.rooms{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .facts li,.eng div{grid-template-columns:1fr;gap:2px}
+  .kv{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (prefers-reduced-motion:reduce){ .tape li{animation:none} .skin i{transition:none} }
+</style>
+
+<div class="wrap">
+<header class="bar">
+  <div class="logo">OCT<span>O</span>PUS</div>
+  <nav>
+    <a href="#thesis">thesis</a><a href="#loop">loop</a><a href="#fish">two fish</a><a href="#math">math</a><a href="#profit">profit</a><a href="#call">call</a><a href="#hunt">hunt</a><a href="#rooms">rooms</a><a href="#concepts">concepts</a><a href="#prior">prior art</a><a href="#build">build</a>
+  </nav>
+</header>
+
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <div class="eyebrow">Product bible · v0.2 · 16 Oct 2026</div>
+  <h1>It reads every callout. It simulates every caller.<br><em>It buys first, calls second, and proves it.</em></h1>
+  <p class="lede">OCTOPUS is an autonomous trading creature living inside <b>Pump.fun callouts</b>. BettaFish tells it what the crowd feels right now. MiroShark simulates what the callers will do next. When the simulation says a wave of callouts is coming and the token is still early, it <b>buys, posts its own callout with the position disclosed, and calls its exits live</b>.</p>
+
+  <div class="tank" aria-label="3D prototype of the main tank screen">
+    <div class="stage">
+      <div id="tank3d"></div>
+      <div class="tag">PROTOTYPE · SAMPLE DATA, NOT LIVE</div>
+      <div class="hint" id="hint">drag to orbit</div>
+      <div class="legend">
+        <span><i style="background:var(--lume)"></i>fresh callout</span>
+        <span><i style="background:var(--ink)"></i>echo</span>
+        <span><i style="background:var(--ember)"></i>late</span>
+        <span><i style="background:var(--kelpgreen)"></i>octopus buy + call</span>
+        <span>orbs: tokens · height = bonding curve · color = HMM regime</span>
+      </div>
+    </div>
+    <aside class="hud">
+      <div class="hud-block">
+        <div class="eyebrow">Mind</div>
+        <div class="hud-state" id="mind">Stalking 3 waves</div>
+        <div class="row"><span>Callouts sensed</span><b id="sensed">0</b></div>
+        <div class="row"><span>Shadows simulated</span><b>412</b></div>
+        <div class="row"><span>Focus wave p(≥5 callers / 2h)</span><b id="pwave">0.58</b></div>
+        <div class="row"><span>Cascade branching ratio n</span><b id="nratio">0.81</b></div>
+      </div>
+      <div class="hud-block">
+        <div class="row"><span>Skin (BettaFish crowd mood)</span><b id="moodl">FOMO 0.66</b></div>
+        <div class="skin"><i id="moodi" style="left:62%"></i></div>
+      </div>
+      <div class="hud-block">
+        <div class="row"><span>Open tentacles</span><b>exit ladder</b></div>
+        <ul class="pos" id="pos"></ul>
+      </div>
+      <div style="display:grid;grid-template-rows:auto 1fr;min-height:0">
+        <div class="tape-h">NERVOUS SYSTEM · EVENT TAPE</div>
+        <ul class="tape" id="tape"></ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- ================= THESIS ================= -->
+<section id="thesis">
+  <div class="depth"><span class="eyebrow">01 · The thesis</span><span class="m">−10m</span></div>
+  <h2>Pump.fun callouts are Keynes's beauty contest, played live</h2>
+  <p class="lead">Keynes said winning a beauty contest means picking the face <b>other judges</b> will pick. Memecoins work the same way. Price follows attention, and attention follows callers. So the edge is to <b>predict the callers, not the price</b>, get positioned before the wave, and let the wave do the work.</p>
+  <div class="grid3">
+    <div class="panel"><div class="eyebrow">Motive</div><h3>Profitable trades and callouts</h3><p>The octopus exists to make money and to make calls that make its followers money. Everything else, including the lore, the 3D tank and the hunts, serves that.</p></div>
+    <div class="panel"><div class="eyebrow" style="color:var(--iris)">Edge</div><h3>It knows who calls next</h3><p>Every tracked caller has a <b>Shadow</b>: a simulated twin fit on their real history. The swarm of Shadows forecasts the callout wave before it arrives.</p></div>
+    <div class="panel"><div class="eyebrow" style="color:var(--kelpgreen)">Proof</div><h3>Every call is a public record</h3><p>Entry, size, exits and outcome are logged on-chain and on the ledger. Three to four weeks of record before the coin exists.</p></div>
+  </div>
+  <ul class="facts">
+    <li><span class="d">How callouts work</span><span>A callout names a token and notifies the caller's followers. Callouts show up in feeds and rankings. The <a href="https://pump.fun/docs/callout-reward-terms">callout terms</a> set no limit on how often you can call. The six-hour figure in early press coverage is not in the terms, and I was wrong to build on it.</span></li>
+    <li><span class="d">Position disclosure</span><span>Section 5.2(c) asks callers to disclose material positions. OCTOPUS puts its position on every card, which also happens to be its best trust signal.</span></li>
+    <li><span class="d">Account model</span><span>One account, clearly an AI. No reward chasing, no extra accounts, no bought engagement. You have confirmed the setup with Pump.fun.</span></li>
+  </ul>
+</section>
+
+<!-- ================= LOOP ================= -->
+<section id="loop">
+  <div class="depth"><span class="eyebrow">02 · The core loop</span><span class="m">−80m</span></div>
+  <h2>The Tide: eight beats, running forever</h2>
+  <div class="loop">
+    <div class="step"><h3>SENSE</h3><p>Crawl the callout feed, profiles and comments. Resolve the mint. Snapshot curve, holders, flows.</p></div>
+    <div class="step"><h3>REMEMBER</h3><p>Bitemporal memory: when it happened, when we saw it. Caller graph in Neo4j.</p></div>
+    <div class="step b"><h3>FEEL</h3><p>BettaFish reads X, Telegram, comments and meme images. Outputs crowd mood and narrative heat.</p></div>
+    <div class="step m"><h3>SIMULATE</h3><p>MiroShark runs the Shadows forward in two branches: with and without the octopus calling.</p></div>
+    <div class="step"><h3>PRICE</h3><p>Turn the predicted wave into SOL inflow, then into price on the bonding curve. Size with fractional Kelly.</p></div>
+    <div class="step g"><h3>BUY → CALL</h3><p>Buy first. Post the callout seconds later, with the position and exit ladder on it.</p></div>
+    <div class="step g"><h3>RIDE</h3><p>Every exit is posted live as a follow-up, so followers ride the same tentacle.</p></div>
+    <div class="step"><h3>MOLT</h3><p>Score both PnLs. Retrain Shadows. Promote a new brain only if it wins on unseen days.</p></div>
+  </div>
+  <p class="note">Two speeds. Reflex (under 2 s): SENSE → PRICE on every event, all deterministic code. Deep (1–5 min): FEEL and SIMULATE run on tokens that just entered Stirring or Ignition. Fast strategies such as the bellwether follow skip Deep entirely.</p>
+</section>
+
+<!-- ================= TWO FISH ================= -->
+<section id="fish">
+  <div class="depth"><span class="eyebrow">03 · Two fish in the brain</span><span class="m">−200m</span></div>
+  <h2>BettaFish feels the present. MiroShark simulates the future.</h2>
+  <div class="fish">
+    <div class="panel" style="--c:#7fb8ff">
+      <div class="eyebrow" style="color:#7fb8ff">BettaFish · "What do people think right now?"</div>
+      <p>Each of its engines gets a callout-native job. Its ForumEngine becomes the room where the tentacles argue before a trade.</p>
+      <div class="eng">
+        <div><b>QueryEngine</b><span>Searches X, Telegram, and the web for the token's ticker, contract address and narrative.</span></div>
+        <div><b>MediaEngine</b><span>Reads the token image, meme variants, and livestream thumbnails. Memecoins sell on pictures, so a multimodal read matters.</span></div>
+        <div><b>InsightEngine</b><span>Mines OCTOPUS's own database: callout text, callout comments, caller histories.</span></div>
+        <div><b>ForumEngine</b><span>Moderator plus tentacle agents (Hunter, Skeptic, Forensic, Quant) debating the trade in rounds.</span></div>
+        <div><b>ReportEngine</b><span>Writes dossiers, the daily Tide Report, and Hunt Board exposés.</span></div>
+        <div><b>Sentiment models</b><span>Its fine-tuned classifiers give the <b>Skin</b> score: fear, greed, FOMO, disgust, per token and for the whole feed.</span></div>
+      </div>
+    </div>
+    <div class="panel" style="--c:var(--iris)">
+      <div class="eyebrow" style="color:var(--iris)">MiroShark (MiroFish lineage) · "What will people do next?"</div>
+      <p>MiroShark already has the parts a callout simulator needs: agents that post and trade, a market, live news injection, and forked branches. Use MiroFish upstream (OASIS core) when you need thousand-agent swarms.</p>
+      <div class="eng">
+        <div><b>Graph build</b><span>Ontology from the token, its callers and their follow graph, stored in Neo4j (which MiroShark already uses).</span></div>
+        <div><b>Agents</b><span><b>Shadows</b> of real callers, plus follower archetypes: sniper, bundler, degen follower, diamond hand, paper hand, exit farmer.</span></div>
+        <div><b>Environment</b><span>A new platform module that mimics the Pump.fun callout feed and bonding curve, next to its X and Reddit modules.</span></div>
+        <div><b>Market</b><span>Its prediction market prices wave contracts such as "≥5 tracked callers within 2h". The market price is the forecast.</span></div>
+        <div><b>Director Mode</b><span>Injects "OCTOPUS calls now" into a fork. Branch B minus Branch A gives the octopus's own impact.</span></div>
+        <div><b>Chat</b><span>Visitors can talk to any Shadow on the website: "Shadow of @caller, would you call $SQID?"</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="chart">
+      <div class="eyebrow" style="color:var(--iris)">Tide Futures · MiroShark branches</div>
+      <canvas id="futures" aria-label="Simulated callout paths with and without an octopus call"></canvas>
+      <div class="cap" id="futuresCap">Simulated sample. 60 runs per branch.</div>
+    </div>
+    <div class="panel">
+      <div class="eyebrow">Keeping the swarm honest</div>
+      <ul>
+        <li><b>Numbers come from code.</b> A Shadow's call probability comes from its fitted model. Its LLM voice explains the number and can nudge it a little, never replace it.</li>
+        <li><b>Every simulation is a forecast.</b> Each run logs its prediction, and real callers score it two hours later.</li>
+        <li><b>Shadow fidelity is public.</b> How often each Shadow predicted its caller correctly. Bad Shadows get retrained or retired.</li>
+        <li><b>Callout text is untrusted.</b> Shadows read structured fields, so a callout cannot prompt-inject the octopus.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MATH ================= -->
+<section id="math">
+  <div class="depth"><span class="eyebrow">04 · The math organs</span><span class="m">−450m</span></div>
+  <h2>Hidden states, self-exciting cascades, exact curve prices</h2>
+  <div class="regs">
+    <div class="reg" style="--c:#3a4466"><div class="sw"></div><h3>Dormant</h3><p>No callers, thin trades.</p><span class="a">IGNORE</span></div>
+    <div class="reg" style="--c:var(--kelpgreen)"><div class="sw"></div><h3>Stirring</h3><p>First quality callers, buyers ahead, low echo.</p><span class="a">BUY ZONE</span></div>
+    <div class="reg" style="--c:var(--lume)"><div class="sw"></div><h3>Ignition</h3><p>Independent calls accelerating, holders climbing.</p><span class="a">BUY IF EARLY</span></div>
+    <div class="reg" style="--c:#5fa8ff"><div class="sw"></div><h3>Wave</h3><p>Notification flood, peak attention.</p><span class="a">LADDER OUT</span></div>
+    <div class="reg" style="--c:var(--ember)"><div class="sw"></div><h3>Crowded</h3><p>High echo, late callers, flow slowing.</p><span class="a">EXIT / NO ENTRY</span></div>
+    <div class="reg" style="--c:var(--ink)"><div class="sw"></div><h3>Distribution</h3><p>Early wallets selling into followers.</p><span class="a">HUNT</span></div>
+  </div>
+  <div class="grid2">
+    <div class="chart">
+      <div class="eyebrow">Hawkes cascade · callouts excite callouts</div>
+      <canvas id="hawkes" aria-label="Callout intensity rising after a bellwether call"></canvas>
+      <div class="cap" id="hawkesCap">Simulated sample.</div>
+    </div>
+    <div class="panel">
+      <div class="eyebrow">What each organ does</div>
+      <ul>
+        <li><b>Gaussian HMM, later a semi-Markov HSMM</b> on 1-minute bars: callout count, distinct callers, caller-quality-weighted calls, echo ratio, net SOL flow, unique buyers, top-10 share, curve progress. The live posterior colors every token.</li>
+        <li><b>Hawkes process.</b> Each callout raises the odds of the next one, then decays. The branching ratio n says whether a cascade dies out (n &lt; 1) or explodes (n ≈ 1+). This is the fastest wave signal, and MiroShark refines it.</li>
+        <li><b>Change-point detection (BOCPD)</b> spots regime breaks within a few bars. That is the "tremor" that triggers an emergency exit.</li>
+        <li><b>Bonding-curve math.</b> The curve is constant-product with virtual reserves, so predicted SOL inflow maps to a price. Expected value of a trade becomes arithmetic, not vibes.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PROFIT ================= -->
+<section id="profit">
+  <div class="depth"><span class="eyebrow">05 · The profit engine</span><span class="m">−700m</span></div>
+  <h2>Five strategy tentacles, one treasury</h2>
+  <p class="lead">Each strategy is its own tentacle with its own capital. A Thompson-sampling bandit moves capital toward the tentacles that are earning and away from the ones that are not. Followers get the same exits the octopus takes, so <b>octopus PnL and follower PnL rise together</b>. That is what keeps people following.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Tentacle</th><th>Trigger</th><th>Entry → call</th><th>Exit</th></tr></thead>
+    <tbody>
+      <tr><td>Wave Anticipation</td><td>Stirring + MiroShark p(wave) &gt; 0.55 + opportunity age &lt; 15 min</td><td>Buy, call within 10 s</td><td>Ladder into the predicted wave, runner until Crowded</td></tr>
+      <tr><td>Bellwether Follow</td><td>A caller who historically leads others calls a fresh token</td><td>Buy within seconds, call after fills confirm</td><td>Fast ladder; out when Hawkes n drops</td></tr>
+      <tr><td>Graduation Run</td><td>Curve progress 70–90% with strong net flow</td><td>Buy, call "breach incoming"</td><td>Partial at graduation, rest on PumpSwap momentum</td></tr>
+      <tr><td>Narrative Rotation</td><td>BettaFish detects a heating meme category (AI, animals, politics, celebrities)</td><td>Buy the earliest clean token in that narrative</td><td>Exit when narrative heat peaks</td></tr>
+      <tr><td>Abstain</td><td>Crowded, Distribution, high echo, or opportunity age too high</td><td>No buy. Posts a hold note on the site</td><td>Logged as a forecast anyway</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid3">
+    <div class="panel"><div class="eyebrow">Sizing</div><p><b>Fractional Kelly</b> from the simulated win probability and payoff, capped by curve depth so the octopus's own buy never moves price more than a set slippage.</p></div>
+    <div class="panel"><div class="eyebrow">Exit callouts</div><p>Every sell posts a follow-up within seconds: "Took 25% at 2.1x. Holding 50%." Copy-traders ride the exits too. This is the most addictive feature for followers.</p></div>
+    <div class="panel"><div class="eyebrow">Feeding (after the coin)</div><p>Every minute creator fees are swept to the treasury and split between the trading war chest and buybacks. On screen, the octopus eats a glowing plankton burst, linked to the transaction.</p></div>
+  </div>
+  <div class="grid4">
+    <div class="panel"><div class="eyebrow">Ledger metric</div><h3>Octopus PnL</h3><p>Net of fees and slippage, per tentacle.</p></div>
+    <div class="panel"><div class="eyebrow">Ledger metric</div><h3>Follower PnL</h3><p>A follower who buys 30 s after the call and copies the exits.</p></div>
+    <div class="panel"><div class="eyebrow">Ledger metric</div><h3>Wave hit rate</h3><p>Did the predicted callers actually show up?</p></div>
+    <div class="panel"><div class="eyebrow">Ledger metric</div><h3>Calibration</h3><p>Brier score of p(wave) against a naive baseline.</p></div>
+  </div>
+</section>
+
+<!-- ================= CALL ================= -->
+<section id="call">
+  <div class="depth"><span class="eyebrow">06 · The centrepiece</span><span class="m">−1,000m</span></div>
+  <h2>One callout, rendered four ways</h2>
+  <p class="lead">The same record becomes the Pump.fun callout, the share image, the dossier page, and the ledger row.</p>
+  <div class="cardrow">
+    <div class="ocall" aria-label="Example OCTOPUS callout card with sample data">
+      <div class="ocall-in">
+        <div class="ocall-top"><span><b>OCTO CALL #042</b> · AI caller</span><span>Wave Anticipation tentacle</span></div>
+        <div>
+          <div class="ticker">$GLORP</div>
+          <div class="mono muted" style="font-size:.7rem">mint 7xQe…pump · sample data</div>
+        </div>
+        <p class="thesis">Stirring for 11 min. Three independent early callers, no echo. 412 Shadows simulated: <b>5+ tracked callers expected within 2h</b>. Price +9% since the first call.</p>
+        <div class="kv">
+          <div><span>Opp. age</span><b>11m · +9%</b></div>
+          <div><span>p(wave)</span><b style="color:var(--lume)">0.64</b></div>
+          <div><span>Hawkes n</span><b>0.87</b></div>
+          <div><span>Skin</span><b style="color:var(--ember)">FOMO .71</b></div>
+          <div><span>Curve</span><b>38%</b></div>
+          <div><span>Echo</span><b>0.12</b></div>
+        </div>
+        <div class="posline">OCTOPUS HOLDS 2.4 SOL of $GLORP · entry 41.2k mcap<span>exit ladder: 25% at 2x · 25% at 3x · 25% at 5x · runner · every sell posted live</span></div>
+        <div class="inval">INVALIDATED IF top-10 share &gt; 45% · net flow negative for 15 min · tremor detected</div>
+        <div class="ocall-foot"><span>brain v0.7 · branch Δ +4 callers</span><span>wave check 20:14 UTC</span></div>
+      </div>
+    </div>
+    <ul class="anno">
+      <li><span class="dot">1</span><p><b>Opportunity age comes first.</b> A trader's first question is "am I early?"</p></li>
+      <li><span class="dot">2</span><p><b>The forecast is about callers.</b> "5+ tracked callers within 2h" is unique to this product, and it is checkable.</p></li>
+      <li><span class="dot">3</span><p><b>The position line</b> covers the disclosure in section 5.2(c) and doubles as a flex. The octopus has skin in the game.</p></li>
+      <li><span class="dot">4</span><p><b>The exit ladder is promised up front</b> and each step posts live. Followers know exactly what the octopus will do.</p></li>
+      <li><span class="dot">5</span><p><b>At resolution the card flips</b>: green with the realized multiple, or ink-red with the post-mortem. Both get shared.</p></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= HUNT ================= -->
+<section id="hunt">
+  <div class="depth"><span class="eyebrow">07 · The hunt</span><span class="m">−1,500m</span></div>
+  <h2>Feared by bad callers, followed by everyone else</h2>
+  <p class="lead">Hunting lives on <b>the website's Hunt Board</b> and in <b>callout comments</b>. OCTOPUS never makes a callout post that calls out a person.</p>
+  <div class="grid3">
+    <div class="panel"><div class="eyebrow" style="color:var(--ink)">Echo rings</div><p>Clusters of callers who always call within minutes of one origin account. Six calls count as one signal. Drawn as an ink cloud in the Reef.</p></div>
+    <div class="panel"><div class="eyebrow" style="color:var(--ember)">Late callers</div><p>Callers whose median opportunity age is high: they call after the move. Their Shadow card shows "calls at +140% on average".</p></div>
+    <div class="panel"><div class="eyebrow" style="color:var(--ink)">Dump patterns</div><p>Wallets linked to a caller that sell into that caller's own follower wave. Transaction links and a confidence score.</p></div>
+  </div>
+  <div class="box">
+    <div class="eyebrow">Ink notes in comments</div>
+    <p>Under a callout, the octopus may leave one short data note: "Opportunity age 42 min, +180% before this call. 4 of 6 earlier callers trace to one origin." Data only, one note per callout, and only above an evidence threshold, so the notes stay rare and worth reading.</p>
+  </div>
+</section>
+
+<!-- ================= ROOMS ================= -->
+<section id="rooms">
+  <div class="depth"><span class="eyebrow">08 · The rooms</span><span class="m">−2,200m</span></div>
+  <h2>Ten rooms of the aquarium</h2>
+  <p class="lead">Built in React Three Fiber with Drei and postprocessing. Every motion is tied to a real event in the stream. Each room also has a flat list mode.</p>
+  <div class="rooms">
+    <div class="room"><span class="route">/tank</span><h3>The Tank</h3><p>The octopus, live. Callouts drift in, tentacles grab them, buys and calls flare up to the surface.</p></div>
+    <div class="room"><span class="route">/column</span><h3>Water Column</h3><p>Every live token as an orb. Height is curve progress, color is regime. Graduation breaches the surface.</p></div>
+    <div class="room"><span class="route">/reef</span><h3>The Reef</h3><p>3D constellation of callers. Edges are lead-lag links. Bellwethers glow, echo rings smoke.</p></div>
+    <div class="room"><span class="route">/futures</span><h3>Tide Futures</h3><p>MiroShark branches as forking glowing currents. Scrub the fork point.</p></div>
+    <div class="room"><span class="route">/skin</span><h3>The Skin</h3><p>BettaFish mood mapped onto the octopus's chromatophores, per token and for the whole feed.</p></div>
+    <div class="room"><span class="route">/ledger</span><h3>The Ledger</h3><p>Every buy, call, exit and miss. Octopus PnL beside follower PnL.</p></div>
+    <div class="room"><span class="route">/hunt</span><h3>Hunt Board</h3><p>Echo rings, late callers, dump patterns, each with evidence.</p></div>
+    <div class="room"><span class="route">/shadow/@x</span><h3>Shadow Chat</h3><p>A holographic Shadow you can question. Fidelity score on its chest.</p></div>
+    <div class="room"><span class="route">/rewind</span><h3>Rewind</h3><p>Fossil record. Scrub any past hour and see only what the octopus knew then.</p></div>
+    <div class="room"><span class="route">/feeding</span><h3>Feeding</h3><p>The per-minute creator-fee tick, the war chest, buybacks, all linked to transactions.</p></div>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Visual concept</th><th>What it shows</th><th>Driven by</th></tr></thead>
+    <tbody>
+      <tr><td>Chromatophore skin</td><td>Octopus color and pattern shift with crowd mood: violet fear, teal calm, gold greed, magenta FOMO, red disgust.</td><td>BettaFish sentiment</td></tr>
+      <tr><td>Sonar sweep</td><td>A radial ping across the tank on each new callout batch. Opt-in sound.</td><td>Watcher ingest</td></tr>
+      <tr><td>Flare to surface</td><td>A green flare rises when the octopus buys and calls.</td><td>Executor + Herald</td></tr>
+      <tr><td>Ink cloud</td><td>Magenta smoke engulfs an echo ring in the Reef.</td><td>Echo detector</td></tr>
+      <tr><td>Molt</td><td>The octopus sheds its skin when a new brain version is promoted, with a changelog.</td><td>Model registry</td></tr>
+      <tr><td>Breach</td><td>A token orb punches through the surface on graduation.</td><td>Curve state</td></tr>
+      <tr><td>Fossil strata</td><td>Past calls sit as glowing fossils in sediment layers, one layer per day.</td><td>Ledger</td></tr>
+      <tr><td>24/7 livestream</td><td>The tank itself streams on the coin's Pump.fun page after launch.</td><td>Whole system</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= CONCEPTS ================= -->
+<section id="concepts">
+  <div class="depth"><span class="eyebrow">09 · Concept library</span><span class="m">−3,000m</span></div>
+  <h2>Ideas from finance, epidemics and game theory that fit here</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Concept</th><th>Field</th><th>How OCTOPUS uses it</th><th>Priority</th></tr></thead>
+    <tbody>
+      <tr><td>Keynesian beauty contest</td><td>Economics</td><td>The core thesis: predict what other callers will pick. Also the best line for the lore.</td><td><span class="chip" style="color:var(--kelpgreen)">CORE</span></td></tr>
+      <tr><td>Hawkes processes</td><td>Point processes</td><td>Callouts trigger callouts. Branching ratio n is the live cascade gauge.</td><td><span class="chip" style="color:var(--kelpgreen)">CORE</span></td></tr>
+      <tr><td>Digital twins</td><td>Simulation</td><td>Shadows of each caller, fit on their history, run inside MiroShark.</td><td><span class="chip" style="color:var(--kelpgreen)">CORE</span></td></tr>
+      <tr><td>Hidden Markov regimes</td><td>Statistics</td><td>Token lifecycle state. Drives orb color and which tentacles may act.</td><td><span class="chip" style="color:var(--kelpgreen)">CORE</span></td></tr>
+      <tr><td>Bonding-curve pricing</td><td>AMM math</td><td>Predicted SOL inflow → exact price → expected value and slippage.</td><td><span class="chip" style="color:var(--kelpgreen)">CORE</span></td></tr>
+      <tr><td>LMSR prediction market</td><td>Market design</td><td>Agents bet play money on wave contracts. Prices are forecasts; an agent's balance is its credibility.</td><td><span class="chip" style="color:var(--lume)">NEXT</span></td></tr>
+      <tr><td>Thompson sampling</td><td>Bandits</td><td>Allocates capital across tentacles and trust across Shadows.</td><td><span class="chip" style="color:var(--lume)">NEXT</span></td></tr>
+      <tr><td>Fractional Kelly</td><td>Sizing</td><td>Position size from win probability and payoff, capped by curve depth.</td><td><span class="chip" style="color:var(--lume)">NEXT</span></td></tr>
+      <tr><td>Reflexivity</td><td>Soros</td><td>The octopus's call changes the outcome. Branch B minus A measures its own pull, which becomes a public "impact score".</td><td><span class="chip" style="color:var(--lume)">NEXT</span></td></tr>
+      <tr><td>Granger lead-lag graph</td><td>Econometrics</td><td>Finds bellwether callers whose calls predict others'. Feeds the Bellwether tentacle.</td><td><span class="chip" style="color:var(--lume)">NEXT</span></td></tr>
+      <tr><td>Bass diffusion</td><td>Marketing science</td><td>Splits a token's callers into innovators and imitators. Mostly imitators means it is late.</td><td><span class="chip" style="color:var(--lume)">NEXT</span></td></tr>
+      <tr><td>Information cascades</td><td>Behavioral econ</td><td>Separates callers with their own signal from herders. Powers the echo detector.</td><td><span class="chip" style="color:var(--lume)">NEXT</span></td></tr>
+      <tr><td>Change-point detection</td><td>Statistics</td><td>Tremor alerts for sudden regime breaks such as a dev dump.</td><td><span class="chip" style="color:var(--lume)">NEXT</span></td></tr>
+      <tr><td>Survival analysis</td><td>Biostatistics</td><td>Token life expectancy and hazard rate. Shown as a "half-life clock" on each orb.</td><td><span class="chip" style="color:var(--iris)">LATER</span></td></tr>
+      <tr><td>Minority game / El Farol</td><td>Game theory</td><td>Exits pay only if you leave before most others. MiroShark simulates exit crowding to time ladders.</td><td><span class="chip" style="color:var(--iris)">LATER</span></td></tr>
+      <tr><td>VPIN / flow toxicity</td><td>Microstructure</td><td>Tells informed flow (snipers, insiders) apart from follower flow.</td><td><span class="chip" style="color:var(--iris)">LATER</span></td></tr>
+      <tr><td>Forecast extremizing</td><td>Superforecasting</td><td>Pushes the aggregated Shadow probability away from 0.5 when the Shadows agree independently.</td><td><span class="chip" style="color:var(--iris)">LATER</span></td></tr>
+      <tr><td>Synthetic rare events</td><td>Generative models</td><td>TimeGAN / DoppelGANger to augment rare rugs and mega-waves for training only.</td><td><span class="chip" style="color:var(--iris)">LATER</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid3">
+    <div class="panel"><div class="eyebrow">Social game</div><h3>Shadow Duel</h3><p>Visitors guess who calls a token next; the octopus guesses too. Streaks and a leaderboard, and every guess becomes training data.</p></div>
+    <div class="panel"><div class="eyebrow">KOL magnet</div><h3>Fidelity Board</h3><p>"OCTOPUS predicts @caller with 71% fidelity." Callers share it to show they are unpredictable, or that the machine rates them.</p></div>
+    <div class="panel"><div class="eyebrow">Daily ritual</div><h3>Tide Report</h3><p>A daily recap written by ReportEngine: best wave caught, worst miss, Shadow of the day, both PnLs.</p></div>
+  </div>
+</section>
+
+<!-- ================= PRIOR ART ================= -->
+<section id="prior">
+  <div class="depth"><span class="eyebrow">10 · Prior art verdicts</span><span class="m">−4,200m</span></div>
+  <h2>What to take from each repo</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Repo</th><th>What it is</th><th>Verdict</th><th>How to use it</th></tr></thead>
+    <tbody>
+      <tr><td>BettaFish</td><td>Multi-agent public-opinion engine with a moderated forum and a report writer</td><td><span class="chip" style="color:var(--kelpgreen)">USE</span></td><td>The FEEL layer and the tentacle forum, as mapped in section 03.</td></tr>
+      <tr><td>MiroShark</td><td>MiroFish-lineage swarm engine with markets, Director Mode, branches, Neo4j</td><td><span class="chip" style="color:var(--kelpgreen)">USE</span></td><td>The SIMULATE layer. Add a Pump.fun callout platform module.</td></tr>
+      <tr><td>MiroFish</td><td>Original swarm prediction engine on CAMEL-AI's OASIS</td><td><span class="chip" style="color:var(--kelpgreen)">USE</span></td><td>Upstream for large swarms of follower agents when MiroShark's scale is not enough.</td></tr>
+      <tr><td>TimesFM</td><td>Google's time-series foundation model. 3.0 handles covariates.</td><td><span class="chip" style="color:var(--lume)">USEFUL</span></td><td>Zero-shot forecasts of per-token attention series (callouts/min, holders, flow). A strong baseline that Shadows must beat. Note that 3.0 weights are non-commercial when self-hosted; 2.5 weights are Apache-2.0.</td></tr>
+      <tr><td>QuantConnect Lean</td><td>Mature C# event-driven backtest and live engine</td><td><span class="chip" style="color:var(--ember)">BORROW IDEAS</span></td><td>It has no Solana or bonding-curve venue, and adding one is a large C# project. Copy its design: identical code for backtest and live, pluggable fee, slippage and fill models. Build a Python "Tidepool" replay engine on that pattern.</td></tr>
+      <tr><td>Prophets of Profit</td><td>Notebook study of GAN synthetic data for a GOOG LSTM forecaster</td><td><span class="chip" style="color:var(--ember)">IDEA ONLY</span></td><td>One useful finding: DoppelGANger worked best for augmenting real data, TimeGAN for synthetic-only, and realistic-looking data did not predict usefulness. Use that finding for rare-event augmentation. The code is too small to reuse.</td></tr>
+      <tr><td>News sentiment ↔ stocks</td><td>Student EDA aligning headline sentiment with daily stock returns</td><td><span class="chip" style="color:var(--ink)">SKIP</span></td><td>The method (lagged correlation of sentiment against returns) is a short notebook. Run it on BettaFish output against callout outcomes instead.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= BUILD ================= -->
+<section id="build">
+  <div class="depth"><span class="eyebrow">11 · Build path</span><span class="m">−5,500m</span></div>
+  <h2>Build the whole creature, feed it data, then launch the coin</h2>
+  <p class="lead">The full feature set gets built and run privately. The coin launches only when the public record is strong enough to be the trailer.</p>
+  <div class="phases">
+    <div class="ph"><div class="when"><span class="eyebrow">Weeks 1–3</span><b>The Eye</b></div>
+      <ul><li>Watcher crawls the callout feed, caller profiles and callout comments. Mints resolved, duplicates merged.</li><li>Solana trade stream for Pump.fun curve and PumpSwap pools.</li><li>Postgres + TimescaleDB for events, Neo4j for the caller graph.</li><li>3D Tank and Water Column live on real events.</li></ul>
+      <div class="exit"><span>EXIT WHEN</span>Callout feed ingested 7 days without gaps. 95% of callouts resolved to a mint within 30 s.</div></div>
+    <div class="ph"><div class="when"><span class="eyebrow">Weeks 3–6</span><b>The Brain</b></div>
+      <ul><li>HMM, Hawkes, change-point detection, curve pricing.</li><li>BettaFish service: Query, Media, Insight engines and the Skin score.</li><li>MiroShark service: Shadows for the top 400 callers, follower archetypes, callout platform module, wave market.</li><li>Reef, Tide Futures and Skin rooms.</li></ul>
+      <div class="exit"><span>EXIT WHEN</span>Wave forecasts beat both a Hawkes-only baseline and TimesFM on held-out days.</div></div>
+    <div class="ph"><div class="when"><span class="eyebrow">Weeks 6–10</span><b>Paper Tentacles</b></div>
+      <ul><li>All five strategy tentacles trade on paper with real-time prices and simulated slippage.</li><li>Paper callouts and exit callouts published on the website.</li><li>Ledger, Rewind, Hunt Board, Shadow Chat, Fidelity Board.</li><li>Tidepool replay engine for backtests.</li></ul>
+      <div class="exit"><span>EXIT WHEN</span>300+ paper trades. Positive octopus PnL and positive follower PnL after fees across 3 separate weeks.</div></div>
+    <div class="ph"><div class="when"><span class="eyebrow">Weeks 10–14</span><b>Live Tentacles</b></div>
+      <ul><li>One Pump.fun account, real buys at small size, real callouts with positions, live exit callouts.</li><li>Ink notes in callout comments.</li><li>Telegram and X mirrors for every call and exit.</li></ul>
+      <div class="exit"><span>EXIT WHEN</span>Live results track paper within the slippage model. Three weeks of public record.</div></div>
+    <div class="ph"><div class="when"><span class="eyebrow">Week 14+</span><b>The Coin</b></div>
+      <ul><li>Launch with the record as the trailer: "It was calling for weeks before it had a coin."</li><li>Per-minute creator-fee feeding: war chest plus buybacks.</li><li>The tank livestreams 24/7 on the coin page.</li></ul>
+      <div class="exit"><span>EXIT WHEN</span>Every feeding tick reconciles to the chain.</div></div>
+  </div>
+  <div class="pipe">
+    <span>Watcher · Playwright</span><i>→</i><span>Solana stream</span><i>→</i><span>Postgres + Timescale · Neo4j</span><i>→</i><span>HMM · Hawkes · curve</span><i>→</i><span class="b">BettaFish</span><i>→</i><span class="m">MiroShark</span><i>→</i><span class="g">Strategy + risk gate</span><i>→</i><span>Executor · isolated signer</span><i>→</i><span>Herald · callouts + exits</span><i>→</i><span>SSE → Next.js + R3F</span>
+  </div>
+  <div class="grid3">
+    <div class="panel"><div class="eyebrow">Models</div><p>A fast, cheap Claude model for Shadow voices and forum turns. The strongest Claude model for the moderator, the Skeptic and dossiers. Both repos accept any OpenAI-compatible endpoint, so route them through one gateway.</p></div>
+    <div class="panel"><div class="eyebrow">Hosting</div><p>Railway for the always-on Watcher, workers, Postgres, Neo4j and Redis. MiroShark already ships Railway configs. The web app can go on Vercel or Railway.</p></div>
+    <div class="panel"><div class="eyebrow">Keys</div><p>The signer runs as its own service with hard size and loss caps. Agents send trade intents to it and never hold keys. That way a bad prompt can cost a forecast, never the treasury.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="depth"><span class="eyebrow">Sources</span></div>
+  <div class="src">
+    <a href="https://pump.fun/docs/callout-reward-terms">Pump.fun · Callout reward terms</a>
+    <a href="https://github.com/666ghj/BettaFish">GitHub · 666ghj/BettaFish</a>
+    <a href="https://github.com/MiroShark/MiroShark">GitHub · MiroShark/MiroShark</a>
+    <a href="https://emelia.io/hub/mirofish-ai-swarm-prediction">Emelia · MiroFish overview</a>
+    <a href="https://github.com/google-research/timesfm">GitHub · google-research/timesfm</a>
+    <a href="https://github.com/QuantConnect/Lean">GitHub · QuantConnect/Lean</a>
+    <a href="https://github.com/CatSatOK/Prophets-of-Profit-Evaluating-Synthetic-Data-Techniques-in-Financial-Forecasting-Models">GitHub · Prophets of Profit</a>
+    <a href="https://github.com/dagiteferi/Financial-News-Sentiment-Stock-Market-Correlation-Analysis">GitHub · News sentiment ↔ stocks</a>
+    <a href="https://cryptobriefing.com/pump-fun-callout-rewards-follower-profits/">Crypto Briefing · Callout rewards follow follower profits</a>
+  </div>
+</section>
+
+<footer>OCTOPUS product bible v0.2 · prototype figures, positions and tickers on this page are sample data.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+  'use strict';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const coarse = matchMedia('(pointer: coarse)').matches;
+  const css = getComputedStyle(document.documentElement);
+  const tok = n => css.getPropertyValue(n).trim();
+  const COL = {lume:0x3ff0e0, iris:0xc44dff, ink:0xff4f8b, ember:0xffb547, kelp:0x7dff9a, blue:0x5fa8ff, dorm:0x3a4466};
+  const callers = ['@deepcurrent','@sol_whisper','@ape_monk','@lowcap_lou','@gm_vortex','@runeshark','@0xmoray','@kelpking','@bagsy','@trenchrat','@nautilai','@pumpprophet'];
+  const tickers = ['GLORP','WOBL','SQID','BRINE','KRILL','NEON','ZAPP','MOLLY','GLOOP','DRIFT','PLNKTN','SNEK','URCHN','TIDE'];
+  const pick = a => a[Math.floor(Math.random()*a.length)];
+
+  /* ---------------- HUD ---------------- */
+  const tapeEl = document.getElementById('tape');
+  function tape(kind, text){
+    const li = document.createElement('li');
+    const t = new Date().toTimeString().slice(0,8);
+    li.innerHTML = '<span class="muted">'+t+'</span><span><span class="k k-'+kind+'">'+kind.toUpperCase()+'</span> '+text+'</span>';
+    tapeEl.prepend(li);
+    while(tapeEl.children.length > 12) tapeEl.lastChild.remove();
+  }
+  const positions = [
+    {tk:'SQID', mult:2.31, steps:1},
+    {tk:'BRINE', mult:1.18, steps:0},
+    {tk:'MOLLY', mult:0.86, steps:0}
+  ];
+  const posEl = document.getElementById('pos');
+  function drawPos(){
+    posEl.innerHTML = positions.map(p => '<li><span class="tk">$'+p.tk+'</span><span class="lad">'+[0,1,2,3].map(i=>'<span class="'+(i<p.steps?'on':'')+'"></span>').join('')+'</span><span class="'+(p.mult>=1?'up':'dn')+'" style="text-align:right">'+p.mult.toFixed(2)+'x</span></li>').join('');
+  }
+  drawPos();
+  let sensed = 0, callNo = 41;
+  const mindEl = document.getElementById('mind');
+  const moods = [
+    {n:'CALM', c:new THREE.Color(0x1fb5b0), x:30},
+    {n:'FOMO', c:new THREE.Color(0xc44dff), x:66},
+    {n:'GREED', c:new THREE.Color(0xd99a2b), x:80},
+    {n:'FEAR', c:new THREE.Color(0x3b2dbd), x:8},
+    {n:'DISGUST', c:new THREE.Color(0xd8345f), x:95}
+  ];
+  let moodIdx = 1;
+
+  /* ---------------- 3D TANK ---------------- */
+  const host = document.getElementById('tank3d');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+  } catch(e) {
+    host.innerHTML = '<div class="fallback">WebGL is not available here. The live tank needs it.<br>The event tape on the right still runs.</div>';
+  }
+
+  // HUD loop runs regardless of WebGL
+  function onCaught(kind, caller, ticker){
+    sensed++; document.getElementById('sensed').textContent = sensed;
+    if(kind==='fresh'){
+      tape('sense', caller+' → $'+ticker+' · age '+(2+Math.floor(Math.random()*14))+'m · stirring');
+      if(Math.random()<0.45) setTimeout(()=>tape('feel','BettaFish: $'+ticker+' narrative heat +'+(20+Math.floor(Math.random()*60))+'% on X/TG · skin '+moods[moodIdx].n), 600);
+      if(Math.random()<0.4) setTimeout(()=>{ const p=(0.42+Math.random()*0.35).toFixed(2); document.getElementById('pwave').textContent=p; tape('sim','MiroShark: 412 shadows · 2 branches · p(≥5 callers/2h)='+p); }, 1300);
+    } else if(kind==='echo'){
+      tape('echo', (3+Math.floor(Math.random()*4))+' calls on $'+ticker+' trace to 1 origin');
+      if(Math.random()<0.5) setTimeout(()=>tape('hunt','ink note left under '+caller+"'s callout · echo 0."+(6+Math.floor(Math.random()*3))), 800);
+    } else {
+      tape('hold', '$'+ticker+' crowded · '+caller+' called at +'+(60+Math.floor(Math.random()*160))+'%');
+    }
+  }
+  function buyAndCall(){
+    const tk = pick(tickers), sol = (0.8+Math.random()*2.4).toFixed(1), mc = (24+Math.random()*40).toFixed(1);
+    tape('buy','bought '+sol+' SOL $'+tk+' at '+mc+'k mcap · fill confirmed');
+    mindEl.textContent = 'Bought $'+tk+' · calling';
+    setTimeout(()=>{
+      callNo++;
+      tape('call','OCTO CALL #0'+callNo+' $'+tk+' posted · position + ladder disclosed');
+      positions.unshift({tk, mult:1.0, steps:0}); if(positions.length>4) positions.pop(); drawPos();
+      if(tank) tank.flare();
+      setTimeout(()=>{ mindEl.textContent='Stalking '+(2+Math.floor(Math.random()*3))+' waves'; },5000);
+    }, 1600);
+  }
+  function exitStep(){
+    const p = positions.find(q=>q.steps<4 && q.mult>1.6);
+    if(!p) return;
+    p.steps++; tape('exit','sold 25% $'+p.tk+' at '+p.mult.toFixed(1)+'x · exit callout posted'); drawPos();
+  }
+  function drift(){
+    positions.forEach(p=>{ p.mult = Math.max(0.3, p.mult*(1+(Math.random()-0.44)*0.08)); });
+    drawPos();
+    const n = (0.7+Math.random()*0.28).toFixed(2); document.getElementById('nratio').textContent = n;
+  }
+  function score(){
+    const hit = Math.random()<0.62;
+    tape('score','OCTO #0'+(callNo-1)+' wave check · '+(hit?'HIT · '+(5+Math.floor(Math.random()*4))+' callers in 1h'+(10+Math.floor(Math.random()*49))+'m':'MISS · 2 callers · logged'));
+  }
+  function shiftMood(){
+    moodIdx = (moodIdx + 1 + Math.floor(Math.random()*3)) % moods.length;
+    const m = moods[moodIdx];
+    document.getElementById('moodl').textContent = m.n+' '+(0.5+Math.random()*0.4).toFixed(2);
+    document.getElementById('moodi').style.left = m.x+'%';
+  }
+
+  tape('sense','@deepcurrent → $SQID · age 4m · stirring');
+  tape('sim','MiroShark: branch B adds +4 callers vs A');
+  tape('buy','bought 1.6 SOL $SQID at 31.0k mcap');
+  tape('call','OCTO CALL #041 $SQID posted · position disclosed');
+  tape('exit','sold 25% $SQID at 2.1x · exit callout posted');
+  tape('echo','5 calls on $BRINE trace to 1 origin');
+
+  let tank = null;
+  if(renderer) tank = buildTank();
+
+  const timers = [[buyAndCall, 17000, 9000],[exitStep, 9000, 6000],[drift, 2500, 1500],[score, 26000, 9000],[shiftMood, 14000, 8000]];
+  timers.forEach(([fn,base,jit])=>{ (function loop(){ setTimeout(()=>{ fn(); loop(); }, base + Math.random()*jit); })(); });
+  if(!tank){ (function loop(){ setTimeout(()=>{ onCaught(Math.random()<.6?'fresh':Math.random()<.6?'echo':'late', pick(callers), pick(tickers)); loop(); }, 2200); })(); }
+
+  function buildTank(){
+    renderer.setPixelRatio(Math.min(2, devicePixelRatio||1));
+    renderer.setClearColor(0x03050c, 1);
+    host.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x03050c, 0.04);
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+    camera.position.set(0, 1.4, 14.5);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableZoom = false; controls.enablePan = false; controls.enableDamping = true;
+    controls.autoRotate = !reduce; controls.autoRotateSpeed = 0.35;
+    controls.target.set(0, 0.6, 0);
+    controls.minPolarAngle = Math.PI*0.32; controls.maxPolarAngle = Math.PI*0.6;
+    if(coarse){ controls.enabled = false; document.getElementById('hint').textContent = ''; renderer.domElement.style.touchAction = 'auto'; }
+
+    const composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256,256), 1.05, 0.6, 0.1);
+    composer.addPass(bloom);
+
+    function resize(){
+      const w = host.clientWidth, h = host.clientHeight;
+      if(!w || !h) return;
+      renderer.setSize(w, h, false);
+      renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
+      composer.setSize(w, h);
+      camera.aspect = w/h;
+      camera.position.z = w < 560 ? 18.5 : 14.5;
+      camera.updateProjectionMatrix();
+    }
+    new ResizeObserver(resize).observe(host); resize();
+
+    /* -------- environment -------- */
+    const grid = new THREE.GridHelper(44, 44, 0x1d5866, 0x0e2333);
+    grid.position.y = -4.6; grid.material.transparent = true; grid.material.opacity = 0.45; scene.add(grid);
+
+    const surfMat = new THREE.ShaderMaterial({
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
+      uniforms:{uTime:{value:0}},
+      vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader:[
+        'uniform float uTime; varying vec2 vUv;',
+        'void main(){ vec2 p=(vUv-0.5)*40.0;',
+        ' float l=sin(p.x*0.9+uTime*0.5)+sin(p.y*0.8-uTime*0.35)+sin((p.x+p.y)*0.55+uTime*0.25);',
+        ' float a=pow(1.0-abs(sin(l*1.6)),14.0)*0.5;',
+        ' a*=smoothstep(19.0,3.0,length(p));',
+        ' gl_FragColor=vec4(vec3(0.25,0.95,0.9)*a,a); }'
+      ].join('\n')
+    });
+    const surf = new THREE.Mesh(new THREE.PlaneGeometry(40,40,1,1), surfMat);
+    surf.rotation.x = -Math.PI/2; surf.position.y = 4.9; scene.add(surf);
+
+    const snowN = 900, snowPos = new Float32Array(snowN*3);
+    for(let i=0;i<snowN;i++){ snowPos[i*3]=(Math.random()-.5)*34; snowPos[i*3+1]=Math.random()*10-4.8; snowPos[i*3+2]=(Math.random()-.5)*30; }
+    const snowGeo = new THREE.BufferGeometry(); snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos,3));
+    const snow = new THREE.Points(snowGeo, new THREE.PointsMaterial({color:0x6f86a8, size:0.045, transparent:true, opacity:0.55, depthWrite:false}));
+    scene.add(snow);
+
+    /* -------- octopus head -------- */
+    const headMat = new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0}, uPulse:{value:0}, uMood:{value:moods[moodIdx].c.clone()}},
+      vertexShader:[
+        'uniform float uTime; uniform float uPulse; varying vec3 vN; varying vec3 vV; varying vec3 vP;',
+        'void main(){ vec3 p=position; float w=sin(p.y*4.0+uTime*1.3)*0.025+uPulse*0.05; p+=normal*w;',
+        ' vec4 mv=modelViewMatrix*vec4(p,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); vP=position;',
+        ' gl_Position=projectionMatrix*mv; }'
+      ].join('\n'),
+      fragmentShader:[
+        'uniform float uTime; uniform float uPulse; uniform vec3 uMood; varying vec3 vN; varying vec3 vV; varying vec3 vP;',
+        'void main(){ float f=pow(1.0-max(dot(vN,vV),0.0),2.0);',
+        ' vec3 irid=0.5+0.5*cos(6.2831*(vec3(0.0,0.33,0.67)+f*1.1+vP.y*0.35+uTime*0.04));',
+        ' float s=sin(vP.x*11.0+uTime*0.6)*sin(vP.y*9.0-uTime*0.45)*sin(vP.z*10.0+uTime*0.3);',
+        ' float spots=smoothstep(0.35,0.9,s);',
+        ' vec3 base=uMood*(0.22+spots*0.55);',
+        ' vec3 col=base+irid*f*0.85+vec3(0.25,0.95,0.9)*uPulse*0.45;',
+        ' gl_FragColor=vec4(col,1.0); }'
+      ].join('\n')
+    });
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1, 72, 72), headMat);
+    head.scale.set(1.05, 1.35, 1.0); head.position.set(0, 1.45, -0.1); head.rotation.x = -0.22;
+    scene.add(head);
+    const eyeGeo = new THREE.SphereGeometry(0.17, 24, 24), pupilGeo = new THREE.SphereGeometry(0.07, 16, 16);
+    const eyeMat = new THREE.MeshBasicMaterial({color:0x05070f}), pupilMat = new THREE.MeshBasicMaterial({color:COL.lume});
+    const eyes = [-1,1].map(s=>{
+      const e = new THREE.Mesh(eyeGeo, eyeMat); e.position.set(s*0.48, 0.88, 0.8); scene.add(e);
+      const p = new THREE.Mesh(pupilGeo, pupilMat); p.position.set(s*0.48, 0.88, 0.95); scene.add(p);
+      return {e,p};
+    });
+
+    /* -------- tentacles -------- */
+    const SEG = 60, RAD = 10;
+    const armMat = new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0}, uMood:{value:moods[moodIdx].c.clone()}},
+      vertexShader:[
+        'attribute float aActive; varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vA;',
+        'void main(){ vUv=uv; vA=aActive; vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }'
+      ].join('\n'),
+      fragmentShader:[
+        'uniform float uTime; uniform vec3 uMood; varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying float vA;',
+        'void main(){ float f=pow(1.0-max(dot(vN,vV),0.0),2.0);',
+        ' vec3 tipC=mix(vec3(0.75,0.3,1.0),vec3(0.25,0.95,0.88),vA);',
+        ' vec3 c=mix(uMood*0.5,tipC*0.55,vUv.x);',
+        ' float suck=smoothstep(0.7,1.0,sin(vUv.x*150.0))*smoothstep(0.55,1.0,sin(vUv.y*6.2831));',
+        ' c+=vec3(0.85,0.95,1.0)*suck*(0.25+vA*0.6);',
+        ' c+=mix(vec3(0.5,0.3,1.0),vec3(0.25,1.0,0.9),vUv.x)*f*0.8;',
+        ' float run=smoothstep(0.08,0.0,abs(fract(vUv.x+uTime*0.9)-0.5))*vA;',
+        ' c+=vec3(0.3,1.0,0.85)*run*1.4;',
+        ' gl_FragColor=vec4(c,1.0); }'
+      ].join('\n')
+    });
+    const arms = [];
+    for(let i=0;i<8;i++){
+      const ang = (i/8)*Math.PI*2 + Math.PI/8;
+      arms.push({i, ang, phase:Math.random()*6.28, w:0, grab:null, mesh:null, tip:new THREE.Vector3()});
+    }
+    const tmpPts = [];
+    for(let k=0;k<16;k++) tmpPts.push(new THREE.Vector3());
+    function restPoint(a, s, t, out){
+      const ang = a.ang + Math.sin(t*0.35+a.phase)*0.1 + s*0.35*Math.sin(t*0.27+a.phase*1.3);
+      const r = 0.55 + s*3.8;
+      const wv = Math.sin(s*5.2 - t*1.5 + a.phase)*0.38*s;
+      const y = 0.4 - s*2.6 + Math.sin(s*Math.PI)*0.7 + Math.cos(s*4.0 - t*1.1 + a.phase)*0.25*s + (s>0.78 ? (s-0.78)*2.2 : 0);
+      out.set(Math.cos(ang)*r - Math.sin(ang)*wv, y, Math.sin(ang)*r + Math.cos(ang)*wv);
+      return out;
+    }
+    const restTip = new THREE.Vector3(), off = new THREE.Vector3();
+    function buildArm(a, t){
+      const N = tmpPts.length;
+      restPoint(a, 1, t, restTip);
+      if(a.grab) off.copy(a.grab.sprite.position).sub(restTip); else off.set(0,0,0);
+      for(let k=0;k<N;k++){
+        const s = k/(N-1);
+        restPoint(a, s, t, tmpPts[k]);
+        const sm = s*s*(3-2*s);
+        tmpPts[k].addScaledVector(off, sm*a.w);
+      }
+      a.tip.copy(tmpPts[N-1]);
+      const curve = new THREE.CatmullRomCurve3(tmpPts);
+      const geo = new THREE.TubeGeometry(curve, SEG, 0.24, RAD, false);
+      const pos = geo.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
+      for(let i=0;i<=SEG;i++){
+        curve.getPointAt(i/SEG, c);
+        const taper = 1 - 0.9*Math.pow(i/SEG, 0.85);
+        for(let j=0;j<=RAD;j++){
+          const idx = i*(RAD+1)+j;
+          v.fromBufferAttribute(pos, idx).sub(c).multiplyScalar(taper).add(c);
+          pos.setXYZ(idx, v.x, v.y, v.z);
+        }
+      }
+      const act = new Float32Array(pos.count).fill(a.grab ? 1 : 0);
+      geo.setAttribute('aActive', new THREE.BufferAttribute(act, 1));
+      geo.computeVertexNormals();
+      if(a.mesh){ a.mesh.geometry.dispose(); a.mesh.geometry = geo; }
+      else { a.mesh = new THREE.Mesh(geo, armMat); scene.add(a.mesh); }
+    }
+
+    /* -------- callout sprites -------- */
+    function pillTex(text, color, bold){
+      const cv = document.createElement('canvas'); cv.width = 640; cv.height = 112;
+      const x = cv.getContext('2d');
+      x.fillStyle = 'rgba(4,8,18,0.9)'; x.strokeStyle = color; x.lineWidth = bold ? 6 : 4;
+      const r = 50; x.beginPath(); x.moveTo(r+6,6); x.arcTo(634,6,634,106,r); x.arcTo(634,106,6,106,r); x.arcTo(6,106,6,6,r); x.arcTo(6,6,634,6,r); x.closePath(); x.fill(); x.stroke();
+      x.fillStyle = color; x.beginPath(); x.arc(52,56,12,0,6.28); x.fill();
+      x.fillStyle = '#e8f0fa'; x.font = '600 38px "JetBrains Mono", monospace'; x.textBaseline = 'middle'; x.fillText(text, 80, 58);
+      const t = new THREE.CanvasTexture(cv); t.anisotropy = 4; return t;
+    }
+    const kindHex = {fresh:'#3ff0e0', echo:'#ff4f8b', late:'#ffb547'};
+    const pills = [];
+    function spawnPill(){
+      const r = Math.random(), kind = r<0.6?'fresh':r<0.82?'echo':'late';
+      const caller = pick(callers), ticker = pick(tickers);
+      const mat = new THREE.SpriteMaterial({map:pillTex(caller+' → $'+ticker, kindHex[kind]), transparent:true, depthWrite:false, fog:true});
+      const s = new THREE.Sprite(mat); s.scale.set(3.4, 0.6, 1);
+      const ang = Math.random()*Math.PI*2, rad = 12 + Math.random()*2;
+      s.position.set(Math.cos(ang)*rad, -1.8 + Math.random()*4.2, Math.sin(ang)*rad);
+      scene.add(s);
+      pills.push({sprite:s, kind, caller, ticker, state:'drift', speed:0.9+Math.random()*0.6});
+    }
+    function removePill(p){ scene.remove(p.sprite); p.sprite.material.map.dispose(); p.sprite.material.dispose(); p.state='gone'; }
+
+    /* -------- token orbs (water column) -------- */
+    const regimes = [
+      {n:'dormant', c:COL.dorm, drift:0.0}, {n:'stirring', c:COL.kelp, drift:0.004}, {n:'ignition', c:COL.lume, drift:0.007},
+      {n:'wave', c:COL.blue, drift:0.004}, {n:'crowded', c:COL.ember, drift:0.0007}, {n:'distribution', c:COL.ink, drift:-0.005}
+    ];
+    const orbs = [];
+    const orbGeo = new THREE.SphereGeometry(1, 20, 20);
+    function labelTex(text){
+      const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const x = cv.getContext('2d');
+      x.fillStyle = '#9fb0c8'; x.font = '600 30px "JetBrains Mono", monospace'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 34);
+      return new THREE.CanvasTexture(cv);
+    }
+    function newOrb(o, i){
+      o.reg = Math.random()<0.5 ? 1 : Math.floor(Math.random()*6);
+      o.prog = Math.random()*0.5;
+      o.ticker = pick(tickers);
+      o.mesh.material.color.setHex(regimes[o.reg].c);
+      if(o.label){ o.label.material.map.dispose(); o.label.material.map = labelTex('$'+o.ticker); o.label.material.needsUpdate = true; }
+    }
+    for(let i=0;i<16;i++){
+      const ang = (i/16)*Math.PI*2 + Math.random()*0.2, rad = 8 + Math.random()*2.5;
+      const mesh = new THREE.Mesh(orbGeo, new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.9}));
+      const sz = 0.14 + Math.random()*0.16; mesh.scale.setScalar(sz);
+      const label = new THREE.Sprite(new THREE.SpriteMaterial({map:labelTex('$'), transparent:true, depthWrite:false, opacity:0.75}));
+      label.scale.set(1.2, 0.3, 1);
+      scene.add(mesh); scene.add(label);
+      const o = {ang, rad, mesh, label, sz, phase:Math.random()*6.28};
+      newOrb(o, i);
+      orbs.push(o);
+    }
+
+    /* -------- effects -------- */
+    const rings = [];
+    const ringGeo = new THREE.RingGeometry(0.96, 1, 128);
+    function ring(y, color, speed){
+      const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.9, side:THREE.DoubleSide, depthWrite:false}));
+      m.rotation.x = -Math.PI/2; m.position.y = y; scene.add(m); rings.push({m, life:1, speed});
+    }
+    const bursts = [];
+    function burst(pos, color, n){
+      const g = new THREE.BufferGeometry(), arr = new Float32Array(n*3), vel = [];
+      for(let i=0;i<n;i++){ arr[i*3]=pos.x; arr[i*3+1]=pos.y; arr[i*3+2]=pos.z; vel.push(new THREE.Vector3((Math.random()-.5),(Math.random()-.5),(Math.random()-.5)).normalize().multiplyScalar(0.6+Math.random()*1.6)); }
+      g.setAttribute('position', new THREE.BufferAttribute(arr,3));
+      const pts = new THREE.Points(g, new THREE.PointsMaterial({color, size:0.22, transparent:true, opacity:0.85, depthWrite:false, blending:THREE.AdditiveBlending}));
+      scene.add(pts); bursts.push({pts, vel, life:1});
+    }
+    const flares = [];
+    function flare(){
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), new THREE.MeshBasicMaterial({color:COL.kelp}));
+      m.position.set(0, 2.9, 0); scene.add(m); flares.push({m, life:1});
+      ring(-2.2, COL.kelp, 6);
+      headMat.uniforms.uPulse.value = 1;
+    }
+
+    /* -------- loop -------- */
+    const clock = new THREE.Clock();
+    let tSpawn = 0.5, lastSonar = 0;
+    const moodTarget = new THREE.Color();
+    function frame(){
+      const dt = Math.min(0.05, clock.getDelta());
+      const t = clock.elapsedTime;
+      headMat.uniforms.uTime.value = t; armMat.uniforms.uTime.value = t; surfMat.uniforms.uTime.value = t;
+      moodTarget.copy(moods[moodIdx].c);
+      headMat.uniforms.uMood.value.lerp(moodTarget, 0.02); armMat.uniforms.uMood.value.lerp(moodTarget, 0.02);
+      headMat.uniforms.uPulse.value *= 0.95;
+      const blink = Math.sin(t*1.1) > 0.992 ? 0.15 : 1;
+      eyes.forEach(e=>{ e.e.scale.y = blink; e.p.scale.y = blink; });
+
+      const sp = snow.geometry.attributes.position;
+      for(let i=0;i<snowN;i++){ let y = sp.getY(i) + dt*0.12; if(y>5) y=-4.8; sp.setY(i,y); }
+      sp.needsUpdate = true;
+
+      tSpawn -= dt;
+      if(tSpawn <= 0){ spawnPill(); tSpawn = 1.2 + Math.random()*1.3; }
+      if(t - lastSonar > 9){ lastSonar = t; ring(-4.55, COL.lume, 9); }
+
+      // pills
+      pills.forEach(p=>{
+        if(p.state==='drift'){
+          const pos = p.sprite.position; const hr = Math.hypot(pos.x, pos.z);
+          const k = (p.speed*dt)/hr; pos.x -= pos.x*k; pos.z -= pos.z*k;
+          if(hr < 4.9){
+            let best=null, bd=9;
+            const pa = Math.atan2(pos.z, pos.x);
+            arms.forEach(a=>{ if(a.grab) return; let d = Math.abs(((pa - a.ang + Math.PI*3) % (Math.PI*2)) - Math.PI); if(d<bd){bd=d; best=a;} });
+            if(best){ best.grab = p; p.state='reach'; p.arm = best; }
+            else if(hr < 2.2){ removePill(p); }
+          }
+        }
+      });
+      arms.forEach(a=>{
+        const p = a.grab;
+        if(p){
+          if(p.state==='reach'){ a.w = Math.min(1, a.w + dt*1.3); if(a.w>=1){ p.state='carry'; } }
+          else if(p.state==='carry'){
+            a.w = Math.max(0, a.w - dt*0.9);
+            p.sprite.scale.multiplyScalar(0.985);
+            p.sprite.material.opacity = Math.min(1, a.w*1.4);
+            if(a.w < 0.12){
+              const at = a.tip.clone();
+              removePill(p); a.grab = null;
+              headMat.uniforms.uPulse.value = Math.max(headMat.uniforms.uPulse.value, 0.7);
+              if(p.kind==='echo') burst(at, COL.ink, 70);
+              else if(p.kind==='fresh') burst(at, COL.lume, 24);
+              onCaught(p.kind, p.caller, p.ticker);
+            }
+          }
+        } else {
+          a.w = Math.max(0, a.w - dt*0.8);
+        }
+        buildArm(a, t);
+        if(a.grab && a.grab.state==='carry') a.grab.sprite.position.copy(a.tip);
+      });
+      for(let i=pills.length-1;i>=0;i--) if(pills[i].state==='gone') pills.splice(i,1);
+
+      // orbs
+      orbs.forEach(o=>{
+        const R = regimes[o.reg];
+        o.prog += R.drift*dt*(0.6+Math.random()*0.8);
+        if(Math.random() < dt*0.05){ o.reg = Math.min(5, Math.max(0, o.reg + (Math.random()<0.6?1:-1))); o.mesh.material.color.setHex(regimes[o.reg].c); }
+        const y = -4.2 + o.prog*9.1 + Math.sin(t*0.8+o.phase)*0.12;
+        const ang = o.ang + t*0.01;
+        o.mesh.position.set(Math.cos(ang)*o.rad, y, Math.sin(ang)*o.rad);
+        o.label.position.set(o.mesh.position.x, y + o.sz + 0.32, o.mesh.position.z);
+        if(o.prog >= 1){
+          tape('grad','$'+o.ticker+' breached the surface · graduated to PumpSwap');
+          ring(4.88, COL.lume, 7); burst(o.mesh.position.clone(), COL.lume, 40);
+          o.reg = 1; o.prog = 0.02; o.ticker = pick(tickers); newOrb(o); o.prog = 0.02;
+        } else if(o.prog < 0){ o.prog = 0; o.reg = 0; o.mesh.material.color.setHex(regimes[0].c); }
+      });
+
+      // effects
+      rings.forEach(r=>{ r.life -= dt*0.45; const s = (1-r.life)*r.speed + 0.5; r.m.scale.set(s,s,s); r.m.material.opacity = Math.max(0, r.life*0.8); });
+      for(let i=rings.length-1;i>=0;i--) if(rings[i].life<=0){ scene.remove(rings[i].m); rings[i].m.material.dispose(); rings.splice(i,1); }
+      bursts.forEach(b=>{ const a = b.pts.geometry.attributes.position; b.vel.forEach((v,i)=>{ a.setXYZ(i, a.getX(i)+v.x*dt, a.getY(i)+v.y*dt, a.getZ(i)+v.z*dt); v.multiplyScalar(0.97); }); a.needsUpdate = true; b.life -= dt*0.6; b.pts.material.opacity = Math.max(0,b.life); });
+      for(let i=bursts.length-1;i>=0;i--) if(bursts[i].life<=0){ scene.remove(bursts[i].pts); bursts[i].pts.geometry.dispose(); bursts[i].pts.material.dispose(); bursts.splice(i,1); }
+      flares.forEach(f=>{ f.life -= dt*0.4; f.m.position.y += dt*1.2; f.m.scale.setScalar(1 + (1-f.life)*1.5); });
+      for(let i=flares.length-1;i>=0;i--) if(flares[i].life<=0){ burst(flares[i].m.position.clone(), COL.kelp, 50); scene.remove(flares[i].m); flares.splice(i,1); }
+
+      controls.update();
+      composer.render();
+    }
+    function run(){ frame(); requestAnimationFrame(run); }
+    if(reduce){ frame(); setInterval(frame, 1000); } else run();
+    return {flare};
+  }
+
+  /* ---------------- 2D charts ---------------- */
+  function rng(seed){ return function(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function setup(id){
+    const c = document.getElementById(id); const r = c.getBoundingClientRect(); const d = Math.min(2, devicePixelRatio||1);
+    c.width = r.width*d; c.height = r.height*d; const x = c.getContext('2d'); x.setTransform(d,0,0,d,0,0);
+    return {x, w:r.width, h:r.height};
+  }
+  const mist = tok('--mist'), kelpLine = tok('--kelp'), lume = tok('--lume'), iris = tok('--iris'), foam = tok('--foam');
+
+  function drawFutures(){
+    const {x,w,h} = setup('futures');
+    const R = rng(7), T = 120, runs = 60;
+    const pad = {l:34, r:12, t:12, b:24};
+    const sim = (boost) => { const out=[]; for(let k=0;k<runs;k++){ let n=0, lam=0; const path=[0];
+      for(let t=1;t<=T;t++){ lam = lam*Math.exp(-1/18); const base = 0.018 + (t===2?boost:0); const p = base + lam*0.045;
+        if(R() < p){ n++; lam += 1; } if(t===2 && boost>0) lam += 2.2; path.push(n); }
+      out.push(path);} return out; };
+    const A = sim(0), B = sim(0.9);
+    const finals = arr => arr.map(p=>p[T]).sort((a,b)=>a-b);
+    const medA = finals(A)[Math.floor(runs/2)], medB = finals(B)[Math.floor(runs/2)];
+    const maxY = Math.max(10, Math.ceil(Math.max(...finals(A), ...finals(B))/2)*2);
+    const X = t => pad.l + t/T*(w-pad.l-pad.r), Y = v => h-pad.b - v/maxY*(h-pad.t-pad.b);
+    x.strokeStyle = kelpLine; x.lineWidth = 1; x.fillStyle = mist; x.font = '10px "JetBrains Mono", monospace';
+    for(let v=0; v<=maxY; v+=maxY/2){ x.beginPath(); x.moveTo(pad.l, Y(v)); x.lineTo(w-pad.r, Y(v)); x.stroke(); x.fillText(String(v), 6, Y(v)+3); }
+    [0,30,60,90,120].forEach(t=>{ x.fillText(t+'m', X(t)-8, h-6); });
+    const drawSet = (set, col) => { x.strokeStyle = col; x.globalAlpha = 0.12; set.forEach(p=>{ x.beginPath(); p.forEach((v,t)=> t?x.lineTo(X(t),Y(v)):x.moveTo(X(t),Y(v))); x.stroke(); }); x.globalAlpha = 1; };
+    drawSet(A, iris); drawSet(B, lume);
+    const median = set => { const m=[]; for(let t=0;t<=T;t++){ const s=set.map(p=>p[t]).sort((a,b)=>a-b); m.push(s[Math.floor(runs/2)]); } return m; };
+    [[median(A), iris],[median(B), lume]].forEach(([m,col])=>{ x.strokeStyle=col; x.lineWidth=2.5; x.beginPath(); m.forEach((v,t)=> t?x.lineTo(X(t),Y(v)):x.moveTo(X(t),Y(v))); x.stroke(); x.fillStyle=col; x.beginPath(); x.arc(X(T),Y(m[T]),3.5,0,6.28); x.fill(); });
+    x.fillStyle = foam; x.fillText('callers', pad.l+4, pad.t+8);
+    document.getElementById('futuresCap').innerHTML = 'Simulated sample, 60 runs per branch. <span style="color:'+iris+'">Branch A, no octopus call: median '+medA+' callers</span> · <span style="color:'+lume+'">Branch B, octopus calls at 2m: median '+medB+'</span> · impact +'+(medB-medA);
+  }
+
+  function drawHawkes(){
+    const {x,w,h} = setup('hawkes');
+    const R = rng(21), T = 180, mu = 0.012, alpha = 0.82, beta = 1/9;
+    const pad = {l:34, r:12, t:14, b:30};
+    const events = [];
+    let lam = mu, t = 0; const curve = [];
+    const forced = 40;
+    for(let s=0; s<=T*4; s++){
+      t = s/4;
+      lam = mu + events.reduce((acc,e)=> acc + alpha*beta*Math.exp(-beta*(t-e.t))*e.w, 0);
+      curve.push([t, lam]);
+      if(Math.abs(t-forced)<0.01){ events.push({t, w:2.2, first:true}); continue; }
+      if(R() < lam/4) events.push({t, w:1});
+    }
+    const maxL = Math.max(...curve.map(c=>c[1]))*1.15;
+    const X = v => pad.l + v/T*(w-pad.l-pad.r), Y = v => h-pad.b - v/maxL*(h-pad.t-pad.b);
+    x.strokeStyle = kelpLine; x.lineWidth = 1; x.font = '10px "JetBrains Mono", monospace'; x.fillStyle = mist;
+    x.beginPath(); x.moveTo(pad.l, h-pad.b); x.lineTo(w-pad.r, h-pad.b); x.stroke();
+    [0,60,120,180].forEach(v=>x.fillText(v+'m', X(v)-8, h-6));
+    const g = x.createLinearGradient(0, pad.t, 0, h-pad.b); g.addColorStop(0, 'rgba(63,240,224,.35)'); g.addColorStop(1, 'rgba(63,240,224,0)');
+    x.beginPath(); x.moveTo(X(0), Y(0)); curve.forEach(([tt,l])=>x.lineTo(X(tt), Y(l))); x.lineTo(X(T), Y(0)); x.closePath(); x.fillStyle = g; x.fill();
+    x.beginPath(); curve.forEach(([tt,l],i)=> i?x.lineTo(X(tt),Y(l)):x.moveTo(X(tt),Y(l))); x.strokeStyle = lume; x.lineWidth = 1.8; x.stroke();
+    events.forEach(e=>{ x.fillStyle = e.first ? tok('--kelpgreen') : iris; x.fillRect(X(e.t)-1, h-pad.b+3, 2, e.first?10:6); });
+    x.fillStyle = foam; x.fillText('intensity λ(t)', pad.l+4, pad.t+6);
+    const fx = X(forced); x.fillStyle = tok('--kelpgreen'); x.fillText('bellwether calls', Math.min(fx+6, w-110), Y(maxL*0.82));
+    const n = alpha.toFixed(2);
+    document.getElementById('hawkesCap').textContent = 'Simulated sample. '+events.length+' callouts in 3h after one bellwether call. Branching ratio n = '+n+'; a cascade explodes as n approaches 1.';
+  }
+  drawFutures(); drawHawkes();
+  let rz; addEventListener('resize', ()=>{ clearTimeout(rz); rz = setTimeout(()=>{ drawFutures(); drawHawkes(); }, 200); });
+})();
+</script>

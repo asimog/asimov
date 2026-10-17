@@ -1,0 +1,23 @@
+# Reference code: read-only, never committed, never imported. See references/UPSTREAM.md
+/references/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.keypair.json
+agent-browser-state/
+
+# Dependencies and builds
+node_modules/
+.pnpm-store/
+.venv/
+__pycache__/
+.next/
+dist/
+build/
+
+# Runtime data (tapes live in object storage; small fixture tapes live in tests/e2e/fixtures)
+data/
+artifacts/
+*.har
