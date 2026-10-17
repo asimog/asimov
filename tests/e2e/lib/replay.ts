@@ -12,7 +12,7 @@ import { drain } from "../../../services/core/src/tape/consumer.ts";
 import { Tape } from "../../../services/core/src/tape/tape.ts";
 
 /** Topics produced by our own deciders. A replay re-derives them, so recorded copies are skipped. */
-export const DERIVED = ["intent.", "order.", "markout.", "commit.", "position.", "strategy.", "kernel.", "outcome.", "score."];
+export const DERIVED = ["intent.", "order.", "markout.", "commit.", "position.", "strategy.", "kernel.", "outcome.", "score.", "thesis.", "post.queued"];
 export const isDerived = (topic: string) => DERIVED.some((p) => topic.startsWith(p));
 
 export type Row = { id: string; topic: string; v: number; event_time: string; seen_time: string; source: string; subject: string | null; causes: string[]; mode: string; body: unknown };

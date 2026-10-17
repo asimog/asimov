@@ -170,6 +170,7 @@ Consequences for the desk:
 5. **Public forecasts are free credibility.** Paper forecasts on prediction markets build an outside-verified record from week one.
 6. **Predicting is not profiting** (added 2026-10-17 from the literature, docs/research/literature-review.md). Graduation is predictable from early flow, yet the unconditional graduation curve sits below the buy-and-hold breakeven `vSol² / 115²` (arXiv:2602.14860), and 48 exit rules on the best launch segment all lost 10% to 17% (Chrisymcsoup/solana-launch-study). Our first tape agrees. Every claim of skill is therefore stated net of costs at our size.
 7. **What we see is what our collectors saw.** Coverage and corrections are published with every number (docs/07 coverage).
+8. **The callout is announced by its caller's buy** (added 2026-10-17, docs/research/pre-call-evidence.md). Posting requires holding, so the author buys first: a median 57 s before the callout on the fixture, and the median 3-minute peak after the callout sat 1.30x above that buy, while the price 3 minutes after the callout sat 0.79x below it. The edge is on the buy side of the callout, not the follow side. The desk trades the pre-call window and posts its own callouts (docs/08, docs/09).
 
 ## 8. What could we be wrong about?
 

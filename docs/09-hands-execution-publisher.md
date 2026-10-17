@@ -55,9 +55,27 @@ Payout and seat endpoints (burn, refund, distribution) are added at milestone M5
 
 Everything else is refused and logged. The signer rate-limits each endpoint and keeps its own audit log.
 
+## Thesis
+
+Every callout we make starts as a thesis: the claim, why we believe it, what would prove it wrong, and the plan. It is formed in code from the Board and the strategy's spec at the moment of our (ghost or live) fill. No LLM writes it.
+
+| Part | Holds |
+|---|---|
+| `kind` | `pre_call` (formed on a known caller's buy, before any callout from them) or `post_call` |
+| `claims[]` | One line each, labelled with its evidence class (docs/03): `observed` (flow numbers, curve), `computed` (signal values as named buckets, docs/17), `ai_judgment` (Jev answers, with model) |
+| `prediction` | P(a callout on the coin within the horizon) for `pre_call`, or the strategy's win chance for `post_call`, with the horizon |
+| `plan` | Entry price and size, the exit ladder (bands, not exact levels), the stop, the hold limit |
+| `invalidation[]` | What ends the thesis early: the stop, the hold limit, no callout within the horizon (pre-call) |
+
+The thesis is committed (`commit.made`, kind `hypothesis`, `reveal_after` = the hold limit) before the callout is queued, and revealed when the house position closes. `thesis.formed` carries the content and the commit id.
+
 ## Publisher
 
-Input: `post.queued`. Output: `post.published` or `post.refused`.
+Input: house positions (ghost fills and closes on the paper desk; `order.filled` live). Output: `thesis.formed`, `post.queued`, and live only `post.published` or `post.refused`.
+
+**Paper mode (built, S6.0).** On paper the Publisher (`hands/publisher.ts`) writes `post.queued` with `paper: true` and never posts. The first fill of a calling strategy (`call.policy` not `silent`) on a coin with no open house callout becomes the **house position** and its callout. Exits of the house position become updates; its close becomes the final update and reveals the thesis. Fills of other strategies on that coin stay on their own ghost books and are not posted (one coin, one callout). Every paper text starts with `PAPER.` The Scorekeeper scores house callouts as the caller `house` (docs/07). A text that fails a check is not queued; `system.note` (kind `post_refused`) records the rule.
+
+**Live mode (S6.3).** `post.queued` without `paper` is what S8 posts, with the eligibility checks below.
 
 ### What it posts
 
@@ -73,7 +91,7 @@ Input: `post.queued`. Output: `post.published` or `post.refused`.
 1. Holding ≥ the platform's threshold (Phase 0 records the value). If not, wait for confirmation up to 60 s, then refuse with `holding_below_threshold`.
 2. No active callout of ours on this coin (else this is an update).
 3. Callout cooldown and update cooldown windows. Updates that land inside one cooldown window are merged into one update.
-4. Text passes the Jev `guard` pack (outbound thresholds) and our code checks: no person named as a scammer, no promises of returns, position disclosed, no emojis or em dashes.
+4. Text passes the Jev `guard` pack (outbound thresholds) and our code checks (`hands/text-checks.ts`, run on paper too): position disclosed (`Bought <size> SOL` on a callout), no emojis, no em or en dashes, no promise words, no handles or wallet addresses (never call out a person), at most 280 characters, and `PAPER.` first in paper mode. A failed check refuses the post with `text_check:<rule>`.
 
 ### How it posts
 

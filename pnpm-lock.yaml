@@ -69,9 +69,6 @@ importers:
       '@nats-io/nats-core':
         specifier: 3.4.0
         version: 3.4.0
-      '@pump-fun/agent-payments-sdk':
-        specifier: 3.0.3
-        version: 3.0.3(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@7.0.2)(utf-8-validate@6.0.6)
       '@pump-fun/pump-sdk':
         specifier: 4.1.0
         version: 4.1.0(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@7.0.2)(utf-8-validate@6.0.6)
@@ -650,9 +647,6 @@ packages:
 
   '@pump-fun/agent-payments-sdk@1.0.7':
     resolution: {integrity: sha512-RnYh3GDMTaLvrmu9Hz4W11ulRNQYhrQoOOJyhpMa/wMRuY7ibhoQczcA17R3Zy3fKyhveiLmYI+GKF4pnp2nVg==}
-
-  '@pump-fun/agent-payments-sdk@3.0.3':
-    resolution: {integrity: sha512-VUAGDs7EFJ+RI+nHxeBGjOAqbYQ1kWLJhyX2Wa+N7GCZM/ojL0ONGdc4HdvW+7j0m+vG8IfeeGWXCrK5ninA+A==}
 
   '@pump-fun/pump-sdk@4.1.0':
     resolution: {integrity: sha512-bjxHqUFgC6mcltooQZBbfIrmNBXeiCQNXGhEFPGaOSOCG47vuos153uAbIRL4dESa+6IaVodYUvIMWvgm9DV1w==}
@@ -2405,20 +2399,6 @@ snapshots:
       - '@opentelemetry/api'
 
   '@pump-fun/agent-payments-sdk@1.0.7(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@7.0.2)(utf-8-validate@6.0.6)':
-    dependencies:
-      '@coral-xyz/anchor': 0.31.1(bufferutil@4.1.0)(typescript@7.0.2)(utf-8-validate@6.0.6)
-      '@solana/spl-token': 0.4.15(@solana/web3.js@1.99.0(bufferutil@4.1.0)(typescript@7.0.2)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@7.0.2)(utf-8-validate@6.0.6)
-      '@solana/web3.js': 1.99.0(bufferutil@4.1.0)(typescript@7.0.2)(utf-8-validate@6.0.6)
-    optionalDependencies:
-      '@rollup/rollup-linux-x64-gnu': 4.64.7
-    transitivePeerDependencies:
-      - bufferutil
-      - encoding
-      - fastestsmallesttextencoderdecoder
-      - typescript
-      - utf-8-validate
-
-  '@pump-fun/agent-payments-sdk@3.0.3(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@7.0.2)(utf-8-validate@6.0.6)':
     dependencies:
       '@coral-xyz/anchor': 0.31.1(bufferutil@4.1.0)(typescript@7.0.2)(utf-8-validate@6.0.6)
       '@solana/spl-token': 0.4.15(@solana/web3.js@1.99.0(bufferutil@4.1.0)(typescript@7.0.2)(utf-8-validate@6.0.6))(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@7.0.2)(utf-8-validate@6.0.6)

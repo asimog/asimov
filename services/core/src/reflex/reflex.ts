@@ -145,7 +145,7 @@ export function reflexTrigger(tape: Tape, clock: Clock): ReflexTrigger {
       // Replays never call Jev: they read the recorded jev.answer events.
       if (clock.mode === "replay" || !client) return;
       for (const e of events as Envelope<BodyOf<"callout.created">>[]) {
-        if (clock.now() - Date.parse(e.seen_time) > maxAgeMs) continue;
+        if (e.body.via === "history" || clock.now() - Date.parse(e.seen_time) > maxAgeMs) continue;
         if ((e.body.author_followers ?? 0) < minFollowers || !e.body.text.trim()) continue;
         queue.push({ pack: "callout", subject: e.body.callout_id, state: calloutState(e.body), causes: [e.id] });
         if (queue.length > queueMax) (queue.shift(), stats.skipped++);

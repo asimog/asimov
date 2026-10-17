@@ -191,7 +191,8 @@ One binary for humans and agents. The LangGraph agents use the same commands as 
 | `ctl coin <mint\|cn_id>` / `ctl caller <id>` | Projection plus recent events. |
 | `ctl case <callout_id> [--md]` | The case file for one callout (docs/07). |
 | `ctl callers [--h 5]` | The caller ledger, methodology `cl1` (docs/07). |
-| `ctl coverage` | Gaps per source, coins called vs. coins with trades, outcomes per coverage status. |
+| `ctl coverage` | Gaps per source, coins called vs. coins with trades, outcomes per coverage status, trades per collector and their overlap, callouts announced by the author's buy. |
+| `ctl house [--h 5] [--n 20]` | The house's ledger row next to the crowd baseline, and its latest paper posts (docs/09). |
 | `ctl analyzers` | Analyzer list, status, last signal, score, budget. `--useless` flags low-value analyzers. |
 | `ctl jev <pack> <subject> [--dry]` | Show the state Reflex would send and the last answers; `--dry` prints without calling Jev. |
 | `ctl sessions` | 8 sessions: current task, URL, frame rate, health. |

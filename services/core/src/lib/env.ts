@@ -53,10 +53,12 @@ export const env = {
 };
 
 const SECRET = /(KEY|PASS|TOKEN|SECRET|SEED)/;
+/** Providers put keys in the path (QuickNode, Chainstack) or the query (Helius, RPC Fast): show only scheme and host. */
+const hideUrls = (v: string) => v.replace(/((?:https?|wss?):\/\/[^/?#\s|,]+)[^\s|,]*/g, (_m, origin: string) => `${origin}/***`);
 export function redact(): Record<string, string> {
   return Object.fromEntries(
     Object.entries(ENV)
       .filter(([k]) => /^[A-Z][A-Z0-9_]+$/.test(k) && !k.startsWith("npm_"))
-      .map(([k, v]) => [k, SECRET.test(k) ? (v ? `set (${v.length})` : "unset") : v.replace(/api-key=[^&]+/, "api-key=***")]),
+      .map(([k, v]) => [k, SECRET.test(k) ? (v ? `set (${v.length})` : "unset") : hideUrls(v)]),
   );
 }

@@ -13,6 +13,11 @@ export type Limits = {
   max_quote_age_ms: number;
   blocklist: string[];
   own_mints: string[];
+  // rug and bundle floor (docs/23 section 3): shares of SOL bought; top-10 of the circulating supply
+  max_bundle_share: number;
+  max_top10_share: number;
+  max_fresh_share: number;
+  max_creator_sold: number;
 };
 
 export const DEFAULT_LIMITS: Limits = {
@@ -26,6 +31,10 @@ export const DEFAULT_LIMITS: Limits = {
   max_quote_age_ms: 3000,
   blocklist: [],
   own_mints: [],
+  max_bundle_share: 0.2,
+  max_top10_share: 0.3,
+  max_fresh_share: 0.6,
+  max_creator_sold: 0.5,
 };
 
 export type Book = {
@@ -37,7 +46,8 @@ export type Book = {
 };
 
 export type GateIntent = { id: string; mint: string; side: "buy" | "sell"; size_sol: number; duplicate: boolean };
-export type GateQuote = { at_ms: number; impact_bps: number; real_sol: number | null; graduated: boolean };
+export type GateRisk = { bundle_share: number; top10_share: number | null; fresh_share: number; creator_sold: number };
+export type GateQuote = { at_ms: number; impact_bps: number; real_sol: number | null; graduated: boolean; risk?: GateRisk | null };
 export type GateFlags = { kill: boolean; mode_ok: boolean; strategy_live: boolean };
 
 export type GateResult = { ok: true } | { ok: false; reason_code: string; detail: string };
@@ -56,6 +66,11 @@ export function riskGate(i: GateIntent, book: Book, L: Limits, q: GateQuote | nu
   if (now_ms - q.at_ms > L.max_quote_age_ms) return no("stale_quote", `quote ${now_ms - q.at_ms} ms old`);
   if (!q.graduated && (q.real_sol ?? 0) < L.min_real_sol) return no("liquidity_too_low", `curve real SOL ${(q.real_sol ?? 0).toFixed(2)}`);
   if (q.impact_bps > L.max_impact_bps) return no("impact_too_high", `${q.impact_bps.toFixed(0)} bps`);
+  const r = q.risk;
+  if (r && r.bundle_share > L.max_bundle_share) return no("bundled", `first-slot buyers hold ${(r.bundle_share * 100).toFixed(0)}% of supply`);
+  if (r && r.top10_share != null && r.top10_share > L.max_top10_share) return no("concentrated", `top 10 hold ${(r.top10_share * 100).toFixed(0)}%`);
+  if (r && r.fresh_share > L.max_fresh_share) return no("fresh_wallets", `${(r.fresh_share * 100).toFixed(0)}% bought by new wallets`);
+  if (r && r.creator_sold > L.max_creator_sold) return no("creator_sold", `creator sold ${(r.creator_sold * 100).toFixed(0)}%`);
   if (i.size_sol > L.max_order_sol + 1e-12) return no("order_cap", `${i.size_sol} SOL over ${L.max_order_sol}`);
   if ((book.position_sol.get(i.mint) ?? 0) + i.size_sol > L.max_position_sol + 1e-12) return no("position_cap", "combined position over cap");
   if (!book.open_coins.has(i.mint) && book.open_coins.size >= L.max_open_coins) return no("open_coins_cap", `${book.open_coins.size} coins open`);

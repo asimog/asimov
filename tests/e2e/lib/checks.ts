@@ -53,7 +53,8 @@ export async function everyReplayChecks(sql: Sql, netCalls: string[]): Promise<C
     select count(*)::int n from tape.events where topic like any(${derivedLike}) and not (
       (source = 'strategies' and topic not like 'outcome.%' and topic not like 'score.%' and topic <> 'order.rejected')
       or (source = 'riskgate' and topic = 'order.rejected')
-      or (source = 'scorekeeper' and (topic like 'outcome.%' or topic like 'score.%')))`;
+      or (source = 'scorekeeper' and (topic like 'outcome.%' or topic like 'score.%'))
+      or (source = 'publisher' and topic in ('thesis.formed', 'post.queued', 'commit.made', 'commit.revealed')))`;
   checks.push({ name: "lanes_respected", pass: lanes!.n === 0, detail: `${lanes!.n} events from the wrong source` });
   return checks;
 }

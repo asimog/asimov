@@ -1,6 +1,6 @@
 // Chain Reader (docs/06): trades for the watched set from pump.fun NATS.
-// Watched set = coins with a callout in the last WATCH_HOURS (capped at WATCH_MAX_COINS), refreshed every 15 s.
-// WATCH_ALL_TRADES=1 subscribes to the lite firehose instead (bigger machines only).
+// Watched set = coins called or promoted by the Scout in the last WATCH_HOURS (capped at WATCH_MAX_COINS), refreshed
+// every 15 s; a Scout promotion subscribes at once (watchNow).
 import type { NatsConnection, Subscription } from "@nats-io/nats-core";
 import type { Trade } from "@asimog/contracts";
 import type { Sql } from "../lib/db.ts";
@@ -15,6 +15,7 @@ type Lite = {
 };
 type Processed = Lite & { mintAddress: string; program?: string; isBondingCurve?: boolean; marketCapUsd?: string };
 
+const subject = (mint: string) => `unifiedTradeEvent.processed.${mint}`;
 const n = (s: string | undefined | null) => (s == null || s === "" ? null : Number(s));
 
 export function toTrade(p: Partial<Processed>): Trade | null {
@@ -46,15 +47,12 @@ export class ChainReader {
   private stopped = false;
   stats = { trades: 0, watched: 0 };
 
-  constructor(private tape: Tape, private sql: Sql) {}
+  /** `onWatch(mint)` runs when a coin enters the watched set (the Backfill reads its history). */
+  constructor(private tape: Tape, private sql: Sql, private onWatch: (mint: string) => void = () => {}) {}
 
   async start() {
     this.nc = await natsConnect("trades", () => this.tape.clock.now(), (from, to) => this.gap(null, from, to, "NATS trades connection dropped"));
-    if (env.bool("WATCH_ALL_TRADES", false)) {
-      this.listen("unifiedTradeEvent.lite.>");
-    } else {
-      void this.watchLoop();
-    }
+    void this.watchLoop();
   }
 
   async stop() {
@@ -66,9 +64,22 @@ export class ChainReader {
     return [...this.subs.keys()];
   }
 
+  isWatched(mint: string) {
+    return this.subs.has(subject(mint));
+  }
+
+  /** A Scout promotion: subscribe now instead of at the next refresh. Returns false when already watched. */
+  watchNow(mint: string) {
+    if (!this.nc || this.isWatched(mint)) return false;
+    this.listen(subject(mint));
+    this.stats.watched = this.subs.size;
+    return true;
+  }
+
   private listen(subject: string) {
     const sub = this.nc!.subscribe(subject);
     this.subs.set(subject, sub);
+    this.onWatch(subject.split(".").at(-1)!);
     void consume(sub, (_s, data) => this.onTrade(decodeJson(data) as Partial<Processed>));
   }
 
@@ -95,10 +106,10 @@ export class ChainReader {
         const hours = env.num("WATCH_HOURS", 6);
         const rows = await this.sql`
           select mint from mem.coins
-          where first_callout_at > now() - make_interval(hours => ${hours})
-          order by coalesce(first_callout_at, first_seen) desc
+          where least(first_callout_at, watched_at) > now() - make_interval(hours => ${hours})
+          order by greatest(first_callout_at, watched_at) desc
           limit ${env.int("WATCH_MAX_COINS", 60)}`;
-        const want = new Set(rows.map((r) => `unifiedTradeEvent.processed.${r.mint as string}`));
+        const want = new Set(rows.map((r) => subject(r.mint as string)));
         for (const [s, sub] of this.subs)
           if (!want.has(s)) {
             sub.unsubscribe();

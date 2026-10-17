@@ -77,9 +77,10 @@ Engineering stages S0 to S11 (`docs/13-implementation-phases.md`, with a status 
 |---|---|---|
 | S0 Discovery | Find the feed endpoints, NATS servers, record a tape | Done |
 | S1 Foundations | Postgres, contracts, Tape, Clock, consumers, `ctl` | Done |
-| S2 Senses + memory | Feed Reader (poll + push), Chain Reader (NATS trades), memory projections, coverage gaps (`system.gap`, S2.8). Open: X Reader (S2.6), **RPC trade backfill (S2.7)** | Mostly done |
+| S2 Senses + memory | Feed Reader (poll + push), Chain Reader (NATS trades), memory projections, coverage gaps (`system.gap`, S2.8), **Scout** (S2.9, whole firehose in memory) and **RPC Backfill** (S2.7, decoder checked on live chain data). Open: X Reader (S2.6) | Mostly done |
 | S3 Fast mind | Board, cheap analyzers, Reflex (Jev), Scorekeeper, no-lookahead, **callout tracking v2** (S3.8: outcomes `ov2` net of costs with coverage, caller ledger, case files, hunt indicators, `caller.dna` lookahead fix). Open: regime HMM (Python), attention + escalation gate, Jev packs `coin`, `callers`, `guard`, literature baselines (S3.9) | Mostly done |
-| S4 Paper desk | DSL + validator, 30 seeds, fill model, Risk Gate, kernel, markouts, commit-reveal, evolution | Done |
+| S4 Paper desk | DSL + validator, 36 seeds, fill model, Risk Gate, kernel, markouts, commit-reveal, evolution; **pre-call desk** (S4.9: `pre_call` family, `called_s_gte`, in play on a known caller's buy) | Done; S4.9 built, not replayed |
+| S6.0 Thesis + paper Publisher | Thesis committed before every house callout; PAPER callouts and updates; the house scored as a caller | Built, not replayed |
 | S5 Instruments v1 | Relay (SSE), web shell, Field, Cortex, Lab, Ledger, Charter, share cards, deploy | **In progress**: relay done; `apps/web` scaffolded (tokens, live store); Field scene not written |
 | S6 Live desk and books | Signer, Executor, Publisher (posting callouts), books, reconciliation | Open; ask the owner for keypairs, RPC and signer setup first |
 | S7 Slow mind | BettaFish + MiroShark forks with a Pump.fun module, LangGraph thinking agents | Open (MiroShark needs Neo4j) |
@@ -144,10 +145,8 @@ Key architecture rules learned while building (docs/03):
 
 ## 7. Next actions, in order
 
-1. **S2.7 RPC trade backfill** (docs/13). When a coin enters the watched set or a `trades` gap closes, fetch the coin's recent signatures from RPC (budgeted) and decode pump `TradeEvent` logs with the official IDL. Use the same dedupe keys and source `rpc`. Pattern: `.upstream/repos/myron-dev__pump-indexer`. This does three things:
-   - turns `no_entry` outcomes into real ones;
-   - makes pre-call buying visible, which the `author_trades` indicator needs;
-   - gives a second collector whose overlap with NATS goes into `ctl coverage`.
+00. **Index and evolving strategy (fourth session, 2026-10-17; docs/23).** Built and smoke-run live on paper with 0 errors: the Index (rollups of every firehose trade into `idx.*`, 30-day callout backfill marked `via: history`, leaderboard seeds, copy scores, archetypes, versioned `index.refreshed`), `risk.state` (bundles as supply held by first-slot buyers; top 10 of supply held by people), the Risk Gate floor, `wallets.smart_buying`, evolving universe thresholds, the `smart_early` and `launch_scan` families, paper data replies (`house:reply`), the RPC pool (`RPC_URLS`), `ctl index`. AGENTS.md is now the repo map. Next: the owner adds `RPC_URLS` to `.env.local`; run core for a day so the Index has smart wallets (it needs buys older than 30 minutes across 8 or more coins per wallet); then record a 30-minute tape and run every suite (all hashes change).
+0. **Pre-call work (third session, 2026-10-17).** Callers must hold to call, so their buy announces the callout (median 57 s earlier; docs/research/pre-call-evidence.md). Built: Scout, Backfill, `flow.state`, `precall.callout_p` (+ Brier), the `pre_call` family, thesis + paper Publisher, the house row in `ctl callers` and `ctl house`. **Not yet replayed** (owner: no E2E until the next milestone). Next: record a 30-minute live tape with Scout and Backfill on, then run all suites including the new `precall-replay`, and write `backfill-replay` on that tape. Expect every replay hash to change (new consumers, 36 seeds). Note: the SDK's ESM build fails to import; `senses/backfill.ts` loads the CJS build through `createRequire`.
 2. Finish the S5 Field (`apps/web`):
    - Base pages: `app/layout.tsx` (Plex Mono, Sans and Sans Condensed via `next/font`) and `app/page.tsx`.
    - A GPU particle Field in one `Points` draw:
@@ -265,8 +264,8 @@ Read `AGENTS.md` Boundaries in full. The ones most likely to bite:
 1. pnpm: native `pnpm` 10.29.3 works; AGENTS.md is updated.
 2. Postgres: Postgres 18 runs in Docker (`npm run pg:start`; container `asimog-pg`, port 54329) with `synchronous_commit = off`. Docker volumes on Windows made every commit wait 0.3 to 0.6 s, and one replay took over 10 minutes. The old WSL data was not moved; the fixture tape is enough.
 3. `.env.local` exists on this machine with the keys present; `DATABASE_URL` was added.
-4. agent-browser: `npx agent-browser install` has not been run yet. The S5 site suites need it.
-5. ffmpeg: not installed yet. The `video-frames` skill needs it.
+4. agent-browser: installed (0.39.1, Chrome 155).
+5. ffmpeg: installed (9.0.2 via winget).
 6. Python services: `uv` is installed.
 7. Line endings: `.gitattributes` forces LF in the index. `core.autocrlf=true` on this machine gives CRLF working copies, which is fine. PDFs are marked binary.
 8. All 7 suites pass on Windows.

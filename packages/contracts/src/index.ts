@@ -22,6 +22,9 @@ export const ID_PREFIXES = {
   synthesis: "sy",
   commit: "cm",
   job: "jb",
+  thesis: "th",
+  house: "hc",
+  post: "pq",
 } as const;
 export type IdKind = keyof typeof ID_PREFIXES;
 
@@ -59,7 +62,7 @@ export const CalloutCreated = z.object({
   author_position: z
     .object({ amount_held: num.nullable(), cost_basis_usd: num.nullable(), pnl_usd: num.nullable() })
     .nullable(),
-  via: z.enum(["poll", "push"]),
+  via: z.enum(["poll", "push", "history"]), // history: the Index's 30-day backfill; consumers that decide skip it
 });
 export type CalloutCreated = z.infer<typeof CalloutCreated>;
 
@@ -265,6 +268,85 @@ export const SystemGap = z.object({
   reason: z.string(),
 });
 
+export const BudgetSpent = z.object({ analyzer: z.string(), units: z.string(), amount: num, job_event_id: z.string().nullable() });
+
+/** Launch features the Scout measured before promoting a coin (docs/23 section 3). All seen at promotion time. */
+export const CoinFeatures = z.object({
+  from_birth: z.boolean(), // seen from its first trade: only then are bundle features measured
+  fresh_known: z.boolean(), // the Index is old enough (INDEX_FRESH_WARMUP_H) to call a wallet new
+  age_s: num.nullable(),
+  first_slot: num.nullable(),
+  creator: z.string().nullable(),
+  trades: num,
+  buyers: num,
+  holders_est: num,
+  mcap_usd: num.nullable(),
+  bundle_buys: num,
+  bundle_wallets: num,
+  bundle_share: num,
+  fresh_share: num,
+  sniper_share: num,
+  top_buyer_share: num,
+  creator_sold: num,
+  smart_buyers: num,
+});
+
+/** The Scout promotes a coin into the watched set (docs/06, docs/23). */
+export const CoinWatched = z.object({
+  mint: z.string(),
+  reason: z.enum(["caller_buy", "smart_buy", "heat", "metrics"]),
+  wallet: z.string().nullable(),
+  buyers_60s: num,
+  net_sol_60s: num,
+  trigger_tx: z.string().nullable(),
+  features: CoinFeatures,
+});
+
+/** Largest token accounts of a coin, the bonding curve's own account excluded (docs/23). */
+export const HoldersSnapshot = z.object({
+  mint: z.string(),
+  supply: num,
+  top: z.array(z.object({ account: z.string(), amount: num })),
+  excluded: z.array(z.string()),
+  top10_share: num,
+});
+
+/** A new version of Index scores (docs/23 2.4). `smart` carries the wallets strategies may follow. */
+export const IndexRefreshed = z.object({
+  version: num,
+  window_days: num,
+  wallets: num,
+  coins: num,
+  smart: z.array(z.object({ wallet: z.string(), copy_net: num, copy_win_lcb: num, n: num, lead_s: num.nullable(), archetype: z.string() })),
+});
+
+/** Why the house calls a coin (docs/09 thesis). Committed before the callout is queued. */
+export const ThesisFormed = z.object({
+  thesis_id: z.string(),
+  mint: z.string(),
+  strategy_id: z.string(),
+  position_id: z.string(),
+  kind: z.enum(["pre_call", "post_call"]),
+  claims: z.array(z.object({ class: z.enum(["observed", "computed", "ai_judgment"]), text: z.string() })),
+  prediction: z.object({ p: num, horizon_min: num, what: z.string() }),
+  plan: z.object({ entry_price_sol: num, size_sol: num, ladder: z.array(z.object({ mult: num, sell: num })), stop: num, max_hold_min: num }),
+  invalidation: z.array(z.string()),
+  commit_id: z.string(),
+});
+
+/** A post for Publisher. `paper: true` is never posted (docs/09). */
+export const PostQueued = z.object({
+  post_id: z.string(),
+  kind: z.enum(["callout", "update", "reply"]),
+  mint: z.string(),
+  house_id: z.string(),
+  thesis_id: z.string().nullable(),
+  text: z.string(),
+  checks: z.array(z.string()),
+  because: z.array(z.string()),
+  paper: z.boolean(),
+});
+
 export const ScoreUpdated = z.object({
   kind: z.string(),
   horizon_min: num,
@@ -299,6 +381,12 @@ export const TOPICS = {
   "kernel.allocation": KernelAllocation,
   "outcome.measured": OutcomeMeasured,
   "score.updated": ScoreUpdated,
+  "coin.watched": CoinWatched,
+  "holders.snapshot": HoldersSnapshot,
+  "index.refreshed": IndexRefreshed,
+  "budget.spent": BudgetSpent,
+  "thesis.formed": ThesisFormed,
+  "post.queued": PostQueued,
   "system.note": SystemNote,
   "system.gap": SystemGap,
   "system.schema_drift": SystemNote,
@@ -338,6 +426,7 @@ export const SCHEMA_VERSION: Record<Topic, number> = {
   ...(Object.fromEntries(Object.keys(TOPICS).map((t) => [t, 1])) as Record<Topic, number>),
   "outcome.measured": 2,
   "system.gap": 2,
+  "coin.watched": 2,
 };
 
 export function validateBody<T extends Topic>(topic: T, body: unknown): BodyOf<T> {

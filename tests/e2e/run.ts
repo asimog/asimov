@@ -7,11 +7,12 @@ import { suite as calloutCase } from "./suites/callout-case-replay/suite.ts";
 import { suite as analyzers } from "./suites/analyzers-replay/suite.ts";
 import { suite as commitReveal } from "./suites/commit-reveal/suite.ts";
 import { suite as evolution } from "./suites/evolution-replay/suite.ts";
+import { suite as precall } from "./suites/precall-replay/suite.ts";
 import { suite as determinism } from "./suites/replay-determinism/suite.ts";
 import { suite as riskgate } from "./suites/riskgate-refuses/suite.ts";
 import { suite as strategies } from "./suites/strategies-replay/suite.ts";
 
-const ALL: Suite[] = [riskgate, analyzers, strategies, commitReveal, evolution, determinism, calloutCase];
+const ALL: Suite[] = [riskgate, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall];
 const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const tape = process.env.E2E_TAPE ?? "tests/e2e/fixtures/tapes/discovery-10m.ndjson.gz";
 const chosen = args.length ? ALL.filter((s) => args.includes(s.name)) : ALL;

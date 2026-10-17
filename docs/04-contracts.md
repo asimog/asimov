@@ -41,8 +41,10 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `trade.curve` / `trade.amm` | `UnifiedTradeSchema` fields from `@pump-fun/shared-contracts` (amountSol, baseAmount, marketCap, mintAddress, priceSol, tx, type, userAddress, timestamp, ...) |
 | `curve.state` | `mint`, `virtual_sol`, `virtual_tokens`, `real_sol`, `real_tokens`, `progress`, `complete` |
 | `coin.graduated` | `mint`, `pool`, `slot` |
-| `holders.snapshot` | `mint`, `taken_at`, `holders[{owner, amount}]` (only for our coin and watched coins) |
 | `wallet.funded_by` | `wallet`, `funder`, `first_funding_tx`, `at` |
+| `coin.watched` (v2) | `mint`, `reason` (`caller_buy`, `smart_buy`, `heat`, `metrics`), `wallet` (the buyer for `caller_buy` and `smart_buy`), `buyers_60s`, `net_sol_60s`, `trigger_tx`, `features` (launch features at promotion: `from_birth` (seen from its first trade; bundle fields count only then), `fresh_known` (the Index is old enough to call a wallet new), `age_s`, `first_slot`, `creator`, `trades`, `buyers`, `holders_est`, `mcap_usd`, `bundle_buys`, `bundle_wallets`, `bundle_share`, `fresh_share`, `sniper_share`, `top_buyer_share`, `creator_sold`, `smart_buyers`). Written by the Scout (docs/06, docs/23) |
+| `holders.snapshot` | `mint`, `supply`, `top[{account, amount}]` (largest token accounts), `excluded[]` (accounts owned by programs: the bonding curve, AMM pools, lockers), `top10_share` (of the whole supply, held by people) |
+| `index.refreshed` | `version`, `window_days`, `wallets`, `coins`, `smart[{wallet, copy_net, copy_win_lcb, n, lead_s, archetype}]` (docs/23) |
 | `x.post` | `handle`, `post_id`, `text`, `created_at`, `screenshot_ref` |
 | `session.task` | `session`, `task_id`, `goal`, `url`, `granted_by` (attention event id) |
 | `session.read` | `session`, `task_id`, `url`, `refs_read[{ref, role, text, box}]`, `extracted` (typed facts) |
@@ -69,7 +71,8 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `order.filled` | `order_id`, `tx_sig`, `tokens`, `sol`, `fee_sol`, `price_sol`, `slot` |
 | `order.failed` | `order_id`, `tx_sig?`, `error`, `retryable` |
 | `position.changed` | `position_id`, `mint`, `tokens`, `cost_basis_sol`, `realized_pnl_sol` |
-| `post.queued` | `kind` (callout, update, reply), `mint`, `callout_id?`, `text`, `media_ref?`, `because[]` (order or signal ids) |
+| `thesis.formed` | `thesis_id`, `mint`, `strategy_id`, `position_id`, `kind` (`pre_call`, `post_call`), `claims[{class, text}]`, `prediction{p, horizon_min, what}`, `plan{entry_price_sol, size_sol, ladder[{mult, sell}], stop, max_hold_min}`, `invalidation[]`, `commit_id` |
+| `post.queued` | `post_id`, `kind` (callout, update, reply), `mint`, `house_id` (our callout on the coin), `thesis_id` (null on updates), `text`, `checks[]` (rules passed), `because[]` (fill or position event ids), `paper` |
 | `post.published` | `post_id`, `kind`, `pump_id`, `url`, `published_at` |
 | `post.refused` | `post_id`, `reason` (cooldown, holding_below_threshold, moderation, existing, session) |
 | `fees.swept` | `sweep_id`, `tx_sig`, `sol`, `to_war_chest_sol`, `to_ops_sol` |
@@ -159,6 +162,10 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `regime.tremor` | coin | change-point probability and the series that broke | 10 min | regime |
 | `curve.quote` | coin | SOL in → tokens, price impact, mcap at given sizes | 30 s | curve |
 | `curve.progress` | coin | 0..1 and SOL to graduation | 30 s | curve |
+| `flow.state` | coin | 60 s buys, sells, unique buyers, net SOL, acceleration, top-buyer share, known callers buying, heat 0..1 | 2 min | flow |
+| `precall.callout_p` | coin | P(a callout on the coin within the horizon) over known callers who bought it; the most likely caller, their buy-to-call lag, peak record, population rate | horizon | precall |
+| `risk.state` | coin | Rug and bundle features: `bundle_share`, `bundle_wallets`, `fresh_share`, `sniper_share`, `top10_share` (curve excluded, null until a snapshot), `creator_sold`, `breaches` (count over the owner's floor), `score` 0..1 (higher is riskier) | 30 min | risk |
+| `wallets.smart_buying` | coin | Index smart wallets that bought in the last `SMART_WINDOW_MIN`: `n`, `score` 0..1, `best_wallet`, `copy_net_med`, `lead_s_med` | window | wallets |
 | `callers.call_p` | coin | per tracked caller: P(calls in 2 h); plus expected count | 10 min | shadows |
 | `caller.dna` | caller | calls seen (`n`), median opportunity age and pre-move, and from our own outcomes resolved before the callout: `resolved`, `net_win` (share with `net_multiple > 1` at 5 min), `med_net` | 24 h | callers |
 | `synthesis.feed` | global | narratives with heat, cited callout ids | 30 min | bettafish |

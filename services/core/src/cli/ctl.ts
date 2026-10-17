@@ -5,6 +5,7 @@ import zlib from "node:zlib";
 import { connect, migrate, resetProjections } from "../lib/db.ts";
 import { buildCase, renderCase } from "../hunt/case.ts";
 import { env, redact } from "../lib/env.ts";
+import { RpcPool } from "../lib/rpc.ts";
 import { coverage, ledger } from "../scorekeeper/ledger.ts";
 
 const [cmd = "help", ...args] = process.argv.slice(2);
@@ -90,7 +91,7 @@ async function doctor() {
     }
   };
   await probe("pump_feed", "https://frontend-api-v3.pump.fun/home-feed/new?pageSize=1&chain=all&platform=WEB", { headers: { Origin: "https://pump.fun" } });
-  if (env.opt("RPC_URL")) await probe("rpc", env.str("RPC_URL"), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "getHealth" }) });
+  for (const [name, health] of Object.entries(await new RpcPool().health())) checks[`rpc:${name}`] = health; // names only: URLs hold keys
   if (env.opt("OPENROUTER_API_KEY")) await probe("openrouter", `${env.str("LLM_BASE_URL", "https://openrouter.ai/api/v1")}/models?limit=1`);
   checks.jev_key = env.opt("TYPESAFE_API_KEY") ? "set" : "missing";
   checks.config = redact();
@@ -113,6 +114,23 @@ const commands: Record<string, () => Promise<unknown>> = {
   },
   callers: () => ledger(sql, { horizon: Number(opt("h") ?? 5) }),
   coverage: () => coverage(sql),
+  // the Index (docs/23): size, latest version, archetypes, the strongest copyable wallets, recent promotions
+  index: async () => {
+    const [size] = await sql`select (select count(*)::int from idx.wallet_coin) wallet_coins, (select count(*)::int from idx.coin) coins,
+      (select count(*)::int from idx.seed) seeds, (select max(version) from idx.wallet) version`;
+    const archetypes = await sql`select archetype, count(*)::int n from idx.wallet group by 1 order by 2 desc`;
+    const top = await sql`select wallet, n, round(copy_net::numeric, 3)::float copy_net, round(copy_win_lcb::numeric, 3)::float copy_win_lcb, lead_s, seed
+      from idx.wallet where archetype = 'smart' order by copy_win_lcb desc limit ${Number(opt("n") ?? 10)}`;
+    const promotions = await sql`select body->>'reason' reason, count(*)::int n from tape.events where topic = 'coin.watched' group by 1 order by 2 desc`;
+    return { ...size, archetypes, smart_top: top, promotions };
+  },
+  // the house as a caller (docs/09): its ledger row next to the crowd baseline, and its latest paper posts
+  house: async () => {
+    const L = await ledger(sql, { horizon: Number(opt("h") ?? 5) });
+    const posts = await sql`select seen_time, body->>'kind' kind, body->>'house_id' house_id, body->>'text' text from tape.events
+      where topic = 'post.queued' order by seen_time desc, id desc limit ${Number(opt("n") ?? 20)}`;
+    return { method: L.method, horizon_min: L.horizon_min, house: L.rows.find((r) => r.wallet === "house") ?? null, crowd: L.all, posts };
+  },
   help: async () => ({ commands: Object.keys(commands) }),
 };
 

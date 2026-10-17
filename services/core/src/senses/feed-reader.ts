@@ -52,6 +52,8 @@ type FeedItem = {
 };
 type FeedPage = { coins: FeedItem[]; headToken?: string; nextPageToken?: string };
 
+type Via = "poll" | "push" | "history";
+
 export class FeedReader {
   private seen = new Map<string, number>(); // calloutId -> counts hash (in-memory fast path; tape dedupe is the truth)
   private exitSeen = new Set<string>();
@@ -63,8 +65,11 @@ export class FeedReader {
   constructor(private tape: Tape) {}
 
   async start() {
-    await this.backfill(env.int("FEED_BACKFILL_MIN", 30));
+    await this.backfill(env.int("FEED_BACKFILL_MIN", 30), env.int("FEED_BACKFILL_PAGES", 40), 0, "poll");
     void this.pollLoop();
+    // the Index's callout history (docs/23): 30 days, paged slowly in the background so live polling keeps its turn
+    const days = env.num("INDEX_CALLOUT_DAYS", 30);
+    if (days > 0) void this.backfill(days * 1440, env.int("INDEX_CALLOUT_PAGES", 30_000), env.int("INDEX_CALLOUT_PAGE_MS", 2000), "history");
     if (env.bool("FEED_PUSH", true)) await this.startPush();
   }
 
@@ -112,13 +117,14 @@ export class FeedReader {
     return fresh;
   }
 
-  async backfill(minutes: number) {
+  async backfill(minutes: number, pages: number, pauseMs: number, via: Via) {
     const stopAt = this.tape.clock.now() - minutes * 60_000;
     let token: string | undefined;
-    for (let i = 0; i < env.int("FEED_BACKFILL_PAGES", 40); i++) {
+    for (let i = 0; i < pages && !this.stopped; i++) {
+      if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
       const page = await this.fetchPage(token);
       if (!page?.coins.length) break;
-      await this.ingestPage(page, "poll");
+      await this.ingestPage(page, via);
       const oldest = page.coins.at(-1)?.position?.callout?.calloutTimestamp;
       if (!oldest || Date.parse(oldest) < stopAt || !page.nextPageToken) break;
       token = page.nextPageToken;
@@ -140,7 +146,7 @@ export class FeedReader {
     return res.body;
   }
 
-  private async ingestPage(page: FeedPage, via: "poll" | "push"): Promise<number> {
+  private async ingestPage(page: FeedPage, via: Via): Promise<number> {
     const newOnes = page.coins.filter((c) => c.position?.callout && !this.seen.has(c.position.callout.calloutId));
     let ob: Envelope | null = null;
     if (newOnes.length) {
@@ -154,7 +160,7 @@ export class FeedReader {
   }
 
   /** returns true if the callout was new */
-  ingestItem(item: FeedItem, via: "poll" | "push", causes: string[]): boolean {
+  ingestItem(item: FeedItem, via: Via, causes: string[]): boolean {
     const p = item.position;
     const c = p?.callout;
     if (!p || !c) return false;

@@ -26,7 +26,7 @@ const fitness = (m: Member) => (m.stats.n ? lcb(m.stats) : Number.NEGATIVE_INFIN
 
 export function mutate(parent: Spec, rand: () => number): Spec {
   const s = clone(parent);
-  const op = Math.floor(rand() * 6);
+  const op = Math.floor(rand() * 7);
   if (op === 0) {
     const t = pick(s.score.sum, rand);
     t.w = Math.max(-2, Math.min(2, nudge(t.w, rand)));
@@ -42,11 +42,19 @@ export function mutate(parent: Spec, rand: () => number): Spec {
   } else if (op === 3) {
     const e = pick(s.exits, rand);
     if ("mult_gte" in e.when) e.when.mult_gte = Math.max(1.05, Math.min(20, nudge(e.when.mult_gte, rand)));
+    else if ("called_s_gte" in e.when) e.when.called_s_gte = Math.max(5, Math.min(300, nudge(e.when.called_s_gte, rand)));
     else if ("held_min_gte" in e.when) e.when.held_min_gte = Math.max(0.5, Math.min(HORIZON_MAX_MIN[s.horizon], nudge(e.when.held_min_gte, rand)));
     else e.sell = Math.max(0.05, Math.min(1, nudge(e.sell, rand)));
   } else if (op === 4) {
     const st = s.stop.any.find((w) => "mult_lte" in w) as { mult_lte: number } | undefined;
     if (st) st.mult_lte = Math.max(0.3, Math.min(0.97, nudge(st.mult_lte, rand)));
+  } else if (op === 6) {
+    // thresholds evolve too (docs/23 4): a universe number such as a market cap floor drifts like any weight
+    const c = s.universe.all.filter((x) => typeof x.v === "number");
+    if (c.length) {
+      const x = pick(c, rand);
+      x.v = Math.max(0, nudge(x.v as number, rand));
+    }
   } else {
     s.size.kelly_fraction = Math.max(0.02, Math.min(1, nudge(s.size.kelly_fraction, rand)));
   }

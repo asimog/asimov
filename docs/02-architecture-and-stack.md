@@ -43,28 +43,7 @@ The shape of the system is in `03-system-model.md`. Agent roles are in `18-agent
 
 ## Repo layout
 
-```
-AGENTS.md  CLAUDE.md  README.md
-docs/                       product, system, specs (this folder)
-packages/contracts/         JSON Schemas for events, signals, intents, orders, Jev packs. Generates TS types and Python models.
-packages/providers/         small adapters: rpc, llm, decision (jev), storage, notify. Chosen by env.
-services/core/              core process (TS)
-  src/tape/ src/memory/ src/analyzers/ src/reflex/ src/attention/ src/mind/ src/hands/ src/treasury/ src/api/ src/mcp/ src/cli/
-services/sessions/         browser sessions, Feed Reader, frames (TS)
-services/signer/            Signer (TS, tiny)
-services/relay/             public SSE and frame fan-out (TS, tiny)
-services/agents/            LangGraph thinking agents (TS)
-services/analyzers-py/         regime, shadows, question-bank model, timesfm, fly (Python, uv)
-services/bettafish/         git submodule: our BettaFish fork, branch `asimog`
-services/miroshark/         git submodule: our MiroShark fork, branch `asimog`
-apps/web/                   Next.js site
-agent/skills/               agent runtime skills (loaded by the thinking agents)
-deploy/                     docker compose (canonical), Railway, Vercel and Coolify notes
-tests/e2e/                  replay suites, fixture tapes, artifact writers
-.upstream/                 gitignored upstream code (read only)
-```
-
-Each service folder has its own `README.md` with: what it owns, how to run it, its events in and out, and its "Ways it fails" list.
+The repo map with each module's state (built, building, planned) is in `AGENTS.md`. The rule behind it: modules meet only on the Tape. Senses write input topics; consumers read topics and write signals or decisions; providers (RPC, LLM, Jev) are chosen by env inside `services/core/src/lib/` and the senses that use them. Processes 2 to 7 and 10 above are planned; today `core`, `relay` and `web` exist.
 
 ## Stack
 
@@ -74,11 +53,11 @@ Versions are the latest stable release when Phase 1 starts, pinned in lockfiles.
 |---|---|---|
 | Runtime | Node 24, pnpm 10 workspaces | Already installed. One workspace for all TS. |
 | Python | 3.12 via uv | BettaFish and MiroShark need 3.11+. |
-| Schemas | JSON Schema in `packages/contracts`, `json-schema-to-typescript`, `datamodel-code-generator` | One source of truth across two languages. |
+| Schemas | zod in `packages/contracts`; JSON Schema emitted when the first Python service needs it | One source of truth across two languages. |
 | DB access | `postgres` (porsager) in TS, `psycopg` 3 in Python | Thin, fast, no ORM. |
 | Solana | `@solana/web3.js` 1.99.x, `@coral-xyz/anchor` 0.31, `bn.js` | What the pump SDKs depend on. One copy. |
-| Pump.fun | `@pump-fun/pump-sdk` 4.1.0, `@pump-fun/pump-swap-sdk` 2.1.0, `@pump-fun/shared-contracts` 0.2.2, `@pump-fun/agent-payments-sdk` 3.0.3, `fun-block.pump.fun` API | Official curve math, swaps, fee collection, trade schema. |
-| RPC (default) | Helius free tier: HTTPS + websocket subscriptions, DAS for holders | Free to start. `RPC_URL`, `RPC_WS_URL`, `DAS_URL` in env. |
+| Pump.fun | `@pump-fun/pump-sdk` 4.1.0, `@pump-fun/pump-swap-sdk` 2.1.0, `@pump-fun/shared-contracts` 0.2.2, `fun-block.pump.fun` API | Official curve math, swaps, fee collection, trade schema. The pump-sdk ESM build fails to load (it imports the agent-payments SDK, whose ESM needs a `BN` export anchor's ESM lacks): load it with `createRequire` (CJS) when the Trader needs it. The Backfill decodes `TradeEvent` itself from the IDL's fixed field offsets (checked against the SDK on live events: 5 of 5 identical). The agent-payments SDK is not a dependency of ours. |
+| RPC (default) | Several free tiers behind `RpcPool` (Helius, Chainstack, RPC Fast, QuickNode) | Free, with fallback when one rate-limits. `RPC_URLS` in env (docs/15). |
 | RPC stream (optional) | Yellowstone gRPC (`@triton-one/yellowstone-grpc`) | Switch on with `GRPC_URL` when a paid plan pays off. |
 | Realtime trades | `nats.ws` client to pump.fun NATS | Decoded trades for free. |
 | Fast decisions | Jev via `@typesafe-ai/sdk` (TS) and `typesafe-sdk` (Python), model pinned `jev-1.14.0` | 150 ms typed decisions, $0.042 per million input tokens (docs/17). |

@@ -2,11 +2,11 @@
 
 ## Providers are config
 
-Every outside service sits behind an adapter in `packages/providers`, selected by env. Code never names a provider.
+Every outside service is chosen by env (for RPC: `RpcPool` in `services/core/src/lib/rpc.ts`). Code never names a provider.
 
 | Role | Env | Default | Alternatives |
 |---|---|---|---|
-| RPC (HTTPS, websockets) | `RPC_URL`, `RPC_WS_URL` | Helius free tier | Any Solana RPC; paid Helius, Triton, Chainstack, Shyft |
+| RPC (HTTPS, websockets) | `RPC_URLS` (`name|rps|url`, comma-separated, in order of preference), else `RPC_URL`; `RPC_WS_URL` | Free tiers with fallback: Helius, Chainstack (Developer), RPC Fast (Start, 1.5M compute units a month), QuickNode | Any Solana RPC; paid plans |
 | Holder data | `DAS_URL` | Helius DAS | `getProgramAccounts` on any RPC |
 | Stream (optional) | `GRPC_URL`, `GRPC_TOKEN` | off | Yellowstone gRPC on a paid plan |
 | Fast decisions | `JEV_BASE_URL`, `JEV_API_KEY`, `JEV_MODEL` | TypeSafe, `jev-1.14.0` | A future System One model |
@@ -95,3 +95,14 @@ Presets nano, lite and full switch the System Two costs with one variable each (
 - Tape archive files are written hourly to the bucket and never deleted.
 - The deposit seed is backed up offline in two places; the signer refuses to start without the backup flag set by the owner.
 - No agent drops, truncates or resets any table or bucket without the owner saying yes in the same conversation.
+
+## RPC pool (`lib/rpc.ts`)
+
+Several free RPC endpoints act as one. Each request goes to the first healthy endpoint in `RPC_URLS` order that has room under its own requests-per-second limit. Pattern: carbon's transaction crawler (`.upstream/repos/sevenlabs-hq__carbon/datasources/rpc-transaction-crawler-datasource`): retries with backoff from 1 s, doubling, capped at 10 s.
+
+- A 429, a 5xx, a network error or a timeout (`RPC_TIMEOUT_MS`, default 8000) rests that endpoint (1 s, 2 s, 4 s, up to 10 s) and the request moves to the next one. A success clears the rest.
+- A JSON-RPC error (for example a bad parameter) is returned as is, never retried: another provider would say the same.
+- When every endpoint is resting, the request waits for the soonest one, at most `RPC_MAX_TRIES` (default 6) attempts in all.
+- Endpoint URLs carry API keys. They live only in `.env.local`. Logs and `ctl doctor` print endpoint names, never URLs.
+- `ctl doctor` checks each endpoint by name with `getHealth`.
+- Money paths (S6 Trader) will send transactions through one chosen endpoint, never spray them across providers.

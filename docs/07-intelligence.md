@@ -75,6 +75,40 @@ This analyzer also turns a predicted inflow into a price: "if the wave brings X 
 
 Ways it fails: stale curve state (`valid_until` 30 s; the Risk Gate rejects orders on stale quotes); fee schedule changes (fees come from the SDK's fee functions, never hard-coded); quote-mint variants (the SDK handles non-SOL quote curves; v1 trades SOL-quoted coins only).
 
+## flow
+
+`flow.state` (subject: coin), on every batch of trades on a watched coin, from the Tape only (`seen_time` at or before now):
+
+| Field | Meaning |
+|---|---|
+| `buys_60s`, `sells_60s` | Trades in the last 60 s |
+| `buyers_60s` | Unique buying wallets in the last 60 s |
+| `net_sol_60s` | SOL bought minus SOL sold in the last 60 s |
+| `accel` | Trades in the last 60 s / (trades in the 60 s before + 1) |
+| `top_share` | The largest single buyer's share of buy SOL in the last 60 s (concentration) |
+| `callers_buying` | Known caller wallets that bought in the last `PRECALL_HORIZON_MIN` |
+| `heat` | [0, 1]: `min(1, buyers_60s / 20) × min(1, max(0, net_sol_60s) / 5)` |
+
+Ways it fails: a coin with one large buyer looks hot (read `top_share`); trades from a gap are missing (coverage applies); a bot cluster inflates `buyers_60s` (hunt `bundle_buy` in case files).
+
+## precall
+
+The callout is a scheduled event that the caller announces with their own buy (docs/research/pre-call-evidence.md). `precall.callout_p` (subject: coin) is written when a known caller buys a coin they have not called in the last `PRECALL_HORIZON_MIN` (default 5):
+
+- **Per caller.** From our own record, seen before now: `buys` = the caller's buys on watched coins, `called` = how many of those were followed by their callout within the horizon (only buys whose horizon has passed count). Posterior mean of Beta(`a0 + called`, `b0 + buys − called`), where the prior is the population rate over all known callers with strength `PRECALL_PRIOR_N` (default 4), and `a0`, `b0` come from that rate.
+- **Over callers.** `p` = 1 − Π(1 − p_i) over the known callers who bought in the window and have not called it: the chance that at least one of them calls within the horizon.
+- Also carries `caller` (the most likely one), `buy_sol`, `lag_med_s` (their median buy-to-callout lag), `med_peak` (median `peak_multiple` at 3 min of their resolved callouts with coverage `ok`, or null), `p_peak` (share of those peaks at or above 1.2), `n_buys`, `n_called`, `pop_rate`, `callers_buying`.
+- Valid for the horizon. Written again on every new known-caller buy on the coin.
+
+The Scorekeeper scores `precall.callout_p` with Brier: hit = any `callout.created` on the coin within the horizon after the signal.
+
+Ways it fails:
+
+1. A caller buys many coins and calls few. Their Beta posterior falls toward their own rate; with no record it is the population rate, never a guess.
+2. The caller already called the coin before our watch began. The signal skips callers with a callout on the coin in `mem.callouts`; earlier calls outside memory are missed.
+3. The callout is from a different caller than the buyer. Still a hit for `p` (any callout), not for the named `caller`.
+4. Lookahead. `called` counts only buys whose horizon ended before now, and callouts seen before now.
+
 ## shadows
 
 Three tiers.
@@ -239,7 +273,11 @@ Every callout opens a watch. At each horizon (or, for a quiet coin, once the hor
 | `coverage` | One of: `ok`; `no_entry` (no trade at all); `no_trades` (an entry, then nothing on the path, so the price is unknown, not "flat"); `gap` (a `system.gap` overlaps the window). `gaps` lists the gap event ids |
 | `author_wallet` | The callout's author, so ledgers need no join |
 
-Probability signals with a matching horizon (`hawkes.wave_p`, `callers.wave_p`) are scored with Brier, base rate and skill = 1 − Brier / (base × (1 − base)). Scores are published as `score.updated` every minute of Tape time. Outcomes with `gap` coverage are not scored.
+**Backfilled trades.** A trade from the `rpc` source is placed by its `event_time` (when it happened), every other trade by `seen_time`. The Scorekeeper measures after the horizon, so a trade backfilled before then is known and may be the entry (`last_before`) or count in `pre_call_trades`. Only trades seen at or before the resolution time count.
+
+**House callouts.** Our own paper callouts (`post.queued` with `kind: callout`, docs/09) open a watch with `author_wallet: house` and `t0` = the post's `seen_time`, and resolve by the same `ov2` rules. So `ctl callers` shows the house as one more caller, with the same denominators.
+
+Probability signals with a matching horizon (`hawkes.wave_p`, `callers.wave_p`, and `precall.callout_p` on its own watch) are scored with Brier, base rate and skill = 1 − Brier / (base × (1 − base)). Scores are published as `score.updated` every minute of Tape time. Outcomes with `gap` coverage are not scored.
 
 **Corrections, never rewrites.** A gap can be reported after an outcome was written, because a source only learns it was down when it reconnects. When a `system.gap` arrives, the Scorekeeper writes a new `outcome.measured` for every overlapping outcome, with `coverage: gap` and `supersedes` set to the old event id. The old event stays on the Tape. Readers use the latest outcome per callout and horizon; case files show both.
 
@@ -261,12 +299,12 @@ Every statement Asimog makes is about what its collectors saw, not about the mar
   - `feed`: the poll's gap walk ran out of pages before it met a known callout.
   - `feed.push` and `trades`: the NATS connection dropped (written on reconnect).
   - `trades` with a coin as `scope` and `to: null`: the coin left the watched set because the cap was reached, so its trades are unobserved from `from` on.
-- By design, the Chain Reader watches a coin only once it is called. On the first tape, 44 of 53 coins with trades had their first recorded trade after their first callout. Pre-call buying stays unobserved until the RPC backfill exists (docs/06).
-- `ctl coverage` prints gaps per source, coins called vs. coins with trades, and the share of outcomes per coverage status.
+- On the first tape, before the Scout and the Backfill, 44 of 53 coins with trades had their first recorded trade after their first callout. Now the Scout promotes coins on a known caller's buy or on heat, and the Backfill reads history when a coin enters the watched set (docs/06).
+- `ctl coverage` prints gaps per source, coins called vs. coins with trades, the share of outcomes per coverage status, trades per source (`nats`, `rpc`) with the number of signatures both collectors saw, and the share of callouts whose author's buy is on the Tape before the callout.
 
 ## caller ledger
 
-`ctl callers` (methodology **`cl1`**) is the deterministic record of every caller's calls. It is not a leaderboard and has no single win rate.
+`ctl callers` (methodology **`cl1`**) is the deterministic record of every caller's calls. Callouts from the Index's 30-day backfill arrive with `via: history`: memory keeps them (so their callers become known), but analyzers, Reflex, the desk and the Scorekeeper skip them, and the ledger excludes them as `history`, because no honest entry time exists for a call seen days late. It is not a leaderboard and has no single win rate.
 
 - One row per author wallet, plus an **all callers** row as the baseline, at one horizon (default 5 min). Every number shows its denominator.
 - Each callout counts once. Excluded calls are counted by reason, never dropped:

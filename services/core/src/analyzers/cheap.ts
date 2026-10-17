@@ -281,6 +281,7 @@ export function cheapAnalyzers(clock: Clock): Consumer {
         clock.advance?.(Date.parse(e.seen_time));
         if (e.topic === "callout.created") {
           const c = e as Envelope<BodyOf<"callout.created">>;
+          if (c.body.via === "history") continue;
           await age(tx, clock, c);
           await echo(tx, clock, c);
           await hawkes(tx, clock, c);

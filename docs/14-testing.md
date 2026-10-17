@@ -37,7 +37,7 @@ The runner (`tests/e2e/run.ts`) replays the tape once per run and shares it betw
 1. Creates a fresh database `asimog_e2e_<tag>_<id>` next to the working one and migrates it. The working database is never touched. Replay databases are kept after the run (the runner prints their names); removing them is the owner's call.
 2. Loads the tape's input events (derived topics are skipped and re-derived, docs/03).
 3. Cuts the network: `fetch` throws and is counted. Reflex never calls Jev in replay; it reads the recorded `jev.answer` events.
-4. Steps every consumer from `buildConsumers` (the same list `core` runs live) in 1 s windows of Tape time, in order: memory, analyzers, reflex, desk, scorekeeper.
+4. Steps every consumer from `buildConsumers` (the same list `core` runs live) in 1 s windows of Tape time, in order: memory, analyzers (cheap, flow and pre-call), reflex, desk, publisher, scorekeeper.
 
 Suites today:
 

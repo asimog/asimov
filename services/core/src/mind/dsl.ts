@@ -15,6 +15,10 @@ export const CATALOG: Record<string, SigInfo> = {
   "callers.wave_p": { subject: "mint", system: 1, unit: ["p"], fields: ["p", "expected_new"] },
   "caller.dna": { subject: "caller", system: 1, unit: ["net_win", "followers_norm"], fields: ["n", "resolved", "net_win", "med_net", "med_age", "med_pre", "followers", "followers_norm"] },
   "curve.progress": { subject: "mint", system: 1, unit: ["progress"], fields: ["progress", "real_sol", "mcap_usd"] },
+  "flow.state": { subject: "mint", system: 1, unit: ["heat", "top_share"], fields: ["buys_60s", "sells_60s", "buyers_60s", "net_sol_60s", "accel", "callers_buying"] },
+  "risk.state": { subject: "mint", system: 1, unit: ["score", "bundle_share", "fresh_share", "sniper_share", "top10_share", "creator_sold"], fields: ["bundle_wallets", "holders_est", "breaches"] },
+  "wallets.smart_buying": { subject: "mint", system: 1, unit: ["score"], fields: ["n", "copy_net_med", "lead_s_med"] },
+  "precall.callout_p": { subject: "mint", system: 1, unit: ["p", "caller_p", "p_peak"], fields: ["n_buys", "n_called", "lag_med_s", "med_peak", "pop_rate", "callers_buying", "buy_sol"] },
   "jev.callout.kind": { subject: "callout", system: 1, unit: ["p.fresh_call", "p.hype", "p.exit_notice", "p.fud", "p.other"], fields: ["choice"] },
   "jev.callout.thesis_quality": { subject: "callout", system: 1, unit: ["score_norm"], fields: ["score"] },
   "jev.callout.promo": { subject: "callout", system: 1, unit: ["p"], fields: [] },
@@ -43,6 +47,7 @@ const ExitWhen = z.union([
   z.object({ mult_gte: z.number().min(1.01).max(100) }),
   z.object({ mult_lte: z.number().min(0.05).max(0.99) }),
   z.object({ held_min_gte: z.number().min(0.1).max(10_000) }),
+  z.object({ called_s_gte: z.number().min(0).max(3600) }),
   Cond,
 ]);
 export const Spec = z.object({
@@ -161,11 +166,13 @@ export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: numbe
   return { enter: true, score, terms, edge_bps, cost_bps, size_sol: size };
 }
 
-export type ExitCtx = { mult: number; heldMin: number; board: BoardValues };
+/** `calledS`: seconds since a callout landed on the coin after our entry, or null (docs/08 pre-call). */
+export type ExitCtx = { mult: number; heldMin: number; calledS: number | null; board: BoardValues };
 export function whenHolds(w: ExitWhenT, x: ExitCtx, band = 1): boolean {
   if ("mult_gte" in w) return x.mult >= w.mult_gte * band;
   if ("mult_lte" in w) return x.mult <= w.mult_lte;
   if ("held_min_gte" in w) return x.heldMin >= w.held_min_gte;
+  if ("called_s_gte" in w) return x.calledS !== null && x.calledS >= w.called_s_gte;
   return cond(x.board, w);
 }
 
@@ -185,7 +192,7 @@ function vector(s: Spec): Record<string, number> {
   s.universe.all.forEach((c) => typeof c.v === "number" && (v[`u:${c.sig}:${c.field ?? ""}:${c.op}`] = c.v));
   s.exits.forEach((e, i) => {
     const w = e.when as Record<string, unknown>;
-    for (const k of ["mult_gte", "mult_lte", "held_min_gte"]) if (typeof w[k] === "number") v[`x${i}:${k}`] = w[k] as number;
+    for (const k of ["mult_gte", "mult_lte", "held_min_gte", "called_s_gte"]) if (typeof w[k] === "number") v[`x${i}:${k}`] = w[k] as number;
     v[`x${i}:sell`] = e.sell;
   });
   return v;

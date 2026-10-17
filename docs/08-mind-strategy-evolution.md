@@ -46,9 +46,18 @@ Rules:
 - `horizon: fast` strategies may only reference System One signals (math analyzers and `jev.*`). The validator rejects a fast strategy that references `synthesis.*` or `swarm.*`.
 - Jev answers are used as probabilities and confidence, never as numbers to do math on inside Jev. Weights live in the strategy and evolve.
 - Exit `mult_gte` values are bands: the Executor picks a point inside ±5% at random, so copy-traders cannot front-run exact levels.
-- Families are labels for niches, not code paths. Seed families (`services/core/src/mind/seeds.ts`, 5 × 6 variants: fast, medium, slow × tight, loose): `wave_anticipation`, `bellwether_follow`, `graduation_run`, `narrative_rotation`, `fresh_thesis` (first call on a coin, specific thesis, no pre-move). `fly` joins when the Connectome Lab produces signals. New families can appear through mutation or proposals.
+- Families are labels for niches, not code paths. Seed families (`services/core/src/mind/seeds.ts`, 6 × 6 variants: fast, medium, slow × tight, loose): `wave_anticipation`, `bellwether_follow`, `graduation_run`, `narrative_rotation`, `fresh_thesis` (first call on a coin, specific thesis, no pre-move), and `pre_call` (below). Post-call families require a callout signal in their universe. `fly` joins when the Connectome Lab produces signals. New families can appear through mutation or proposals.
+- `called_s_gte: n` is an exit that holds once a callout has landed on the coin at least n seconds ago, after our entry. It is how a pre-call position sells into the callout it predicted.
 - Every spec needs a `mult_gte` take-profit, a `mult_lte` stop and a `held_min_gte` exit within its horizon. The validator lists every reason a spec is invalid.
 - **Cost floor.** The score is read as a win chance p. With take-profit `tp` and stop `s`, expected edge = p·(tp − 1) − (1 − p)·(1 − s). An entry needs edge above the round-trip cost: 2 × pump fee + 2 × curve slippage at the order size. Size is `kelly_fraction` × Kelly(p, b = (tp − 1)/(1 − s)) × book, then clamped to limits.
+
+## Pre-call: buy before the callout
+
+Buying after a callout is the losing side (docs/07 scorekeeper: 54 of 61 measured callouts lost money at 5 min after costs). Callers must hold a coin to call it, so their own buy announces the callout: a median 57 s earlier on the fixture, with a median 3-minute peak 1.30x above that buy (docs/research/pre-call-evidence.md).
+
+- **In play.** The desk evaluates a coin while it is in play: within `ENTRY_WINDOW_MIN` after its latest callout, or after a known caller's buy on it (`precall.callout_p` on the Board). For a pre-call coin the Board holds coin signals (`curve.*`, `flow.state`, `precall.callout_p`, `hawkes.*`) and the buying caller's `caller.dna`; callout signals are absent, so post-call families (which require `age.opportunity` or a `jev.callout.*` field in their universe) do not fire.
+- **The `pre_call` seed family.** Universe: `precall.callout_p` exists, curve progress < 0.85, `flow.state.top_share` < 0.6. Score: `precall.callout_p.p` (0.6), `precall.callout_p.p_peak` (0.3, skip when missing), `flow.state.heat` (0.2), `caller.dna.followers_norm` (0.2, skip), minus `flow.state.top_share` (0.3). Exits: half at the first take-profit band, `called_s_gte` 30 s (tight) or 60 s (loose) sells the rest into the callout, and a hold limit of 3, 6 or 10 min by horizon. Stop 0.88x (tight) or 0.8x (loose).
+- **Calls.** `pre_call` strategies use `call.policy: after_fill`, so the house posts its own callout (on paper, docs/09) before the caller it predicted. The house record of being early is public in the caller ledger.
 
 ## The Strategy Pool loop
 
@@ -131,12 +140,13 @@ A pure function. Inputs: intent, current portfolio, the live limits version, the
 | Min liquidity | curve real SOL ≥ 3, or pool ≥ $20k |
 | Quote freshness | ≤ 3 s |
 | Coins never traded | our own coin, coins in our blocklist |
+| Rug and bundle floor (docs/23) | first-slot buyers holding 20% of supply, top 10 holding 30% of supply (curve excluded), fresh-wallet share 60%, creator sold 50% |
 
 Limits live in `mind.limits` with a version. Only the admin path changes them. Code never changes limits.
 
 ### Reason codes
 
-`stale_quote`, `impact_too_high`, `liquidity_too_low`, `position_cap`, `open_coins_cap`, `order_cap`, `daily_loss_stop`, `blocklisted`, `own_coin`, `kill_switch`, `mode_not_live`, `duplicate_intent`, `wallet_balance_low`, `strategy_not_live`.
+`stale_quote`, `impact_too_high`, `liquidity_too_low`, `position_cap`, `open_coins_cap`, `order_cap`, `daily_loss_stop`, `bundled`, `concentrated`, `fresh_wallets`, `creator_sold`, `blocklisted`, `own_coin`, `kill_switch`, `mode_not_live`, `duplicate_intent`, `wallet_balance_low`, `strategy_not_live`.
 
 ## Ways the Mind fails
 

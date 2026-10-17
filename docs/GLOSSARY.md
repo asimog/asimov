@@ -28,6 +28,14 @@ One term per thing. If you need a new word, add it here in the same change.
 | Cortex | The paper instrument: the firm's lanes as lobes of a point-cloud brain. |
 | Lab (instrument) | The paper instrument: committed items on an arc, evidence threads, outcome rays. |
 | Callout | A Pump.fun post naming a coin, made by a holder. Ours or anyone's. |
+| House callout | Our own callout on a coin, posted after our fill with the position disclosed. On paper it is a `post.queued` with `paper: true`. Scored as the caller `house`. |
+| House position | The one position whose fills and close are posted as our callout and its updates on a coin. |
+| Thesis | The committed reason for a house callout: claims by evidence class, a prediction, a plan and its invalidation. |
+| Pre-call | Before a callout: a known caller has bought the coin and has not called it yet. |
+| In play | A coin the desk evaluates: called within the entry window, or bought by a known caller. |
+| Scout | The sense that reads every pump.fun trade in memory and promotes coins into the watched set. |
+| Watched set | Coins whose every trade is recorded on the Tape. |
+| Backfill | The sense that reads a coin's past trades from RPC when it enters the watched set. |
 | Update | A post threaded under a callout. Our exits are updates. |
 | Data reply | One factual data reply we leave under someone else's callout. |
 | Caller | An account that posts callouts. ID `cl_`. |

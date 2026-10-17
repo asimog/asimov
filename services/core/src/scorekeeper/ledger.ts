@@ -5,7 +5,7 @@ import type { Sql } from "../lib/db.ts";
 export const LEDGER_METHOD = "cl1";
 const FEW = 5;
 
-type Reason = "repeat" | "quote" | "gap" | "no_entry" | "no_trades" | "unresolved";
+type Reason = "history" | "repeat" | "quote" | "gap" | "no_entry" | "no_trades" | "unresolved";
 export type LedgerRow = {
   wallet: string;
   handle: string | null;
@@ -68,19 +68,23 @@ export async function ledger(sql: Sql, o: { horizon?: number } = {}) {
   const rows = await sql`
     with calls as (
       select e.body->>'callout_id' id, e.body->>'author_wallet' wallet, e.body->>'author_handle' handle, e.body->>'mint' mint,
-        e.body->>'quoted_callout_id' quoted, e.seen_time, e.id ev,
+        e.body->>'quoted_callout_id' quoted, e.body->>'via' via, e.seen_time, e.id ev,
         row_number() over (partition by e.body->>'author_wallet', e.body->>'mint' order by e.seen_time, e.id) nth
       from tape.events e where e.topic = 'callout.created'
+      union all -- our own paper callouts (docs/09): the house is one more caller
+      select e.body->>'house_id', w, w, e.body->>'mint', null, 'house', e.seen_time, e.id, 1
+      from tape.events e, lateral (select case e.body->>'kind' when 'callout' then 'house' else 'house:reply' end w) k
+      where e.topic = 'post.queued' and e.body->>'kind' in ('callout', 'reply')
     ), outs as (
       select distinct on (body->>'callout_id') body->>'callout_id' id, body from tape.events
       where topic = 'outcome.measured' and (body->>'horizon_min')::int = ${horizon}
       order by body->>'callout_id', seen_time desc, id desc
     )
-    select c.id, c.wallet, c.handle, c.nth, c.quoted, c.seen_time, o.body
+    select c.id, c.wallet, c.handle, c.nth, c.quoted, c.via, c.seen_time, o.body
     from calls c left join outs o on o.id = c.id order by c.seen_time, c.ev`;
   const calls: Call[] = rows.map((r) => {
     const b = r.body as Record<string, unknown> | null;
-    const reason: Reason | null = (r.nth as number) > 1 ? "repeat" : r.quoted ? "quote" : !b ? "unresolved" : b.coverage !== "ok" ? (b.coverage as Reason) : null;
+    const reason: Reason | null = r.via === "history" ? "history" : (r.nth as number) > 1 ? "repeat" : r.quoted ? "quote" : !b ? "unresolved" : b.coverage !== "ok" ? (b.coverage as Reason) : null;
     return { id: r.id as string, wallet: r.wallet as string, handle: r.handle as string | null, reason, net: (b?.net_multiple as number) ?? null, peak: (b?.peak_multiple as number) ?? null, trough: (b?.trough_multiple as number) ?? null, phase: (b?.phase as string) ?? null };
   });
   const by = new Map<string, Call[]>();
@@ -91,7 +95,7 @@ export async function ledger(sql: Sql, o: { horizon?: number } = {}) {
     method: LEDGER_METHOD,
     horizon_min: horizon,
     window: { from: first?.toISOString() ?? null, to: last?.toISOString() ?? null },
-    all: row("all callers", null, calls),
+    all: row("all callers", null, calls.filter((c) => !c.wallet.startsWith("house"))), // the crowd baseline; the house has its own row
     rows: [...by.entries()].map(([w, cs]) => row(w, cs.at(-1)!.handle, cs)).sort((a, b) => b.calls - a.calls || (a.wallet < b.wallet ? -1 : 1)),
   };
 }
@@ -103,6 +107,16 @@ export async function coverage(sql: Sql) {
     traded as (select subject mint, min(seen_time) first_trade from tape.events where topic in ('trade.curve', 'trade.amm') group by 1)
     select count(*)::int called, count(t.mint)::int with_trades, count(*) filter (where t.first_trade > c.first_call)::int first_trade_after_call
     from called c left join traded t using (mint)`;
+  // collectors (docs/06): trades per source, and signatures both NATS and the RPC backfill saw
+  const sources = await sql`select source, count(*)::int trades, count(distinct body->>'tx')::int txs from tape.events
+    where topic in ('trade.curve', 'trade.amm') group by 1 order by 1`;
+  const [both] = await sql`select count(*)::int n from (select body->>'tx' from tape.events where topic in ('trade.curve', 'trade.amm')
+    group by 1 having count(distinct source) > 1) x`;
+  // callouts announced by their author's own buy on the Tape before the callout (docs/research/pre-call-evidence.md)
+  const [announced] = await sql`select count(*)::int calls, count(*) filter (where exists (select 1 from tape.events t
+      where t.subject = c.body->>'mint' and t.topic in ('trade.curve', 'trade.amm') and t.body->>'wallet' = c.body->>'author_wallet'
+        and t.body->>'side' = 'buy' and t.seen_time < c.seen_time))::int author_buy_first
+    from tape.events c where c.topic = 'callout.created'`;
   const outcomes = await sql`
     select (body->>'horizon_min')::int h, body->>'coverage' coverage, count(*)::int n from (
       select distinct on (body->>'callout_id', body->>'horizon_min') body from tape.events where topic = 'outcome.measured'
@@ -112,6 +126,9 @@ export async function coverage(sql: Sql) {
     coins_called: coins!.called,
     coins_with_trades: coins!.with_trades,
     coins_first_trade_after_first_call: coins!.first_trade_after_call,
+    trades_by_source: sources,
+    txs_seen_by_both: both!.n,
+    callouts_author_buy_first: announced,
     outcomes,
   };
 }

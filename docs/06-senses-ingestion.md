@@ -103,15 +103,58 @@ Unknown page types go through the SDE cascade: a cheap LLM (DeepSeek v4.1 Flash)
 
 Money paths use our RPC and confirmed transactions only. NATS data feeds signals only.
 
+**The watched set.** A coin is watched (every trade recorded on the Tape) from its first callout, or from the moment the Scout promotes it (below), for `WATCH_HOURS`, capped at `WATCH_MAX_COINS`. The Chain Reader reads `mem.coins.watch_from` (first callout or `coin.watched`, whichever is first).
+
+### Scout
+
+The Scout (`senses/scout.ts`) reads the whole trade firehose `unifiedTradeEvent.lite.>` (232 trades/s, 131 KB/s, measured 2026-10-17) in memory and writes to the Tape only when it decides a coin is worth watching. It exists because callers must hold a coin to call it, so their buy comes before their callout (median 57 s on the fixture, docs/research/pre-call-evidence.md).
+
+| Rule | Writes |
+|---|---|
+| A buy by a known caller wallet (any wallet with a callout in `mem.callers`, refreshed every `SCOUT_CALLERS_REFRESH_S`, default 60) on a coin not yet watched | the trade itself (`trade.curve`, source `nats`, same dedupe key as the Chain Reader), then `coin.watched` with `reason: caller_buy` |
+| A coin's flow heats: at least `SCOUT_HEAT_BUYERS` (8) unique buyers and `SCOUT_HEAT_NET_SOL` (1.5) net SOL in the last 60 s, on the curve | `coin.watched` with `reason: heat` and the window's numbers |
+| A smart wallet from the latest Index version buys (docs/23) | `coin.watched` with `reason: smart_buy` |
+| Coin metrics clear the scan floor: market cap at least `SCOUT_MIN_MCAP_USD` (4,000) and `SCOUT_MIN_BUYERS` (10) buyers. The floor only decides what we record in full; strategies set and evolve their own thresholds | `coin.watched` with `reason: metrics` |
+
+Every `coin.watched` carries the coin's launch features as seen at promotion (docs/04), computed by the Index rollup (docs/23). Bundle features count only for coins seen from birth (a launch message on `newCoinCreated.prod`, or a first trade near the launch price); "fresh wallet" counts only once the Index holds `INDEX_FRESH_WARMUP_H` (24) hours of wallets. On promotion the Backfill reads the coin's history and, after `HOLDERS_DELAY_S` (15), an RPC holder snapshot is taken (`holders.snapshot`).
+
+The Scout hands each promotion to the Chain Reader in the same process, which subscribes to the coin's full trade subject at once (no 15 s wait), and to the Backfill. A promoted coin is not promoted again for `WATCH_HOURS`. Rolling windows for coins with no trade for 2 minutes are dropped, so memory stays bounded by the live coin count (about 300 per 15 s). `SCOUT=0` turns it off; `WATCH_ALL_TRADES` is removed (the Scout replaced it).
+
+### Scout: ways it fails
+
+1. The firehose drops. NATS reconnects; on reconnect the Scout writes `system.note` (kind `scout_gap`, with the interval). Not `system.gap`: watched coins keep their own Chain Reader subscriptions, so recorded trades are complete; only promotions were missed.
+2. A caller trades from a second wallet. We only know wallets that posted a callout; the buy is missed and the callout arrives unannounced. Coverage reports the share of callouts preceded by a recorded author buy.
+3. Heat floods the watched set (a busy hour). Promotions respect `WATCH_MAX_COINS`; the oldest promotions leave first, each with `system.gap`.
+4. A wallet buys many coins without calling (a trader who once called). The pre-call analyzer learns its call rate from our own record (docs/07 precall), so its buys stop mattering.
+
+### RPC trade backfill (S2.7)
+
+When a coin enters the watched set, the Backfill (`senses/backfill.ts`) reads what happened before:
+
+1. `getSignaturesForAddress(bondingCurvePda(mint), limit: RPC_BACKFILL_SIGS)` (default 200), newest first.
+2. Signatures already on the Tape for that coin (from NATS) are skipped; the overlap is counted for `ctl coverage`.
+3. `getTransaction` for the rest, at most `RPC_BACKFILL_RPS` (default 4) requests per second and `RPC_BACKFILL_TX_PER_HOUR` (default 3000) per hour. Every call is metered as `budget.spent` (unit `rpc`).
+4. Each `Program data:` log line whose first 8 bytes are the pump `TradeEvent` discriminator is decoded with `PUMP_SDK.decodeTradeEventBc` and written as `trade.curve`: source `rpc`, `event_time` = the event timestamp, `price_sol` from the virtual reserves after the trade, dedupe `trade:<signature>:rpc:<index>`.
+
+A backfilled trade has `seen_time` = when we fetched it. Analyzers still read by `seen_time`, so nothing learned late can leak backwards. The Scorekeeper orders `rpc` trades by `event_time` when it measures an outcome after the horizon (docs/07), because by then it knows them.
+
+### Backfill: ways it fails
+
+1. The free tier rate-limits (429). Back off for 10 s, keep the queue; after the hour budget is spent, write `system.gap` (source `rpc`, scope the coin) for the unread history.
+2. `getTransaction` returns null for a fresh signature. Retry once after 2 s, then skip it.
+3. Logs are truncated in a large transaction, so the event line is missing. The trade is missed; NATS overlap shows the rate.
+4. The program changes the event layout. The SDK decoder pads missing trailing fields; a failure to decode is counted, never guessed.
+
+
 **RPC budget.** Helius free tier has a request-per-second limit and monthly credits. The Chain Reader meters every call as `budget.spent` (unit: rpc credits). Subscriptions are preferred over polling. When the monthly projection passes 80% of the plan, `system.rpc_budget` alerts the owner.
 
 ### Chain Reader: ways it fails
 
-1. NATS disconnects. Reconnect with backoff (built). On reconnect, write `system.gap` (source `trades`) for the interval (built), so outcomes in it are marked, never silently computed. Filling the gap from RPC history for watched coins is **not built yet** (S2.7, pattern: `myron-dev/pump-indexer`, multi-provider `logsSubscribe` decoding).
+1. NATS disconnects. Reconnect with backoff (built). On reconnect, write `system.gap` (source `trades`) for the interval (built), so outcomes in it are marked, never silently computed. The Backfill (above) re-reads the coin's recent history when it re-enters the watched set.
 2. NATS and RPC disagree on a trade. RPC wins; emit `system.source_disagree`.
 3. Provider rate limits (free tier) on holder snapshots. Spread pages; fall back to the previous sample and mark the hour "degraded" (payout waits).
 4. Reorgs or dropped transactions. Fills count only after `confirmed`; payouts only after `finalized`.
-5. Trades before a coin is called are not observed, because the watch starts at the first callout. On the first tape, 44 of 53 coins with trades had their first recorded trade after their first callout. Outcomes report `pre_call_trades`; case files list it under UNRESOLVED. S2.7's backfill fixes this for called coins.
+5. Trades before a coin is watched are not observed live. On the first tape (before the Scout and the Backfill), 44 of 53 coins with trades had their first recorded trade after their first callout. The Scout now promotes coins before their callout, and the Backfill reads history on promotion. Outcomes report `pre_call_trades`; case files list what is still missing under UNRESOLVED.
 
 ## X Reader
 

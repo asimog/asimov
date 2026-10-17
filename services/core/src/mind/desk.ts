@@ -14,7 +14,7 @@ import { type BoardValues, evaluateEntry, type Spec, validate, whenHolds } from 
 import { evolve, type Member } from "./evolve.ts";
 import { F, fillBuy, fillSell, type Market, quoteFor, sampleLatencyMs } from "./fill.ts";
 import { allocate, lcb, type Stats } from "./kernel.ts";
-import { type Book, DEFAULT_LIMITS, type Limits, riskGate } from "./risk.ts";
+import { type Book, DEFAULT_LIMITS, type GateRisk, type Limits, riskGate } from "./risk.ts";
 import { seedSpecs } from "./seeds.ts";
 
 const D = {
@@ -61,6 +61,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   const market = new Map<string, Market & { real_sol: number | null }>();
   const coinCallout = new Map<string, { callout_id: string; author: string | null; at_ms: number }>();
   const calloutMint = new Map<string, string>();
+  const coinPrecall = new Map<string, { caller: string; at_ms: number }>(); // a known caller bought, before their callout (docs/08)
   const lastEval = new Map<string, number>();
   const lastExit = new Map<string, number>(); // `${strategy}:${mint}` -> ms
   const clockRow = { next_alloc: 0, next_evolve: 0, sweep_bucket: -1, round: 0 };
@@ -71,7 +72,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   // ---------- load ----------
   /** Rebuild every cache in the order an uninterrupted run would have built it: map order decides iteration and RNG draws. */
   async function load(tx: Tx) {
-    for (const m of [strategies, st, open, closedToday, realized, pending, fills, market, coinCallout, calloutMint, lastEval, lastExit] as Map<unknown, unknown>[]) m.clear();
+    for (const m of [strategies, st, open, closedToday, realized, pending, fills, market, coinCallout, calloutMint, coinPrecall, lastEval, lastExit] as Map<unknown, unknown>[]) m.clear();
     const [lim] = await tx`select body from mind.limits order by version desc limit 1`;
     limits = { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits>) ?? {}) };
     for (const r of await tx`select id, spec, born_at from mind.strategies where retired_at is null order by born_at, id`)
@@ -103,6 +104,10 @@ export function desk(tape: Tape, clock: Clock): Desk {
       calloutMint.set(r.callout_id as string, r.mint as string);
       if (r.last_eval) lastEval.set(r.mint as string, (r.last_eval as Date).getTime());
     }
+    for (const r of await tx`select * from mind.coin_precall order by at, mint`) {
+      coinPrecall.set(r.mint as string, { caller: r.caller as string, at_ms: (r.at as Date).getTime() });
+      if (r.last_eval) lastEval.set(r.mint as string, Math.max(lastEval.get(r.mint as string) ?? 0, (r.last_eval as Date).getTime())); // the later of both tables
+    }
     // caches rebuilt from durable state, so a restart decides exactly as an uninterrupted run (e2e/callout-case-replay)
     for (const r of await tx`select strategy_id, mint, max(closed_at) at from mind.positions where closed_at is not null group by 1, 2`)
       lastExit.set(`${r.strategy_id}:${r.mint}`, (r.at as Date).getTime());
@@ -113,7 +118,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     const upto = off ? (off.last_seen_time as Date) : null;
     if (upto && upto.getTime() > 0) {
       clockRow.sweep_bucket = Math.floor(upto.getTime() / D.sweepMs);
-      const mints = [...new Set([...coinCallout.keys(), ...open.keys(), ...pending.keys()])];
+      const mints = [...new Set([...coinCallout.keys(), ...coinPrecall.keys(), ...open.keys(), ...pending.keys()])];
       for (const r of await tx`select distinct on (subject) subject, topic, seen_time, (body->>'price_sol')::float p from tape.events
           where subject = any(${mints}) and topic in ('trade.curve', 'trade.amm') and seen_time <= ${upto} and body->>'price_sol' is not null and (body->>'price_sol')::float > 0
           order by subject, seen_time desc, id desc`) {
@@ -392,7 +397,8 @@ export function desk(tape: Tape, clock: Clock): Desk {
   async function exits(tx: Tx, p: Position, m: Market, now: number, board: BoardValues, e: Envelope) {
     if ((pending.get(p.mint) ?? []).some((i) => i.position_id === p.id)) return;
     const spec = strategies.get(p.strategy_id)?.spec;
-    const ctx = { mult: m.price_sol / p.entry_price, heldMin: (now - p.opened_ms) / 60_000, board };
+    const cc = coinCallout.get(p.mint);
+    const ctx = { mult: m.price_sol / p.entry_price, heldMin: (now - p.opened_ms) / 60_000, calledS: cc && cc.at_ms > p.opened_ms ? (now - cc.at_ms) / 1000 : null, board };
     let sell: { tokens: number; reason: string } | null = null;
     if (!spec) sell = { tokens: p.tokens_left, reason: "exit:-1:retired" };
     else if (spec.stop.any.some((w) => whenHolds(w, ctx))) sell = { tokens: p.tokens_left, reason: "exit:-1:stop" };
@@ -409,9 +415,24 @@ export function desk(tape: Tape, clock: Clock): Desk {
       e, () => riskGate({ id: "", mint: p.mint, side: "sell", size_sol: 0, duplicate: false }, book(p.strategy_id, now), limits, null, { kill: false, mode_ok: true, strategy_live: true }, now));
   }
 
+  /** The caller the Board is about: the latest callout's author, or a known caller who bought since (pre-call). */
+  function callerOf(mint: string) {
+    const cc = coinCallout.get(mint);
+    const pc = coinPrecall.get(mint);
+    return pc && (!cc || pc.at_ms > cc.at_ms) ? pc.caller : (cc?.author ?? null);
+  }
+
+  /** In play (docs/08): called within the entry window, or bought by a known caller within it. */
+  function inPlay(mint: string, now: number) {
+    const cc = coinCallout.get(mint);
+    const pc = coinPrecall.get(mint);
+    return (!!cc && now - cc.at_ms <= D.entryWindowMs) || (!!pc && now - pc.at_ms <= D.entryWindowMs);
+  }
+
   async function boardFor(tx: Tx, mint: string, at: string): Promise<BoardValues> {
     const cc = coinCallout.get(mint);
-    const rows = await Promise.all([liveFor(tx, mint, at), cc ? liveFor(tx, cc.callout_id, at) : {}, cc?.author ? liveFor(tx, cc.author, at) : {}]);
+    const author = callerOf(mint);
+    const rows = await Promise.all([liveFor(tx, mint, at), cc ? liveFor(tx, cc.callout_id, at) : {}, author ? liveFor(tx, author, at) : {}]);
     const out: BoardValues = {};
     for (const r of rows) for (const [k, v] of Object.entries(r)) out[k] = v.value as Record<string, unknown>;
     return out;
@@ -420,9 +441,10 @@ export function desk(tape: Tape, clock: Clock): Desk {
   async function entries(tx: Tx, mint: string, now: number, e: Envelope) {
     const cc = coinCallout.get(mint);
     const m = market.get(mint);
-    if (!cc || !m || m.graduated || now - cc.at_ms > D.entryWindowMs) return;
+    if (!m || m.graduated || !inPlay(mint, now)) return;
     lastEval.set(mint, now);
-    await tx`update mind.coin_callout set last_eval = ${iso(now)} where mint = ${mint}`;
+    if (cc) await tx`update mind.coin_callout set last_eval = ${iso(now)} where mint = ${mint}`;
+    else await tx`update mind.coin_precall set last_eval = ${iso(now)} where mint = ${mint}`;
     const board = await boardFor(tx, mint, e.seen_time);
     const quote = quoteFor(m);
     const busy = new Set([...(open.get(mint) ?? []), ...(pending.get(mint) ?? [])].map((x) => x.strategy_id));
@@ -435,9 +457,9 @@ export function desk(tape: Tape, clock: Clock): Desk {
       const q = quote(size);
       await newIntent(tx, { strategy_id: spec.id, mint, side: "buy", size_sol: size, tokens: null, position_id: null, reason: "entry", created_ms: now, score: d.score },
         [`score ${d.score.toFixed(3)} >= ${spec.enter_if.score_gte.toFixed(3)}`, `edge ${d.edge_bps.toFixed(0)} bps > cost ${d.cost_bps.toFixed(0)} bps`],
-        { terms: d.terms, edge_bps: d.edge_bps, cost_bps: d.cost_bps, callout_id: cc.callout_id },
+        { terms: d.terms, edge_bps: d.edge_bps, cost_bps: d.cost_bps, callout_id: cc?.callout_id ?? null, caller: callerOf(mint) },
         e, () => riskGate({ id: "", mint, side: "buy", size_sol: size, duplicate: false }, book(spec.id, now), limits,
-          { at_ms: m.at_ms, impact_bps: q.impact_bps, real_sol: m.real_sol, graduated: m.graduated }, { kill: false, mode_ok: true, strategy_live: true }, now));
+          { at_ms: m.at_ms, impact_bps: q.impact_bps, real_sol: m.real_sol, graduated: m.graduated, risk: (board["risk.state"] as GateRisk | undefined) ?? null }, { kill: false, mode_ok: true, strategy_live: true }, now));
     }
   }
 
@@ -457,6 +479,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
           await rounds(tx, e, now);
           if (e.topic === "callout.created") {
             const b = e.body as BodyOf<"callout.created">;
+            if (b.via === "history") continue; // the Index's backfill: known callers, never an entry
             coinCallout.set(b.mint, { callout_id: b.callout_id, author: b.author_wallet, at_ms: now });
             calloutMint.set(b.callout_id, b.mint);
             await tx`insert into mind.coin_callout (mint, callout_id, author_wallet, at) values (${b.mint}, ${b.callout_id}, ${b.author_wallet}, ${e.seen_time})
@@ -468,6 +491,16 @@ export function desk(tape: Tape, clock: Clock): Desk {
           } else {
             const t = e.body as BodyOf<"trade.curve">;
             if (!t.price_sol) continue;
+            if (t.side === "buy") {
+              // the pre-call analyzer ran on this trade first (buildConsumers order): a signal citing it means a known caller bought
+              const [pc] = await tx`select value->>'caller' caller from board.signals where kind = 'precall.callout_p' and subject = ${t.mint}
+                and produced_at = ${e.seen_time} and ${e.id} = any(inputs) limit 1`;
+              if (pc) {
+                coinPrecall.set(t.mint, { caller: pc.caller as string, at_ms: now });
+                await tx`insert into mind.coin_precall (mint, caller, at) values (${t.mint}, ${pc.caller as string}, ${e.seen_time})
+                  on conflict (mint) do update set caller = excluded.caller, at = excluded.at`;
+              }
+            }
             const prev = market.get(t.mint);
             const graduated = e.topic === "trade.amm";
             const m = { price_sol: t.price_sol, at_ms: now, graduated, real_sol: graduated ? null : curveFromPrice(t.price_sol).realSol };
@@ -479,7 +512,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
               const board = needsBoard ? await boardFor(tx, t.mint, e.seen_time) : {};
               for (const p of [...(open.get(t.mint) ?? [])]) await exits(tx, p, m, now, board, e);
             }
-            if (coinCallout.has(t.mint) && (!prev || now - (lastEval.get(t.mint) ?? 0) >= D.evalMinMs)) await entries(tx, t.mint, now, e);
+            if (inPlay(t.mint, now) && (!prev || now - (lastEval.get(t.mint) ?? 0) >= D.evalMinMs)) await entries(tx, t.mint, now, e);
           }
         }
       } catch (err) {

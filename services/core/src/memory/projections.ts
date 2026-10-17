@@ -122,15 +122,22 @@ async function onTrades(tx: Tx, trades: Envelope<BodyOf<"trade.curve">>[]) {
                last_price_usd = coalesce(${l.price}, last_price_usd) where mint = ${mint}`;
 }
 
+/** The Scout promoted a coin (docs/06): the Chain Reader watches from the earliest of this and the first callout. */
+async function onWatched(tx: Tx, e: Envelope<BodyOf<"coin.watched">>) {
+  await tx`insert into mem.coins (mint, first_seen, watched_at, watch_reason) values (${e.body.mint}, ${e.seen_time}, ${e.seen_time}, ${e.body.reason})
+    on conflict (mint) do update set watched_at = coalesce(mem.coins.watched_at, excluded.watched_at), watch_reason = coalesce(mem.coins.watch_reason, excluded.watch_reason)`;
+}
+
 export const memory: Consumer = {
   name: "memory",
-  topics: ["coin.seen", "callout.created", "callout.updated", "callout.counts", "trade.curve", "trade.amm"],
+  topics: ["coin.seen", "coin.watched", "callout.created", "callout.updated", "callout.counts", "trade.curve", "trade.amm"],
   batch: 1000,
   async handle(events, tx) {
     const trades: Envelope<BodyOf<"trade.curve">>[] = [];
     for (const e of events) {
       switch (e.topic) {
         case "coin.seen": await onCoin(tx, e as never); break;
+        case "coin.watched": await onWatched(tx, e as never); break;
         case "callout.created": await onCallout(tx, e as never); break;
         case "callout.updated": await onUpdate(tx, e as never); break;
         case "callout.counts": await onCounts(tx, e as never); break;

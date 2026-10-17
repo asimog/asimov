@@ -6,6 +6,7 @@ create schema if not exists mem;
 create schema if not exists board;
 create schema if not exists mind;
 create schema if not exists ops;
+create schema if not exists idx;
 
 create table if not exists tape.events (
   id          text not null,
@@ -25,6 +26,8 @@ create index if not exists events_topic_seen on tape.events (topic, seen_time);
 create index if not exists events_subject_seen on tape.events (subject, seen_time);
 create index if not exists events_id on tape.events (id);
 create index if not exists events_causes on tape.events using gin (causes);
+-- the pre-call analyzer reads a caller's own buys (docs/07 precall)
+create index if not exists events_trade_wallet on tape.events ((body->>'wallet'), seen_time) where topic in ('trade.curve', 'trade.amm');
 
 -- dedupe keys for idempotent senses (e.g. callout:<id>, trade:<tx>:<i>)
 create table if not exists tape.dedupe (
@@ -59,8 +62,12 @@ create table if not exists mem.coins (
   last_trade_at timestamptz,
   callout_count int not null default 0,
   first_callout_at timestamptz,
-  first_callout_mcap double precision
+  first_callout_mcap double precision,
+  watched_at timestamptz,
+  watch_reason text
 );
+
+alter table mem.coins add column if not exists watched_at timestamptz, add column if not exists watch_reason text;
 
 create table if not exists mem.callers (
   wallet text primary key,
@@ -240,6 +247,9 @@ create table if not exists mind.outcome_watch (
   done int[] not null default '{}'
 );
 create index if not exists outcome_watch_mint on mind.outcome_watch (mint);
+-- columns added after the first databases were made (create table if not exists does not add them)
+alter table mind.outcome_watch add column if not exists event_id text, add column if not exists author text, add column if not exists created_at timestamptz;
+alter table mind.coin_callout add column if not exists last_eval timestamptz;
 create table if not exists mind.scores (
   kind text not null,
   horizon_min int not null,
@@ -249,6 +259,32 @@ create table if not exists mind.scores (
   p_sum double precision not null default 0,
   primary key (kind, horizon_min)
 );
+-- pre-call: known-caller buys waiting for their horizon (docs/07 precall); desk coins in play before a callout
+create table if not exists mind.precall_watch (
+  signal_id text primary key,
+  mint text not null,
+  at timestamptz not null,
+  p double precision not null,
+  horizon_min int not null,
+  done boolean not null default false
+);
+create table if not exists mind.coin_precall (
+  mint text primary key,
+  caller text not null,
+  at timestamptz not null,
+  last_eval timestamptz
+);
+-- house callouts (docs/09): one open per coin
+create table if not exists mind.house (
+  house_id text primary key,
+  mint text not null,
+  position_id text not null unique,
+  strategy_id text not null,
+  thesis_id text not null,
+  opened_at timestamptz not null,
+  closed_at timestamptz
+);
+create unique index if not exists house_open on mind.house (mint) where closed_at is null;
 create table if not exists mind.limits (
   version int primary key,
   body jsonb not null,
@@ -270,4 +306,57 @@ create table if not exists ops.admin_actions (
   by text not null,
   at timestamptz not null default now(),
   detail jsonb
+);
+
+-- ---------- index (docs/23): rolling 30-day record of wallets and coins from the whole firehose ----------
+create table if not exists idx.wallet_coin (
+  wallet text not null,
+  mint text not null,
+  buys int not null default 0,
+  sells int not null default 0,
+  sol_in double precision not null default 0,
+  sol_out double precision not null default 0,
+  tok_in double precision not null default 0,
+  tok_out double precision not null default 0,
+  first_buy_at timestamptz,
+  first_buy_price double precision,
+  copy_price double precision,       -- the first price we could have bought at after our latency
+  first_sell_at timestamptz,
+  early_slot boolean not null default false,
+  last_at timestamptz not null,
+  primary key (wallet, mint)
+);
+create index if not exists wallet_coin_last on idx.wallet_coin (last_at);
+create index if not exists wallet_coin_mint on idx.wallet_coin (mint);
+create table if not exists idx.coin (
+  mint text primary key,
+  first_seen_at timestamptz not null,
+  first_slot bigint,
+  creator text,
+  curve_account text,
+  last_price double precision,
+  peak_price double precision,
+  last_at timestamptz not null,
+  trades int not null default 0,
+  bundle_buys int not null default 0,
+  bundle_sol double precision not null default 0,
+  graduated boolean not null default false
+);
+create table if not exists idx.wallet (
+  wallet text primary key,
+  version int not null,
+  n int not null,
+  copy_net double precision,
+  copy_win_lcb double precision,
+  early_right double precision,
+  lead_s double precision,
+  archetype text not null,
+  seed text,                          -- where we first heard of it: leaderboard, top_trader, firehose
+  refreshed_at timestamptz not null
+);
+create table if not exists idx.seed (
+  wallet text primary key,
+  source text not null,
+  detail jsonb,
+  seen_at timestamptz not null
 );
