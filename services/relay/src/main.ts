@@ -58,6 +58,16 @@ function line(r: Row): Line | null {
       return { ...base, mint: null, text: `strategy retired: ${b.reason.replaceAll("_", " ")} after ${b.trades} trades` };
     case "kernel.allocation":
       return { ...base, mint: null, text: `allocation round ${b.round}: ${b.shares.filter((s: { share: number }) => s.share > 0).length} strategies earn capital` };
+    case "coin.watched":
+      return { ...base, mint: b.mint, text: `scout watching ${sym(b.mint)}: ${String(b.reason).replace("_", " ")}${b.features?.mcap_usd ? ` at $${Math.round(b.features.mcap_usd / 1000)}k` : ""}, ${b.features?.buyers ?? 0} buyers` };
+    case "holders.snapshot":
+      return { ...base, mint: b.mint, text: `holders ${sym(b.mint)}: top 10 hold ${(b.top10_share * 100).toFixed(0)}% of supply` };
+    case "thesis.formed":
+      return { ...base, mint: b.mint, text: `thesis ${sym(b.mint)} (${String(b.kind).replace("_", " ")}): ${b.prediction.what} at ${b.prediction.p.toFixed(2)}`, family: familyOf(b.strategy_id) };
+    case "post.queued":
+      return { ...base, mint: b.mint, text: `${b.kind === "reply" ? "data reply" : b.kind} ${sym(b.mint)}: ${String(b.text).replace(/^PAPER\. /, "")}` };
+    case "index.refreshed":
+      return { ...base, mint: null, text: `index v${b.version}: ${b.wallets} wallets scored, ${b.smart.length} copyable` };
     case "outcome.measured":
       return null;
     case "score.updated":
@@ -129,6 +139,67 @@ async function snapshot() {
   return body;
 }
 
+// ---------- rooms (docs/11): small read-only queries, cached a few seconds ----------
+const cache = new Map<string, { at: number; body: unknown }>();
+const cached = async (key: string, ms: number, fn: () => Promise<unknown>) => {
+  const c = cache.get(key);
+  if (c && Date.now() - c.at < ms) return c.body;
+  const body = await fn();
+  cache.set(key, { at: Date.now(), body });
+  return body;
+};
+
+/** Lab: every commit, its thesis when it has one, and its reveal. */
+const lab = () => cached("lab", 4000, async () => {
+  const rows = await sql`
+    select m.commit_id, m.kind, m.sha256, m.made_at, m.revealed_at, m.content,
+      (select body from tape.events r where r.topic = 'commit.revealed' and r.subject = m.commit_id limit 1) reveal
+    from mind.commits m order by m.made_at desc limit 160`;
+  const [c] = await sql`select count(*)::int n, count(revealed_at)::int revealed from mind.commits`;
+  return {
+    total: c!.n, revealed: c!.revealed,
+    items: rows.map((r) => {
+      const k = r.content as Record<string, any>;
+      return {
+        id: r.commit_id, kind: r.kind, sha: r.sha256, made: (r.made_at as Date).getTime(), revealed: r.revealed_at ? (r.revealed_at as Date).getTime() : null,
+        matches: (r.reveal as { matches?: boolean } | null)?.matches ?? null,
+        sym: sym(k.mint), thesis: k.kind ? { kind: k.kind, what: k.prediction?.what, p: k.prediction?.p, claims: (k.claims ?? []).slice(0, 4), plan: k.plan } : null,
+      };
+    }),
+  };
+});
+
+/** Ledger: every paper position, newest first, and the house's posts. */
+const ledgerRoom = () => cached("ledger", 4000, async () => {
+  const positions = await sql`select id, strategy_id, mint, opened_at, closed_at, cost_sol, proceeds_sol, net_sol, exit_reason, entry_price
+    from mind.positions order by opened_at desc limit 300`;
+  const posts = await sql`select seen_time, body from tape.events where topic = 'post.queued' order by seen_time desc limit 120`;
+  return {
+    positions: positions.map((p) => ({ ...p, sym: sym(p.mint as string), family: familyOf(p.strategy_id as string), opened_at: (p.opened_at as Date).getTime(), closed_at: p.closed_at ? (p.closed_at as Date).getTime() : null })),
+    posts: posts.map((p) => ({ t: (p.seen_time as Date).getTime(), kind: p.body.kind, sym: sym(p.body.mint), text: p.body.text, house: p.body.house_id })),
+  };
+});
+
+/** Integrity: the caller ledger at 5 min (ov2 outcomes, denominators), the Index, the risk floor at work. */
+const integrity = () => cached("integrity", 8000, async () => {
+  const callers = await sql`
+    with o as (select distinct on (body->>'callout_id') body from tape.events where topic = 'outcome.measured' and (body->>'horizon_min')::int = 5
+      order by body->>'callout_id', seen_time desc, id desc)
+    select body->>'author_wallet' wallet, count(*)::int calls, count(*) filter (where body->>'coverage' = 'ok')::int ok,
+      count(*) filter (where body->>'coverage' = 'ok' and (body->>'net_multiple')::float > 1)::int wins,
+      percentile_cont(0.5) within group (order by (body->>'net_multiple')::float) filter (where body->>'coverage' = 'ok') med_net
+    from o group by 1 order by 2 desc limit 40`;
+  const handles = new Map((await sql`select wallet, handle from mem.callers where wallet = any(${callers.map((c) => c.wallet as string)})`).map((r) => [r.wallet as string, r.handle as string | null]));
+  const smart = await sql`select wallet, n, copy_net, copy_win_lcb, lead_s, archetype from idx.wallet where archetype = 'smart' order by copy_win_lcb desc limit 20`.catch(() => []);
+  const arche = await sql`select archetype, count(*)::int n from idx.wallet group by 1 order by 2 desc`.catch(() => []);
+  const refused = await sql`select body->>'reason_code' reason, count(*)::int n from tape.events where topic = 'order.rejected' and seen_time > now() - interval '24 hours' group by 1 order by 2 desc`;
+  const watched = await sql`select body->>'reason' reason, count(*)::int n from tape.events where topic = 'coin.watched' and seen_time > now() - interval '24 hours' group by 1 order by 2 desc`;
+  return {
+    callers: callers.map((c) => ({ ...c, who: c.wallet === "house" ? "house" : c.wallet === "house:reply" ? "house replies" : handles.get(c.wallet as string) ?? `${String(c.wallet).slice(0, 4)}…${String(c.wallet).slice(-4)}` })),
+    smart: smart.map((w) => ({ ...w, wallet: `${String(w.wallet).slice(0, 4)}…${String(w.wallet).slice(-4)}` })), archetypes: arche, refused, watched,
+  };
+});
+
 // ---------- live fan-out ----------
 type Client = { send: (lines: Line[]) => Promise<void> };
 const clients = new Set<Client>();
@@ -165,6 +236,9 @@ const tick = async () => {
 const app = new Hono();
 app.use("/v1/*", cors({ origin: (o) => o, allowMethods: ["GET"] }));
 app.get("/v1/snapshot", async (c) => c.json(await snapshot()));
+app.get("/v1/lab", async (c) => c.json(await lab()));
+app.get("/v1/ledger", async (c) => c.json(await ledgerRoom()));
+app.get("/v1/integrity", async (c) => c.json(await integrity()));
 app.get("/v1/stream", (c) =>
   streamSSE(c, async (stream) => {
     const client: Client = { send: (lines) => stream.writeSSE({ event: "lines", data: JSON.stringify(lines) }) };

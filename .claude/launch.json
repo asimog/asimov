@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "relay", "runtimeExecutable": "npm", "runtimeArgs": ["run", "relay"], "port": 7401 },
+    { "name": "web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "web"], "port": 7402 }
+  ]
+}

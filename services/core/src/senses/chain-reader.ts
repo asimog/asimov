@@ -44,6 +44,7 @@ export function toTrade(p: Partial<Processed>): Trade | null {
 export class ChainReader {
   private nc: NatsConnection | null = null;
   private subs = new Map<string, Subscription>();
+  private leftAt = new Map<string, number>(); // mint -> when it left the watched set (its gap is open)
   private stopped = false;
   stats = { trades: 0, watched: 0 };
 
@@ -79,7 +80,13 @@ export class ChainReader {
   private listen(subject: string) {
     const sub = this.nc!.subscribe(subject);
     this.subs.set(subject, sub);
-    this.onWatch(subject.split(".").at(-1)!);
+    const mint = subject.split(".").at(-1)!;
+    const left = this.leftAt.get(mint);
+    if (left !== undefined) {
+      this.leftAt.delete(mint);
+      this.gap(mint, left, this.tape.clock.now(), "coin back in the watched set: the gap is closed");
+    }
+    this.onWatch(mint);
     void consume(sub, (_s, data) => this.onTrade(decodeJson(data) as Partial<Processed>));
   }
 
@@ -104,17 +111,20 @@ export class ChainReader {
     while (!this.stopped) {
       try {
         const hours = env.num("WATCH_HOURS", 6);
+        // coins called or promoted in the window, most recent first; a coin called again comes back
         const rows = await this.sql`
-          select mint from mem.coins
-          where least(first_callout_at, watched_at) > now() - make_interval(hours => ${hours})
-          order by greatest(first_callout_at, watched_at) desc
-          limit ${env.int("WATCH_MAX_COINS", 60)}`;
+          select mint, max(at) at from (
+            select mint, seen_at at from mem.callouts where seen_at > now() - make_interval(hours => ${hours})
+            union all select mint, watched_at from mem.coins where watched_at > now() - make_interval(hours => ${hours})) x
+          group by mint order by at desc limit ${env.int("WATCH_MAX_COINS", 250)}`;
         const want = new Set(rows.map((r) => subject(r.mint as string)));
         for (const [s, sub] of this.subs)
           if (!want.has(s)) {
             sub.unsubscribe();
             this.subs.delete(s);
-            this.gap(s.split(".").at(-1)!, this.tape.clock.now(), null, "coin left the watched set");
+            const mint = s.split(".").at(-1)!;
+            this.leftAt.set(mint, this.tape.clock.now());
+            this.gap(mint, this.tape.clock.now(), null, "coin left the watched set");
           }
         for (const s of want) if (!this.subs.has(s)) this.listen(s);
         this.stats.watched = this.subs.size;

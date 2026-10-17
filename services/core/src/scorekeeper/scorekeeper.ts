@@ -26,10 +26,14 @@ type Pre = { signal_id: string; mint: string; at_ms: number; p: number; horizon_
 const iso = (ms: number) => new Date(ms).toISOString();
 
 /** Gaps known at `nowIso` that overlap [fromMs, toMs] for this coin. */
+/** Trade gaps only (a callout-feed gap does not hide trades). A gap reported again with a `to` closes the open one. */
 async function gapsFor(tx: Tx, mint: string, fromMs: number, toMs: number, nowIso: string): Promise<string[]> {
-  const rows = await tx`select id from tape.events where topic = 'system.gap' and seen_time <= ${nowIso}
-    and (body->>'scope' is null or body->>'scope' = ${mint})
-    and (body->>'from')::timestamptz <= ${iso(toMs)} and coalesce((body->>'to')::timestamptz, 'infinity') >= ${iso(fromMs)}
+  const rows = await tx`select id from (
+      select distinct on (coalesce(body->>'scope', ''), body->>'from') id, body, seen_time from tape.events
+      where topic = 'system.gap' and seen_time <= ${nowIso} and body->>'source' in ('trades', 'rpc')
+        and (body->>'scope' is null or body->>'scope' = ${mint})
+      order by coalesce(body->>'scope', ''), body->>'from', seen_time desc, id desc) g
+    where (body->>'from')::timestamptz <= ${iso(toMs)} and coalesce((body->>'to')::timestamptz, 'infinity') >= ${iso(fromMs)}
     order by seen_time, id`;
   return rows.map((r) => r.id as string);
 }
@@ -121,6 +125,7 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
   /** A gap reported after outcomes were written: append corrections that supersede them. */
   async function correct(tx: Tx, e: Envelope) {
     const g = e.body as BodyOf<"system.gap">;
+    if (g.source !== "trades" && g.source !== "rpc") return; // the callout feed's gaps do not hide trades
     const rows = await tx`select distinct on (body->>'callout_id', body->>'horizon_min') id, body from tape.events
       where topic = 'outcome.measured' and seen_time < ${e.seen_time} ${g.scope ? tx`and body->>'mint' = ${g.scope}` : tx``}
       order by body->>'callout_id', body->>'horizon_min', seen_time desc, id desc`;

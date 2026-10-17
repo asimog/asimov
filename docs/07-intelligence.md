@@ -298,7 +298,8 @@ Every statement Asimog makes is about what its collectors saw, not about the mar
 - Each sense writes `system.gap` (`source`, `scope`, `from`, `to`, `reason`) when it knows it missed data:
   - `feed`: the poll's gap walk ran out of pages before it met a known callout.
   - `feed.push` and `trades`: the NATS connection dropped (written on reconnect).
-  - `trades` with a coin as `scope` and `to: null`: the coin left the watched set because the cap was reached, so its trades are unobserved from `from` on.
+  - `trades` with a coin as `scope` and `to: null`: the coin left the watched set (cap `WATCH_MAX_COINS`, default 250), so its trades are unobserved from `from` on. When it comes back, the same gap is written again with its `to`, which closes it.
+- Only trade gaps (`trades`, `rpc`) mark outcomes; a callout-feed gap does not hide trades.
 - On the first tape, before the Scout and the Backfill, 44 of 53 coins with trades had their first recorded trade after their first callout. Now the Scout promotes coins on a known caller's buy or on heat, and the Backfill reads history when a coin enters the watched set (docs/06).
 - `ctl coverage` prints gaps per source, coins called vs. coins with trades, the share of outcomes per coverage status, trades per source (`nats`, `rpc`) with the number of signatures both collectors saw, and the share of callouts whose author's buy is on the Tape before the callout.
 
