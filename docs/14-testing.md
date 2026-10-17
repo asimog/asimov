@@ -9,7 +9,7 @@
 
 ## Why replays are the backbone
 
-The whole system is driven by the Tape. A recorded tape plus the Clock in `replay` mode reruns real history through all organs, the Brood, the Risk Gate and simulated hands. Same tape, same code, same report hash. So most E2E tests are replays, and they cost nothing to rerun.
+The whole system is driven by the Tape. A recorded tape plus the Clock in `replay` mode reruns real history through all analyzers, the Strategy Pool, the Risk Gate and simulated hands. Same tape, same code, same report hash. So most E2E tests are replays, and they cost nothing to rerun.
 
 ## Suite layout
 
@@ -24,6 +24,34 @@ artifacts/e2e/<suite>/<run-id>/   gitignored outputs
 
 Large tapes live in object storage and are fetched by hash.
 
+## How to run
+
+```
+npm run e2e                       # every suite
+npm run e2e strategies-replay     # one suite
+E2E_TAPE=path/to/tape.ndjson.gz npm run e2e
+```
+
+The runner (`tests/e2e/run.ts`) replays the tape once per run and shares it between replay suites. The replay driver (`tests/e2e/lib/replay.ts`):
+
+1. Creates a fresh database `asimog_e2e_<tag>_<id>` next to the working one and migrates it. The working database is never touched. Replay databases are kept after the run (the runner prints their names); removing them is the owner's call.
+2. Loads the tape's input events (derived topics are skipped and re-derived, docs/03).
+3. Cuts the network: `fetch` throws and is counted. Reflex never calls Jev in replay; it reads the recorded `jev.answer` events.
+4. Steps every consumer from `buildConsumers` (the same list `core` runs live) in 1 s windows of Tape time, in order: memory, analyzers, reflex, desk, scorekeeper.
+
+Suites today:
+
+| Suite | Proves |
+|---|---|
+| `riskgate-refuses` | 20 cases: every one of the 14 reason codes fires on its bad intent; clean intents pass |
+| `analyzers-replay` | All 15 signal kinds appear; one Jev signal set per recorded answer; outcomes at 1, 3, 5 min; Brier scores |
+| `strategies-replay` | 30 seeds load; every intent is gated, filled or pending; positions close with rent refunded; markouts; allocation rounds |
+| `commit-reveal` | Every reveal recomputes to its committed hash and came after it (at least `E2E_MIN_REVEALS`, 20 for the 10 min tape) |
+| `evolution-replay` | Offspring are born from parents with trades, all valid, no near-duplicates, lineage recorded |
+| `replay-determinism` | Two replays in two fresh databases hash identically over derived events and signals |
+
+Fixture: `tests/e2e/fixtures/tapes/discovery-10m.ndjson.gz` (10 min of live feed, pushes and trades, recorded by the real readers on 2026-10-17; 18,062 events, 381 callouts each with a recorded Jev answer, 3.1 MB).
+
 ## Artifact format
 
 Every suite writes:
@@ -35,17 +63,17 @@ Every suite writes:
 | `sha256.txt` | Hash of `report.json` without the run timestamp |
 | `screens/` | Screenshots for site suites (desktop 1440×900, phone 390×844) |
 
-Repeatable means: same tape hash + same commit + same config hash → same `sha256.txt`. `e2e/replay-determinism` checks this on every change to `services/octo`.
+Repeatable means: same tape hash + same commit + same config hash → same `sha256.txt`. `e2e/replay-determinism` checks this on every change to `services/core`.
 
 ## Kinds of suites
 
 | Kind | How | Example |
 |---|---|---|
-| Replay | Tape through the full system | `organs-replay`, `brood-replay`, `distribution-replay` |
+| Replay | Tape through the full system | `analyzers-replay`, `strategies-replay`, `distribution-replay` |
 | Live capture | Run live for a window, export the tape, replay, compare | `live-capture-30m` |
-| Chaos | Kill or block a part during a run, check recovery | `gap-heal`, `tentacle-crash` |
-| Site | agent-browser drives the website, screenshots, checks shown data against the database | `site-tank`, `site-labs` |
-| Money | Tiny real transactions with pre-coin limits, compared to the chain | `live-roundtrip`, `sweep` |
+| Chaos | Kill or block a part during a run, check recovery | `gap-heal`, `session-crash` |
+| Site | agent-browser drives the website, screenshots, checks shown data against the database | `site-field`, `site-labs` |
+| Money | Tiny real transactions (0.01 SOL), compared to the chain | `live-roundtrip`, `sweep` |
 | Refusal | A list of things that must be refused | `signer-refuses`, `riskgate-refuses` |
 | Golden | Outputs compared to a reference implementation | `amm-golden` (Python curve vs pump-sdk) |
 
@@ -54,7 +82,7 @@ Repeatable means: same tape hash + same commit + same config hash → same `sha2
 1. No lookahead: every signal's inputs have `seen_time` ≤ `produced_at`.
 2. Why-chains complete: every intent, order and post reaches at least one observation.
 3. No orphan effects: every `order.filled` has an `order.created`, every `post.published` has a `post.queued`.
-4. Budgets respected: no organ spends over its cap.
+4. Budgets respected: no analyzer spends over its cap.
 5. Risk Gate: no order exceeds the limits version it cites.
 6. No live model calls: replays read `jev.answer` and recorded LLM outputs from the tape. Any network call to Jev, OpenRouter or an RPC during a replay fails the suite (what-if replays use the keyed cache and say so in the report).
 7. Lanes respected: no event was written by a source outside its capability (docs/18).

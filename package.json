@@ -1,6 +1,35 @@
 {
-  "name": "octopus",
+  "name": "asimog",
   "private": true,
   "packageManager": "pnpm@10.29.3",
-  "engines": { "node": ">=24" }
+  "engines": {
+    "node": ">=24"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "agent-browser",
+      "bigint-buffer",
+      "bufferutil",
+      "utf-8-validate",
+      "esbuild",
+      "sharp",
+      "@biomejs/biome"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "26.6.5",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  },
+  "scripts": {
+    "dev": "tsx services/core/src/main.ts",
+    "ctl": "tsx services/core/src/cli/ctl.ts",
+    "pg:start": "/usr/lib/postgresql/18/bin/pg_ctl -D data/pg -l data/pg.log -w start",
+    "pg:stop": "/usr/lib/postgresql/18/bin/pg_ctl -D data/pg -w stop",
+    "e2e": "tsx tests/e2e/run.ts",
+    "lint": "biome check .",
+    "typecheck": "tsc -p services/core --noEmit"
+  },
+  "type": "module"
 }

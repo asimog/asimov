@@ -1,22 +1,22 @@
 # 06 · Senses: ingestion
 
-The senses turn the world into events. Four of them: **Feed Tap**, **Tentacles T1-T8**, **Chain Ear**, **X Eye**. All write to the Tape. None of them decide anything.
+The senses turn the world into events. Four of them: **Feed Reader**, **Sessions S1-S8**, **Chain Reader**, **X Reader**. All write to the Tape. None of them decide anything.
 
 ## Phase 0 discovery (before any ingestion code)
 
 Goal: an endpoint catalog in `docs/research/pumpfun-endpoints.md`, built from evidence.
 
-1. Open a tentacle session on `https://pump.fun/callouts` with `agent-browser network har start --content all`.
+1. Open a session session on `https://pump.fun/callouts` with `agent-browser network har start --content all`.
 2. Scroll the feed, open 5 callout threads, 5 caller profiles, 3 coin pages with `?highlight_callout=`.
 3. `network har stop` and save under object storage `har/discovery/`.
 4. From the HAR, list per endpoint: method, URL pattern, query params, auth headers, response schema (sample), pagination, rate-limit headers.
 5. Inspect the NATS WebSocket frames (`wss://prod-v2.nats.realtime.pump.fun`): CONNECT options, SUB subjects. Look for callout subjects.
-6. Log in T8 with the octopus wallet through the signer-backed provider (docs/09) and capture one test callout post and one update on a coin we hold. Record the payloads, the holding threshold and the cooldown responses.
+6. Log in S8 with the agent wallet through the signer-backed provider (docs/09) and capture one test callout post and one update on a coin we hold. Record the payloads, the holding threshold and the cooldown responses.
 7. Only if a needed endpoint is not visible on web: use the `reverse-engineer-anything` skill (REA, with Ghidra for native code) on the mobile app to find the client call. Scope: endpoints for reading the public feed and posting our own content. Never the Activity Metric or ranking logic (terms 7.1(f)).
 
 Output: the catalog, a JSON Schema per payload in `packages/contracts/schemas/pump/`, and a first recorded tape (`tests/e2e/fixtures/tapes/discovery-*.ndjson.gz`).
 
-## Feed Tap
+## Feed Reader
 
 The reliable path for callouts. It reads the same JSON the web client reads.
 
@@ -31,65 +31,65 @@ The reliable path for callouts. It reads the same JSON the web client reads.
 | Coins | The payload's mint is trusted first. If a callout's text names other contract addresses or tickers, the Jev `callout` pack picks the called coin among regex candidates (pre-parsed extraction pattern). An unknown mint triggers a `coins-v2/{mint}` fetch and a NATS subscribe. |
 | Watched set | Coins with a callout in the last 24 h, plus coins with an open position, plus our own coin. |
 
-### Feed Tap: ways it fails
+### Feed Reader: ways it fails
 
-1. Endpoint changes shape. Detect with schema validation; emit `system.schema_drift` with a sample; stop the adapter, keep tentacle reads running.
-2. Auth or bot challenge appears. Detect by 401, 403 or HTML in a JSON response. Switch reading to tentacle T1 DOM reads (slower, still recorded) and alert.
-3. Silent gaps (cursor skips). Detect with the continuity check and with T1's visible feed: any callout T1 sees that the Tap does not have within 10 s raises `system.gap`.
+1. Endpoint changes shape. Detect with schema validation; emit `system.schema_drift` with a sample; stop the adapter, keep session reads running.
+2. Auth or bot challenge appears. Detect by 401, 403 or HTML in a JSON response. Switch reading to session S1 DOM reads (slower, still recorded) and alert.
+3. Silent gaps (cursor skips). Detect with the continuity check and with S1's visible feed: any callout S1 sees that the Tap does not have within 10 s raises `system.gap`.
 4. Duplicate floods after a reconnect. Dedupe by id; counts only update.
 5. Clock skew between pump.fun timestamps and ours. Store both; never sort by pump time across sources.
 6. Deleted callouts. Mark `deleted`; never remove from the Tape.
 
-## Tentacles T1-T8
+## Sessions S1-S8
 
-Up to eight agent-browser sessions (`TENTACLES` in config; budget profile runs 3: T1, T2, T8). Each is a real browser that a visitor can watch.
+Up to eight agent-browser sessions (`SESSIONS` in config; budget profile runs 3: S1, S2, S8). Each is a real browser that a visitor can watch.
 
-### Roles (defaults; Attention reassigns T3-T7)
+### Roles (defaults; Attention reassigns S3-S7)
 
-| Tentacle | Default task | Session |
+| Session | Default task | Session |
 |---|---|---|
-| T1 | The live callout feed, scrolled to top, reading new cards | anonymous |
-| T2 | Coin page of the top candidate (chart with callout markers, trades, holders) | anonymous |
-| T3-T6 | Research jobs from Attention: caller profiles, callout threads, coin pages, holder lists | anonymous |
-| T7 | Outside: X posts and profiles linked from callouts | anonymous (X Eye does the heavy reading) |
-| T8 | Voice: the octopus's logged-in pump.fun session. Posts callouts, updates and replies. Idle on our own profile. | logged in, `--restore` state, encrypted at rest |
+| S1 | The live callout feed, scrolled to top, reading new cards | anonymous |
+| S2 | Coin page of the top candidate (chart with callout markers, trades, holders) | anonymous |
+| S3-S6 | Research jobs from Attention: caller profiles, callout threads, coin pages, holder lists | anonymous |
+| S7 | Outside: X posts and profiles linked from callouts | anonymous (X Reader does the heavy reading) |
+| S8 | Voice: the agent's logged-in pump.fun session. Posts callouts, updates and replies. Idle on our own profile. | logged in, `--restore` state, encrypted at rest |
 
 ### Reading protocol (one task)
 
 1. `attention.grant` arrives with a goal (for example "read caller profile of wl_X: last 50 callouts, follower count").
-2. `open <url>` in the tentacle's session (`--session T4 --pin-tab`).
+2. `open <url>` in the session's session (`--session S4 --pin-tab`).
 3. `snapshot -i` (interactive refs) and `read` (markdown of the rendered DOM).
-4. For each element the task needs, `get box <ref>` so the website can place a sucker on it.
+4. For each element the task needs, `get box <ref>` so the website can place a contact mark on it.
 5. Extract typed facts with a fixed extractor per page type (DOM selectors and the JSON found in network requests). No LLM in the extraction path for known page types.
-6. Emit `tentacle.read` with the refs, boxes and extracted facts. Extracted facts also become normal events (`caller.profile`, `callout.reply`...) with `source: tentacle:T4`.
-7. Emit `tentacle.task` done; return to idle or take the next grant.
+6. Emit `session.read` with the refs, boxes and extracted facts. Extracted facts also become normal events (`caller.profile`, `callout.reply`...) with `source: session:S4`.
+7. Emit `session.task` done; return to idle or take the next grant.
 
 Unknown page types go through the SDE cascade: a cheap LLM (DeepSeek v4.1 Flash) extracts, the Jev `verify` pack checks each field, and only flagged extractions escalate to a stronger model. Output is marked `confidence < 1`.
 
 ### Frames
 
 - Each session streams JPEG frames over its own WebSocket (`AGENT_BROWSER_STREAM_PORT` per session; `AGENT_BROWSER_STREAM_MAX_WIDTH=640`, `QUALITY=40`).
-- The frame relay in `tentacles` subscribes to all 8, drops frames that did not change, caps at 2 fps per tentacle for the public, and fans out over one WebSocket to the web.
-- Each frame carries `seq`, `tentacle`, `url`, `task_id`, and the current sucker boxes, so the 3D scene can draw tentacle contact points that match the page.
-- Every 60 s one frame per tentacle goes to object storage for Rewind.
+- The frame relay in `sessions` subscribes to all 8, drops frames that did not change, caps at 2 fps per session for the public, and fans out over one WebSocket to the web.
+- Each frame carries `seq`, `session`, `url`, `task_id`, and the current read boxes, so the 3D scene can draw session contact points that match the page.
+- Every 60 s one frame per session goes to object storage for Rewind.
 
 ### Politeness and identity
 
 - Real Chrome, a normal desktop user agent, one session per role, no fingerprint tricks.
-- Global cap of 1 page navigation per 3 s per tentacle and 20 per minute across all tentacles to pump.fun.
-- T8 never likes, follows, reposts or quotes. Its only writes are Herald posts.
-- T8 runs with `--allowed-domains pump.fun,*.pump.fun`. Research tentacles run without wallet shims and without stored logins.
+- Global cap of 1 page navigation per 3 s per session and 20 per minute across all sessions to pump.fun.
+- S8 never likes, follows, reposts or quotes. Its only writes are Publisher posts.
+- S8 runs with `--allowed-domains pump.fun,*.pump.fun`. Research sessions run without wallet shims and without stored logins.
 
-### Tentacles: ways they fail
+### Sessions: ways they fail
 
-1. Chrome crashes or hangs. Health check every 5 s (`tentacle.health`); restart the session; the website shows that plate as "regrowing".
+1. Chrome crashes or hangs. Health check every 5 s (`session.health`); restart the session; the website shows that session thumbnail as "restarting".
 2. A modal or consent banner covers the target. agent-browser reports the covering element; dismiss it, re-snapshot, retry once.
 3. Page layout changes break an extractor. Schema check on extracted facts; on failure, emit `system.schema_drift` and route that page type to the LLM extractor under budget.
-4. T8 session expires. Detect `create_session_expired` or 401; re-login through the signer provider; Herald retries the queued post once.
+4. S8 session expires. Detect `create_session_expired` or 401; re-login through the signer provider; Publisher retries the queued post once.
 5. Memory growth over days. Restart each session every 6 h on a staggered schedule.
 6. Frame relay overload. Drop to 1 fps, then to keyframes every 5 s. Never block the reading itself.
 
-## Chain Ear
+## Chain Reader
 
 | Need | Source | Topic |
 |---|---|---|
@@ -103,24 +103,24 @@ Unknown page types go through the SDE cascade: a cheap LLM (DeepSeek v4.1 Flash)
 
 Money paths use our RPC and confirmed transactions only. NATS data feeds signals only.
 
-**RPC budget.** Helius free tier has a request-per-second limit and monthly credits. The Chain Ear meters every call as `budget.spent` (unit: rpc credits). Subscriptions are preferred over polling. When the monthly projection passes 80% of the plan, `system.rpc_budget` alerts the owner.
+**RPC budget.** Helius free tier has a request-per-second limit and monthly credits. The Chain Reader meters every call as `budget.spent` (unit: rpc credits). Subscriptions are preferred over polling. When the monthly projection passes 80% of the plan, `system.rpc_budget` alerts the owner.
 
-### Chain Ear: ways it fails
+### Chain Reader: ways it fails
 
 1. NATS disconnects. Reconnect with backoff; on reconnect, fill the gap from RPC transaction history for watched coins (budgeted).
 2. NATS and RPC disagree on a trade. RPC wins; emit `system.source_disagree`.
 3. Provider rate limits (free tier) on holder snapshots. Spread pages; fall back to the previous sample and mark the hour "degraded" (payout waits).
 4. Reorgs or dropped transactions. Fills count only after `confirmed`; payouts only after `finalized`.
 
-## X Eye
+## X Reader
 
 - XActions scrapers, read only: posts and profiles of handles linked from callouts and caller profiles.
 - A screenshot of each referenced post is stored as proof (`x.post.screenshot_ref`).
-- Runs as a metered organ: jobs only from Attention, with an hourly cap.
+- Runs as a metered analyzer: jobs only from Attention, with an hourly cap.
 - Never posts, likes, follows or DMs.
 
-### X Eye: ways it fails
+### X Reader: ways it fails
 
 1. X login wall or rate limit. Mark the job failed; keep the link without content; retry later under budget.
 2. Deleted posts. Keep our stored copy; mark `deleted_at`.
-3. Wrong handle linking. Links carry evidence and confidence; Hunt never uses a link under 0.8 confidence.
+3. Wrong handle linking. Links carry evidence and confidence; Integrity never uses a link under 0.8 confidence.

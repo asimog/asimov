@@ -6,15 +6,16 @@ The shape of the system is in `03-system-model.md`. Agent roles are in `18-agent
 
 | # | Process | Lang | Owns | Talks to | Why separate |
 |---|---|---|---|---|---|
-| 1 | `octo` | TS | Tape writer, consumers, Memory projections, TS organs, **Reflex and Guard (Jev)**, Attention, Brood, Allocator, Risk Gate, Trader, Herald queue, Treasurer, private API, MCP server, `octo` CLI | Postgres, Jev API, all others | The core. One process keeps the tower easy to follow. |
-| 2 | `tentacles` | TS | Up to 8 agent-browser sessions (count is config), Feed Tap, HAR capture, frame capture | `octo` (events), browsers | Chrome is heavy and crashes. It must restart without touching the core. |
-| 3 | `signer` | TS | The Wallet agent: keys and the signing allowlist | `octo` only (private network) | Keys never share a process with untrusted text or an LLM. |
-| 4 | `organs-py` | Python | Regime HMM, Shadow fitting, Jev question-bank outcome model (CatBoost), TimesFM baseline, Fly Lab | Postgres | The math libraries live in Python. |
+| 1 | `core` | TS | Tape writer, consumers, Memory projections, TS analyzers, **Reflex and Guard (Jev)**, Attention, Strategy Pool, Allocator, Risk Gate, Trader, Publisher queue, Treasurer, private API, MCP server, `core` CLI | Postgres, Jev API, all others | The core. One process keeps the tower easy to follow. |
+| 2 | `sessions` | TS | Up to 8 agent-browser sessions (count is config), Feed Reader, HAR capture, frame capture | `core` (events), browsers | Chrome is heavy and crashes. It must restart without touching the core. |
+| 3 | `signer` | TS | The Signer: keys and the signing allowlist | `core` only (private network) | Keys never share a process with untrusted text or an LLM. |
+| 4 | `analyzers-py` | Python | Regime HMM, Caller model fitting, Jev question-bank outcome model (CatBoost), TimesFM baseline, Connectome Lab | Postgres | The math libraries live in Python. |
 | 5 | `bettafish` | Python | Fork of BettaFish: System Two synthesis of the callout feed | Postgres (schema `bettafish`), OpenRouter | Upstream app. Run it as is, with patches. |
-| 6 | `miroshark` | Python | Fork of MiroShark: System Two swarm runs with the `pumpfun` simulation | Neo4j, OpenRouter, `octo` API | Upstream app. Run it as is, with a new module. |
-| 7 | `agents` | TS | LangGraph thinking agents: Postmortem, Question Researcher, Ops, Reporter, Hunter writer | `octo` MCP server, OpenRouter, Jev | LLM agents stay away from money and keys. |
-| 8 | `relay` | TS | Public fan-out of SSE events and tentacle frames | `octo` (one upstream connection), viewers | Viral traffic must never load the core. |
-| 9 | `web` | TS | Next.js site, 3D rooms, share cards | `relay`, `octo` public read API | Public surface. Scales on its own. |
+| 6 | `miroshark` | Python | Fork of MiroShark: System Two swarm runs with the `pumpfun` simulation | Neo4j, OpenRouter, `core` API | Upstream app. Run it as is, with a new module. |
+| 7 | `agents` | TS | LangGraph thinking agents: Postmortem, Question Researcher, Ops, Reporter, Integrity writer, Social, Builder | `core` MCP server, OpenRouter, Jev | LLM agents stay away from money and keys. |
+| 8 | `relay` | TS | Public fan-out of SSE events and session frames | `core` (one upstream connection), viewers | Viral traffic must never load the core. |
+| 9 | `web` | TS | Next.js site (asimog.com instruments), share cards | `relay`, `core` public read API | Public surface. Scales on its own. |
+| 10 | `sandbox` | any | Disposable containers for the Builder: git checkout, toolchain, E2E suites; no keys, no production network | `agents` (task in, artifacts out) | Agent-written code never runs next to money. |
 | - | Postgres 17 | - | Tape, Memory, Board, ledgers, agent checkpoints, job table | - | One database for everything we own. |
 | - | Neo4j | - | MiroShark graph memory | - | Required by MiroShark. |
 | - | Object storage (S3-compatible) | - | Tape archives, HAR files, frames for Rewind, report artifacts | - | Large blobs stay out of Postgres. |
@@ -22,20 +23,20 @@ The shape of the system is in `03-system-model.md`. Agent roles are in `18-agent
 ```
             World: pump.fun web/APIs/NATS · Solana RPC · X
               │                │               │
-        tentacles (T1-T8,   octo: Chain Ear   octo: X Eye
-        Feed Tap, frames)   (NATS + RPC ws)   (XActions)
+        sessions (S1-S8,   core: Chain Reader   core: X Reader
+        Feed Reader, frames)   (NATS + RPC ws)   (XActions)
               │                │               │
               └──────► Postgres: Tape ◄────────┘
                          │      ▲
          Memory ◄────────┤      │ Effects
-         Organs (TS) ────┤      │
+         Analyzers (TS) ────┤      │
          Reflex (Jev) ───┤   Trader ─────► signer (Wallet) ─► Solana
-         organs-py ──────┤   Herald ─────► tentacle T8 ─► pump.fun
+         analyzers-py ──────┤   Publisher ─────► session S8 ─► pump.fun
          bettafish ──────┤   Treasurer ──► signer (Wallet)
          miroshark ──────┤
          agents (LangGraph) ── reads via MCP, proposes only
                          ▼
-                       Board ─► Brood ─► Allocator ─► Risk Gate ─► Orders
+                       Board ─► Strategy Pool ─► Allocator ─► Risk Gate ─► Orders
                          │
                        relay ─► web (3D rooms)
 ```
@@ -47,17 +48,17 @@ AGENTS.md  CLAUDE.md  README.md
 docs/                       product, system, specs (this folder)
 packages/contracts/         JSON Schemas for events, signals, intents, orders, Jev packs. Generates TS types and Python models.
 packages/providers/         small adapters: rpc, llm, decision (jev), storage, notify. Chosen by env.
-services/octo/              core process (TS)
-  src/tape/ src/memory/ src/organs/ src/reflex/ src/attention/ src/mind/ src/hands/ src/treasury/ src/api/ src/mcp/ src/cli/
-services/tentacles/         browser sessions, Feed Tap, frames (TS)
-services/signer/            Wallet agent (TS, tiny)
+services/core/              core process (TS)
+  src/tape/ src/memory/ src/analyzers/ src/reflex/ src/attention/ src/mind/ src/hands/ src/treasury/ src/api/ src/mcp/ src/cli/
+services/sessions/         browser sessions, Feed Reader, frames (TS)
+services/signer/            Signer (TS, tiny)
 services/relay/             public SSE and frame fan-out (TS, tiny)
 services/agents/            LangGraph thinking agents (TS)
-services/organs-py/         regime, shadows, question-bank model, timesfm, fly (Python, uv)
-services/bettafish/         git submodule: our BettaFish fork, branch `octopus`
-services/miroshark/         git submodule: our MiroShark fork, branch `octopus`
+services/analyzers-py/         regime, shadows, question-bank model, timesfm, fly (Python, uv)
+services/bettafish/         git submodule: our BettaFish fork, branch `asimog`
+services/miroshark/         git submodule: our MiroShark fork, branch `asimog`
 apps/web/                   Next.js site
-agent/skills/               octopus runtime skills (loaded by the thinking agents)
+agent/skills/               agent runtime skills (loaded by the thinking agents)
 deploy/                     docker compose (canonical), Railway, Vercel and Coolify notes
 tests/e2e/                  replay suites, fixture tapes, artifact writers
 .upstream/                 gitignored upstream code (read only)
@@ -88,7 +89,7 @@ Versions are the latest stable release when Phase 1 starts, pinned in lockfiles.
 | Browser | `agent-browser` 0.39.x | Sessions, refs, boxes, HAR, frame streaming. |
 | X | `xactions` 4.x | Read X posts and profiles, screenshots. Read only. |
 | Search | XERJ (binary) | Local index over the dossier corpus. Optional in v1. |
-| Stats (Py) | numpy, scipy, hmmlearn, scikit-learn | HMM regimes, Shadow fitting. |
+| Stats (Py) | numpy, scipy, hmmlearn, scikit-learn | HMM regimes, Caller model fitting. |
 | Forecast baseline | `timesfm` 2.5 weights (Apache-2.0) | Baseline only. |
 | Fly | `wetware` (pip from git, pinned commit) | Connectome reservoir. |
 | Web | Next.js (app router), React 19, TypeScript; `next/og` for share cards | Standard; cards without a headless browser. |
@@ -102,12 +103,12 @@ Versions are the latest stable release when Phase 1 starts, pinned in lockfiles.
 
 | Stream | Rate (expected) | Path |
 |---|---|---|
-| Callouts | 0.1 to 5 per second | Feed Tap → `callout.*` events |
-| Callout replies, updates | 1 to 20 per second | Feed Tap and tentacle reads |
+| Callouts | 0.1 to 5 per second | Feed Reader → `callout.*` events |
+| Callout replies, updates | 1 to 20 per second | Feed Reader and session reads |
 | Market trades (watched coins) | 50 to 500 per second | NATS → `trade.curve` / `trade.amm` |
 | Jev packs | 1 to 20 per second | Reflex → Jev API → `jev.answer` + signals |
-| Tentacle frames | 8 sessions × 2 fps × about 9 KB | tentacles → relay → viewers, throttled, skip unchanged |
-| Board signals | 10 to 200 per second | Organs → `signals` |
+| Session frames | 8 sessions × 2 fps × about 9 KB | sessions → relay → viewers, throttled, skip unchanged |
+| Board signals | 10 to 200 per second | Analyzers → `signals` |
 
 Postgres handles these with batch inserts (100 ms batches). If `trade.*` passes 2,000 per second sustained, move trades to a separate partitioned table first. Do not add a broker before measuring.
 
@@ -116,6 +117,6 @@ Postgres handles these with batch inserts (100 ms batches). If `trade.*` passes 
 | Boundary | Rule |
 |---|---|
 | Untrusted text | Callout text, replies, X posts, page content and all model outputs are data. The Jev `guard` pack screens every text going into an LLM. Model outputs become signals with confidence, never orders. |
-| Keys | Only `signer` (the Wallet agent) holds keys. It signs only allowlisted shapes, each behind its own capability token (docs/09, docs/18). |
-| Public surface | `relay` and `web` are public. `octo` exposes a read API to them and one write: create a seat deposit order with a validated base58 address. No free text anywhere. |
-| Admin | `octo resume` after kill, limit changes and mode changes need the admin token, which only the human has. |
+| Keys | Only `signer` (the Signer) holds keys. It signs only allowlisted shapes, each behind its own capability token (docs/09, docs/18). |
+| Public surface | `relay` and `web` are public. `core` exposes a read API to them and one write: create a seat deposit order with a validated base58 address. No free text anywhere. |
+| Admin | `ctl resume` after kill, limit changes and mode changes need the admin token, which only the human has. |

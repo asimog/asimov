@@ -18,19 +18,19 @@ Source: pump.fun web JS chunks fetched 2026-10-16 (`.upstream/sites/pumpfun-web-
 
 ## Callout features (from i18n keys and component names)
 
-| Feature | Evidence (key) | What it means for OCTOPUS |
+| Feature | Evidence (key) | What it means for Asimog |
 |---|---|---|
 | Holding required to post | `holding_requirement`, `holding_below_threshold`, `no_holding`, `create_no_eligible_wallet` | Buy first, confirm the holding, then post. The platform enforces "buy then call". |
-| Wallet session required | `connect_wallet_to_post`, `create_session_expired` | Posting needs a wallet-authenticated session. Herald needs a signer-backed login (docs/09). |
+| Wallet session required | `connect_wallet_to_post`, `create_session_expired` | Posting needs a wallet-authenticated session. Publisher needs a signer-backed login (docs/09). |
 | Market cap at call | `calling_at_mc`, `called_at` | Every callout stores entry context. Opportunity age is computable for every caller. |
 | Author trades shown on the callout | `author_trades_a11y`, `trade_buy`, `trade_sell`, `view_transactions`, `include_transfers`, `last_trade_label`, `exit_label` | The platform shows the caller's buys and sells, including an exit marker. Our exits are visible natively. |
 | Updates (threaded) | `update_your_callout`, `update_placeholder`, `update_cooldown`, `update_label`, `updated` | Exit callouts are native updates on the original callout. Update cooldown limits how often we can post them. |
-| Cooldowns and limits | `ineligible_cooldown`, `ineligible_attempt_limit`, `ineligible_existing`, `create_duplicate_toast` | One callout per coin per account at a time, with cooldowns. Herald must check eligibility before posting. |
-| Replies, comments | `post_your_reply`, `calloutRepliesQueryKey`, `calloutReplyCommentsQueryKey`, `comments_count` | Ink notes (data comments) go here. |
+| Cooldowns and limits | `ineligible_cooldown`, `ineligible_attempt_limit`, `ineligible_existing`, `create_duplicate_toast` | One callout per coin per account at a time, with cooldowns. Publisher must check eligibility before posting. |
+| Replies, comments | `post_your_reply`, `calloutRepliesQueryKey`, `calloutReplyCommentsQueryKey`, `comments_count` | Data replies (data comments) go here. |
 | Reposts, quotes | `repost_a11y`, `quote_your_take`, `quote_posted` | Echo rings can form from reposts and quotes. Track them as edges. |
 | Likes | `like_a11y`, `like_update_a11y` | Engagement counts. We read them. We never automate likes. |
 | Media attachments | `callout_attachment_alt`, `create_media_not_owned`, `create_media_not_clean`, `create_media_rate_limited`, `create_video_disabled` | We may attach our own generated cards. Media must be ours and pass moderation. |
-| Moderation | `create_moderation_flagged`, `more.report_callout` | Posting can be refused. Herald handles refusal as a normal outcome. |
+| Moderation | `create_moderation_flagged`, `more.report_callout` | Posting can be refused. Publisher handles refusal as a normal outcome. |
 | Quality tip | `quality_tip_title`, `quality_tip_example` | The platform nudges callers to write a thesis. |
 | Share card with thesis | `callout-share-card-thesis` | Callouts carry a thesis text. |
 | Replay | `replay_cta`, `callout-line-chart-container`, `callout-marker-pulse` | The web shows a replay chart of price since the call. |

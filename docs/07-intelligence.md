@@ -1,19 +1,19 @@
-# 07 · Intelligence: the organs
+# 07 · Intelligence: the analyzers
 
-Organs read the Tape and Memory and write Signals to the Board. They all run at the same time. None waits for another. Kinds and fields are in `04-contracts.md`.
+Analyzers read the Tape and Memory and write Signals to the Board. They all run at the same time. None waits for another. Kinds and fields are in `04-contracts.md`.
 
-| Organ | Lang | Cost | Cadence | Emits |
+| Analyzer | Lang | Cost | Cadence | Emits |
 |---|---|---|---|---|
 | age | TS | cheap | per callout | `age.opportunity` |
 | echo | TS | cheap | per callout, ring clustering nightly (Py) | `echo.score`, `echo.ring` |
 | hawkes | TS | cheap | per callout | `hawkes.intensity`, `hawkes.branching`, `hawkes.wave_p` |
 | regime | Py | cheap | per 1-minute bar | `regime.state`, `regime.tremor` |
 | curve | TS | cheap | per trade (throttled 1 s per coin) | `curve.quote`, `curve.progress` |
-| shadows | TS eval, Py fit | cheap | per callout and per regime change | `shadow.call_p`, `caller.dna` |
+| shadows | TS eval, Py fit | cheap | per callout and per regime change | `callers.call_p`, `caller.dna` |
 | reflex (Jev packs) | TS | reflex | per trigger (docs/17) | `jev.*` (fast twins of synthesis and swarm signals) |
-| bettafish | Py | metered (System Two) | feed run on a timer; coin runs on escalation | `synthesis.feed`, `synthesis.coin`, `mood.skin` |
+| bettafish | Py | metered (System Two) | feed run on a timer; coin runs on escalation | `synthesis.feed`, `synthesis.coin`, `mood.feed` |
 | miroshark | Py | metered (System Two) | escalation only | `swarm.wave_p`, `swarm.impact` |
-| hunt | TS | cheap | per callout and per echo ring update | `hunt.finding` |
+| hunt | TS | cheap | per callout and per echo ring update | `integrity.finding` |
 | baseline | Py | cheap | every 15 min | `baseline.attention` |
 | fly | Py | cheap | every minute for watched coins | `fly.action` |
 
@@ -27,7 +27,7 @@ Ways it fails: missing price at call time (use nearest trade within 30 s, else m
 
 ## echo
 
-For a callout `c` by caller `a` on coin `m` at time `t`, look at earlier callouts on `m` in the previous 30 minutes. For each earlier caller `b`:
+For a callout `c` by caller `a` on coin `m` at time `t`, look at earlier callouts on `m` in the previous 10 minutes (`ECHO_WINDOW_MIN`). For each earlier caller `b`:
 
 ```
 follow_ab = share of a's past calls that came within 30 min after b called the same coin (shrunk toward the global rate with a Beta prior)
@@ -51,7 +51,7 @@ Callout arrivals per coin as a self-exciting process with an exponential kernel:
 - `q_i` is the caller weight (from `caller.dna`, normalized to mean 1).
 - `μ, α, β` are fitted nightly by maximum likelihood across all coins (Python, scipy). Per-coin values are shrunk toward the global fit.
 - Branching ratio `n = α · mean(q)`. Under 1 the cascade dies out; near or above 1 it explodes.
-- `hawkes.wave_p`: 300 Monte Carlo forward paths (Ogata thinning) over 2 hours, counting distinct tracked callers. Runs in under 5 ms in TS.
+- `hawkes.wave_p`: 300 Monte Carlo forward paths (Ogata thinning) over `WAVE_HORIZON_MIN` = 5 minutes, P(at least 3 new callouts). Until the nightly fit exists, defaults are μ = 0.01/min, α = 0.6, β = 1/3 per min (a 3 minute memory). Runs in under 5 ms in TS.
 
 Ways it fails: very few callouts per coin (use the global fit, low confidence); a coordinated burst looks like excitation (echo-weighted counts are used for the wave count: echoes count 0.2); fit drifts as the platform changes rules (nightly refit, scorer watches Brier score).
 
@@ -62,7 +62,7 @@ A 6-state Gaussian HMM (hmmlearn) on standardized 1-minute bar features: callout
 - Fit nightly on the last 14 days of watched coins.
 - States get names by fixed rules on their mean features (for example the state with the highest callouts and positive flow is `wave`; the state with negative flow and high early-wallet selling is `distribution`). The rule table lives with the code, so names stay stable across refits.
 - Online: forward filter each minute; emit the posterior.
-- **Tremor**: Bayesian online change-point detection (BOCPD) on net flow and price runs next to the HMM. A change point with probability ≥ 0.8 emits `regime.tremor`. Stops in genomes use it.
+- **Tremor**: Bayesian online change-point detection (BOCPD) on net flow and price runs next to the HMM. A change point with probability ≥ 0.8 emits `regime.tremor`. Stops in strategies use it.
 - Later: move to a hidden semi-Markov model if state durations matter in scores.
 
 Ways it fails: label switching after refit (the naming rules fix this; a refit that cannot assign all 6 names is rejected and the old model stays); a coin with too few bars (posterior stays near the prior, low confidence); feature scaling drift (scalers are fitted with the model and versioned together).
@@ -71,7 +71,7 @@ Ways it fails: label switching after refit (the naming rules fix this; a refit t
 
 Uses `@pump-fun/pump-sdk` directly: `getBuyTokenAmountFromSolAmount`, `getSellSolAmountFromTokenAmount`, `bondingCurveMarketCap`, `computeFeesBps` on live `curve.state`. After graduation it uses `@pump-fun/pump-swap-sdk` pool math. Quotes are made at sizes 0.1, 0.5, 1, 2 and 5 SOL, and for the full position on sells.
 
-This organ also turns a predicted inflow into a price: "if the wave brings X SOL of net buys, our tokens are worth Y". That links forecasts to money.
+This analyzer also turns a predicted inflow into a price: "if the wave brings X SOL of net buys, our tokens are worth Y". That links forecasts to money.
 
 Ways it fails: stale curve state (`valid_until` 30 s; the Risk Gate rejects orders on stale quotes); fee schedule changes (fees come from the SDK's fee functions, never hard-coded); quote-mint variants (the SDK handles non-SOL quote curves; v1 trades SOL-quoted coins only).
 
@@ -79,16 +79,17 @@ Ways it fails: stale curve state (`valid_until` 30 s; the Risk Gate rejects orde
 
 Three tiers.
 
-**Tier 1, statistical Shadow (every tracked caller).** For each caller, a model of P(this caller calls coin `m` within 2 h):
+**Tier 1, statistical Caller model (`callers.wave_p`, live in `analyzers/cheap.ts`).** P(at least `WAVE_N` = 3 new callers on coin `m` within `WAVE_HORIZON_MIN` = 5 min):
 
-- Features: regime posterior, mcap band, coin age, hour of day, which callers already called `m` (weighted by `follow_ab`), echo ring membership, the caller's own recent call rate and time since their last call (cooldowns).
-- Model: logistic regression per caller, shrunk to a global model with hierarchical priors so small samples stay sane.
-- Fit nightly in Python; coefficients exported as JSON; evaluated in TS on events.
-- `shadow.call_p` lists the top callers' probabilities and the expected count of tracked callers.
+- **Population first.** On the first tape, 352 distinct wallets made 381 callouts: most callers are new, so a model over known callers alone predicts nothing. Callouts arrive at the measured rate λ (last 30 min, all coins). Coin `m` gets a share by preferential attachment: (its callouts in the last hour + 1) / Σ over recent coins of (callouts + 1). Expected new callouts μ = λ × H × share.
+- **Known callers** (up to `CALLERS_ACTIVE_MAX`): each gets p = 1 − exp(−rate × H × share) × affinity (1 + how often they followed callers already on `m`). Their Poisson-binomial is convolved with Poisson(μ − Σp) for the callers we cannot name.
+- `caller.dna` per wallet: calls seen, median opportunity age and pre-move, average max multiple, hit rate at 2×, followers.
+- Later (nightly Python fit): logistic regression per caller shrunk to a global model, with regime, mcap band, coin age, hour, echo ring and cooldown features.
+- First Scorekeeper result (10 min tape, 172 callouts): Brier 0.418 against base rate 0.43, so no skill yet. Hawkes on the same tape: Brier 0.155, skill 0.37. Strategies weight both; evolution moves the weights.
 
-**Tier 2, Jev Shadow.** The `shadow` pack asks one Noul per candidate caller (top 40) in a single 150 ms request, with each caller's DNA written in words. Code combines it with Tier 1 into `jev.wave_p` (docs/17).
+**Tier 2, Jev Caller model.** The `callers` pack asks one Noul per candidate caller (top 40) in a single 150 ms request, with each caller's DNA written in words. Code combines it with Tier 1 into `jev.wave_p` (docs/17).
 
-**Tier 3, swarm Shadow (MiroShark).** Only when the escalation gate fires. See below.
+**Tier 3, swarm Caller model (MiroShark).** Only when the escalation gate fires. See below.
 
 `caller.dna` per caller: median lead time vs other callers, median opportunity age, hit rate (price up at 2 h), follower PnL (a follower buying 30 s after the call, selling at the caller's own exit or at 6 h), call frequency, sample size.
 
@@ -96,7 +97,7 @@ Ways it fails: tracked-caller list too small (start with all callers seen in 48 
 
 ## bettafish: synthesis of the callout feed
 
-BettaFish runs as-is, with a patch set on our fork (`services/bettafish`, branch `octopus`). It does not crawl: the octopus is its crawler.
+BettaFish runs as-is, with a patch set on our fork (`services/bettafish`, branch `agent`). It does not crawl: the agent is its crawler.
 
 ### Patch set
 
@@ -108,14 +109,14 @@ BettaFish runs as-is, with a patch set on our fork (`services/bettafish`, branch
 | 4 | `QueryEngine` | Searches X and web for tickers, contract addresses and narratives from the current feed. |
 | 5 | `ReportEngine/report_template/` | New template "Callout Feed Synthesis". Its JSON IR has fixed sections: narratives, coin stances, mood, suspicious patterns, each claim with cited callout ids. |
 | 6 | Forum mirror (new file) | Tail `logs/forum.log`; emit each line as `synthesis.forum_line` (agent, text, cited ids) so `/synthesis` shows the live debate. |
-| 7 | `SentimentAnalysisModel` | Run the multilingual sentiment model on callout text and replies; feeds `mood.skin`. |
+| 7 | `SentimentAnalysisModel` | Run the multilingual sentiment model on callout text and replies; feeds `mood.feed`. |
 
 ### Runs
 
-- **Feed run** on a timer (`BETTAFISH_FEED_EVERY_MIN`, default 30): Insight + host over the last window of callouts. Output `synthesis.feed` and `mood.skin`.
+- **Feed run** on a timer (`BETTAFISH_FEED_EVERY_MIN`, default 30): Insight + host over the last window of callouts. Output `synthesis.feed` and `mood.feed`.
 - **Coin run** on escalation (docs/17): engines and forum rounds per the preset. Output `synthesis.coin`.
 - Between runs, the Jev `coin` pack gives the fast twins (narrative, stance, mood) on every Board change.
-- The IR is parsed by `octo` into signals. Every claim goes through the Jev `verify` pack against its cited callout; unsupported claims are dropped.
+- The IR is parsed by `core` into signals. Every claim goes through the Jev `verify` pack against its cited callout; unsupported claims are dropped.
 
 ### BettaFish knobs (env, all live-tunable)
 
@@ -146,10 +147,10 @@ New module in our fork: `backend/wonderwall/simulations/pumpfun/`, built on the 
 
 ### A swarm run
 
-1. Seed: the coin dossier (curve state, recent callouts, `synthesis.coin`, top Shadows' `shadow.call_p`).
-2. Agents: the top `SWARM_CALLER_AGENTS` Shadow callers likely to touch this coin (ranked by Tier 1 and the Jev `shadow` pack), plus `SWARM_FOLLOWER_AGENTS` followers by archetype mix from wallet stats.
+1. Seed: the coin dossier (curve state, recent callouts, `synthesis.coin`, top Caller models' `callers.call_p`).
+2. Agents: the top `SWARM_CALLER_AGENTS` Caller model callers likely to touch this coin (ranked by Tier 1 and the Jev `callers` pack), plus `SWARM_FOLLOWER_AGENTS` followers by archetype mix from wallet stats.
 3. Rounds: `SWARM_ROUNDS` rounds of `SWARM_ROUND_MINUTES` simulated minutes (about 2 h in every preset).
-4. Branch A: no octopus. Branch B (when `SWARM_BRANCHES` includes B): Director Mode injects "OCTOPUS posts a callout now" with our thesis text and size.
+4. Branch A: no agent. Branch B (when `SWARM_BRANCHES` includes B): Director Mode injects "Asimog posts a callout now" with our thesis text and size.
 5. Output: `swarm.wave_p` (share of runs reaching 5 or more distinct tracked callers), `swarm.impact` (B minus A expected callers and net SOL inflow), and every simulated post as a `swarm.post` event, labeled simulated, for `/simulations`.
 
 Budget: escalations only, ranked by Attention, within `SWARM_RUNS_PER_HOUR`. Results are valid for 30 minutes.
@@ -175,7 +176,7 @@ The service stays fully deployed. Presets and every step count are variables, so
 
 A run that hits its USD cap stops and returns a partial result marked `truncated`.
 
-Ways it fails: agents act out of character (persona includes measured stats, and the Scorekeeper tracks swarm Brier; low scores cut its weight in genomes automatically); cost overrun (hard cap per run in tokens; the run aborts and emits a partial result marked `truncated`); AMM drift from the real curve (the golden test runs on every fork update); too slow for the trade (genomes treat the swarm as optional; fast genomes never wait for it).
+Ways it fails: agents act out of character (persona includes measured stats, and the Scorekeeper tracks swarm Brier; low scores cut its weight in strategies automatically); cost overrun (hard cap per run in tokens; the run aborts and emits a partial result marked `truncated`); AMM drift from the real curve (the golden test runs on every fork update); too slow for the trade (strategies treat the swarm as optional; fast strategies never wait for it).
 
 ## hunt
 
@@ -187,34 +188,42 @@ Patterns, each with evidence and confidence:
 | `late_caller` | Median opportunity age above +120% across 10 or more calls |
 | `dump_on_followers` | A wallet linked to a caller (confidence ≥ 0.8) sells more than 50% of its holding within 15 min after that caller's callout, on 3 or more coins |
 
-Findings appear on `/hunt`. An ink note reply goes out only when confidence is 0.85 or more and evidence includes 3 or more events, and only as a data note under the relevant callout.
+Findings appear on `/integrity`. An data reply reply goes out only when confidence is 0.85 or more and evidence includes 3 or more events, and only as a data note under the relevant callout.
 
-Ways it fails: a wrong wallet link (minimum link confidence 0.8, links show their evidence); one bad day looks like a pattern (minimum counts above); a finding that is later contradicted (findings expire after 7 days unless renewed; contradictions write a retraction on `/hunt`).
+Ways it fails: a wrong wallet link (minimum link confidence 0.8, links show their evidence); one bad day looks like a pattern (minimum counts above); a finding that is later contradicted (findings expire after 7 days unless renewed; contradictions write a retraction on `/integrity`).
 
 ## baseline
 
-TimesFM 2.5 zero-shot forecasts of callouts per minute and unique buyers per minute for watched coins. Not used by genomes by default. Every forecasting organ is scored against it.
+TimesFM 2.5 zero-shot forecasts of callouts per minute and unique buyers per minute for watched coins. Not used by strategies by default. Every forecasting analyzer is scored against it.
 
-## fly: the Fly Lab
+## fly: the Connectome Lab
 
 `wetware` runs the larval fruit-fly connectome (2,952 neurons) as a fixed reservoir. The wiring never changes; only a linear readout is trained.
 
 - Input: for each watched coin, a vector of board signals (regime posterior, Hawkes n, wave_p, opportunity age, echo score, mood) is mapped to input currents on sensory neurons.
 - Readout: ridge regression, trained weekly on past inputs against the 2 h outcome (price up more than fees).
 - Output: `fly.action` = buy, sell or hold.
-- The Fly genome is a normal genome whose only rule is "follow `fly.action`", with a fixed 1% capital sleeve. It competes in the Brood like any other genome.
-- `/fly` shows the 3D brain and the actual simulated spikes.
+- The Fly strategy is a normal strategy whose only rule is "follow `fly.action`", with a fixed 1% capital sleeve. It competes in the Strategy Pool like any other strategy.
+- `/connectome` shows the 3D brain and the actual simulated spikes.
 
 Ways it fails: the reservoir saturates on large inputs (inputs are clipped and scaled); the readout overfits (walk-forward training only, and its live score is public); the fly loses money (that is fine and on the record; its sleeve is capped at 1%).
 
+## scorekeeper
+
+Every callout opens a watch. At 1, 3 and 5 minutes on the Clock (`OUTCOME_HORIZONS_MIN`) the Scorekeeper writes `outcome.measured`: the price multiple since the callout and the number of distinct new callers on the coin. A probability signal whose horizon matches (`hawkes.wave_p`, `callers.wave_p`) is scored: Brier, base rate, and skill = 1 − Brier / (base × (1 − base)), published as `score.updated` every minute of Tape time. Outcomes resolve only after the horizon has passed, so the Scorekeeper never looks ahead. Coins that go quiet resolve with the last price seen once the longest horizon plus a minute has passed.
+
+First tape (10 minutes, 381 callouts): the mean multiple after a callout was 0.98 at 1 min, 0.89 at 3 min and 0.81 at 5 min. Buying after a callout lost money on average in that window. That is the base rate every strategy has to beat.
+
+Ways it fails: the coin stops trading (resolved with the last price, marked by a null multiple when there was none); a callout before any trade on the coin (price0 is the first trade after it); a horizon longer than the tape (left unresolved; never forced early).
+
 ## Attention: value of information (v1)
 
-Attention only ranks jobs that the escalation gate (docs/17) has already raised, plus routine tentacle work. For each candidate job `j` on coin `m`:
+Attention only ranks jobs that the escalation gate (docs/17) has already raised, plus routine session work. For each candidate job `j` on coin `m`:
 
 ```
 gap(m)  = 1 − |best_intent_score(m) − threshold| / threshold     (clipped to 0..1; near the threshold = high)
-size(m) = size the best genome would trade on m (SOL)
+size(m) = size the best strategy would trade on m (SOL)
 VOI     = gap(m) · size(m) · edge_per_sol · sensitivity(j) − cost(j)
 ```
 
-`sensitivity(j)` starts as a table (swarm 0.30, coin synthesis 0.15, caller profile read 0.10, X lookup 0.05) and is replaced by measured values from Scorecards after 2 weeks. Jobs are granted in VOI order within each organ's budget. Every grant is an event, so the Tank can show why a tentacle moved.
+`sensitivity(j)` starts as a table (swarm 0.30, coin synthesis 0.15, caller profile read 0.10, X lookup 0.05) and is replaced by measured values from Scorecards after 2 weeks. Jobs are granted in VOI order within each analyzer's budget. Every grant is an event, so the Field can show why a session moved.

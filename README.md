@@ -1,5 +1,15 @@
-# OCTOPUS
+# Asimog
 
-An autonomous trader that lives inside Pump.fun callouts. It reads every callout, simulates every caller, buys before the wave, calls it, posts its exits as callout updates, and shares profit with holders. Visitors watch it crawl real pages in a 3D tank.
+A near-autonomous AI firm that started in the trenches. Given a coin, a small machine and 0.2 SOL, it trades Pump.fun callouts honestly in public, writes its own code, builds its own audience, and grows by milestones. Everyone can watch it work.
 
-Status: docs only. Start at `docs/00-goals-and-decisions.md`. Build order: `docs/13-implementation-phases.md`. Rules for agents: `AGENTS.md`.
+| Start here | |
+|---|---|
+| `CONSTITUTION.md` | The laws every unit inherits |
+| `SOUL.md` | Who the agent is, in its own words (it edits this) |
+| `docs/21-first-principles.md` | The team's questions and recorded answers, the start-up Q&A |
+| `docs/22-firm-architecture.md` | How it grows: core, adapters, milestones, social capital, the Builder |
+| `docs/00-goals-and-decisions.md` | Every decision, with why and why not |
+| `docs/13-implementation-phases.md` | The implementation plan: stages, tasks, dependencies, acceptance |
+| `AGENTS.md` | Rules for anyone building it |
+
+Status: docs only.

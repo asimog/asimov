@@ -2,7 +2,7 @@
 
 One Postgres 17 database. Schemas: `tape`, `mem`, `board`, `reflex`, `mind`, `money`, `ops`, `agents` (LangGraph checkpoints), `bettafish` (owned by the BettaFish fork). Projections in `mem` can always be rebuilt from `tape.events`; nothing else can.
 
-Roles: `octo_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` there. Projection workers own `mem`. The `money` tables are written only by Hands and Treasury.
+Roles: `core_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` there. Projection workers own `mem`. The `money` tables are written only by Hands and Treasury.
 
 ## tape
 
@@ -30,7 +30,7 @@ Roles: `octo_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` the
 
 | Table | Columns | Notes |
 |---|---|---|
-| `signals` | `id` pk, `kind`, `subject`, `value` jsonb, `confidence`, `produced_at`, `valid_until`, `inputs` text[], `organ` | Append-only. |
+| `signals` | `id` pk, `kind`, `subject`, `value` jsonb, `confidence`, `produced_at`, `valid_until`, `inputs` text[], `analyzer` | Append-only. |
 | view `live` | latest signal per `(kind, subject)` where `valid_until > now()` | Replays query with the virtual clock instead of `now()`. |
 
 ## reflex
@@ -45,17 +45,23 @@ Roles: `octo_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` the
 
 | Table | Columns |
 |---|---|
-| `genomes` | `gn_` id, `spec` jsonb (docs/08 DSL), `parents` text[], `origin`, `born_at`, `retired_at`, `family`, `niche` |
-| `ghost_positions` | `id`, genome, coin, opened_at, tokens, cost_sol, exits jsonb, closed_at, net_sol |
-| `genome_scores` | genome, window, trades, net_sol, net_per_trade, follower_pnl_sol, max_drawdown, hit_rate, posterior jsonb |
-| `allocations` | genome, capital_sol, since, posterior |
+| `strategies` | `sr_` id, `spec` jsonb (docs/08 DSL), `family`, `horizon`, `parents` text[], `origin`, `born_at`, `retired_at`, `retire_reason` |
+| `stats` | strategy pk, trades, wins, net_sum and net_sq (returns per SOL), rets[] (last 400), equity, peak, max_dd (SOL), mk60[] (60 s buy markouts), stage (ghost, probe, full), share, last_trade_at |
+| `positions` | `ps_` id, strategy, mint, callout, opened_at, tokens, tokens_left, cost_sol (incl. rent), proceeds_sol, rent_sol, entry_price, exit_bands (±5% per exit), exits jsonb, commit, closed_at, net_sol, exit_reason. One row per ghost book position. |
+| `intents` | `in_` id, strategy, mint, side, size_sol, fraction (tokens to sell), position, reason, created_at, fill_after (intent time + modeled latency), event. Pending only: deleted when filled or refused. |
+| `fills` | fill event id, intent, strategy, mint, side, at, price_sol, mk jsonb (h1s, h10s, h60s, h5m), done |
+| `coin_callout` | mint pk, latest callout, author wallet, at. Joins coin signals to callout and caller signals. |
+| `commits` | `cm_` id, kind, sha256, content jsonb (private until revealed), made_at, revealed_at |
+| `desk_clock` | name pk (next_alloc, next_evolve), at, round. Periodic rounds run on Tape time. |
+| `outcome_watch` | callout pk, mint, at, price0, probs jsonb (probability signals at callout time), done int[] (resolved horizons) |
+| `scores` | (kind, horizon_min) pk, n, brier_sum, hits, p_sum |
 | `limits` | `version` pk, body jsonb, set_by, set_at | Only the admin path inserts. |
 
 ## money
 
 | Table | Columns |
 |---|---|
-| `orders` | `or_` id, intent, genome, coin, side, size_sol, max_slippage_bps, state (created, submitted, filled, failed), tx_sig, limits_version |
+| `orders` | `or_` id, intent, strategy, coin, side, size_sol, max_slippage_bps, state (created, submitted, filled, failed), tx_sig, limits_version |
 | `fills` | order, tx_sig, tokens, sol, fee_sol, price_sol, slot |
 | `positions` | `ps_` id, coin, tokens, cost_basis_sol, realized_pnl_sol, opened_at, closed_at, callout (our post id) |
 | `posts` | id, kind, coin, pump_id, text, media_ref, because text[], state (queued, published, refused), published_at |
@@ -70,12 +76,24 @@ Roles: `octo_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` the
 | `accruals` | wallet pk, sol_owed, since | Payouts below 0.001 SOL wait here. |
 | `ledger_proofs` | hour, segment_hash, prev_segment_hash, file_ref | Hash-joined hourly exports (chainplot pattern). |
 
+## social, forecasts, builds
+
+| Table | Columns |
+|---|---|
+| `social.daily` | day pk, followers_pump, followers_x, engagement jsonb, visitors, bounty_participants |
+| `social.posts` | id, channel, post_id, kind, because text[], at |
+| `social.bounties` | id, channel, task, budget_sol, deadline, state, results jsonb |
+| `forecasts.forecasts` | id, venue, market_id, question, p, market_p, commit_id, made_at, outcome, brier |
+| `builds.tasks` | id, goal, repo, state, pr_url, suites jsonb, artifacts_ref, merged_at |
+
+Money tables for payouts and seats (`profit_hours`, `holder_samples`, `distributions`, `seats`, `deposits`, `accruals`) are created at milestone M5.
+
 ## ops
 
 | Table | Columns |
 |---|---|
-| `budgets` | organ, hour, units, cap, spent |
-| `tentacle_sessions` | tentacle, session_id, state, url, task, started_at, last_frame_at |
+| `budgets` | analyzer, hour, units, cap, spent |
+| `browser_sessions` | session, session_id, state, url, task, started_at, last_frame_at |
 | `scores` | target, metric, window, value, at |
 | `admin_actions` | id, action, by, at, detail | Every human override. |
 | `jobs` | `jb_` id, agent, trigger_event, state (queued, running, done, failed), lease_until, attempts, cost_usd, result_ref | Postgres job queue for thinking agents and System Two runs (`FOR UPDATE SKIP LOCKED`). |
@@ -89,6 +107,6 @@ Roles: `octo_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` the
 | Data | Keep |
 |---|---|
 | Tape | Forever in archive files; 90 days hot in Postgres for `trade.*`, forever for everything else |
-| Frames | 7 days for Rewind, then 1 frame per minute per tentacle |
+| Frames | 7 days for Rewind, then 1 frame per minute per session |
 | HAR files | 30 days |
 | Holder samples | Forever (they justify payouts) |

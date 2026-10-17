@@ -1,147 +1,132 @@
 # 19 · UI implementation plan
 
-How the website is built: app structure, data flow into the scene, assets, rendering, frames, animation choreography, mobile, and testing. What it shows is in `11-ui-spec.md`; tokens and bans are in `12-design-guidelines.md`.
+How the site is built: app structure, data flow, the three instrument renderers, frames, choreography, mobile and testing. What it shows: `11-ui-spec.md`. Tokens and bans: `12-design-guidelines.md`.
+
+Key simplification: **no hand-made 3D models.** The Field, the Cortex and the Lab are generated from data and math at runtime. The only static assets are fonts and a few hairline SVG glyphs.
 
 ## App structure (`apps/web`)
 
 ```
 app/
-  layout.tsx                 shell: header, footer, <SceneRoot/> mounted once for all routes
-  page.tsx                   / Tank
-  synthesis/ simulations/ brood/ ledger/ hunt/ treasury/ seats/ fly/ rewind/ reports/
+  layout.tsx                 shell: HUD, footer, <SceneRoot/> mounted once for all routes
+  page.tsx                   / Field
+  cortex/ lab/ ledger/ treasury/ charter/ integrity/ connectome/ rewind/ reports/
   calls/[id]/ callers/[id]/
   cards/[id]/route.tsx       share card image (next/og ImageResponse)
   terms/ privacy/ disclosures/
 components/
-  scene/                     R3F: SceneRoot, Octopus, Arm, Plate, PlateAtlas, Water, Seabed, Flares, Ink, Tags
-  hud/                       MindStrip, Tape, WhySheet, PositionChips, ModeBadge
-  rooms/                     per-room 2D components
-  ui/                        shadcn primitives restyled; tweenly and rare-ui items; transitions.dev snippets
+  scene/                     R3F: SceneRoot, FieldClouds, Filaments, CortexCloud, Tracts, Slices, FlyCloud
+  lab/                       Arc (DOM cards on an arc), Threads (canvas 2D), Rays (canvas 2D)
+  hud/                       Hud, Tape, Strip panels, WhySheet
+  ui/                        shadcn primitives restyled; react-bits, tweenly and transitions.dev pieces
 lib/
   stream/                    SSE client, frame WebSocket client, event normalizer
-  store/                     zustand stores: events, board, tentacles, positions, scene cues
-  choreo/                    Animator: event → motion cues with rate limits
-  api/                       typed REST client (generated from packages/contracts)
+  store/                     zustand stores: events, board, positions, milestones, social, sessions, cues
+  choreo/                    Animator: event → cue with rate limits
+  layout/                    worker-side cluster layout and point sampling
 workers/
   frames.worker.ts           decode JPEG frames with createImageBitmap
-public/
-  models/ textures/ sprites/ fonts/
+  layout.worker.ts           cluster layout and point generation
 ```
 
-### One canvas for the whole site
+### One canvas, many views
 
-`SceneRoot` mounts a single `<Canvas>` in the root layout, fixed behind the page. Routes place 3D content into DOM slots with drei's `<View>` (scissored viewports). The WebGL context is created once, so moving between rooms never reloads models or textures. The Tank uses a full-bleed view; other rooms use smaller views (the Brood coral, the Fly brain, the Hunt graph) or none.
+`SceneRoot` mounts one `<Canvas>` in the root layout. Instruments place 3D views into DOM slots with drei's `<View>`. Moving from the Field to the Cortex never recreates the WebGL context. The page background switches mode (night or paper) with a View Transition; the canvas clear color follows.
 
 ### Rendering modes
 
-| Route | Server render | Client |
+| Route | Server | Client |
 |---|---|---|
-| `/`, rooms | Server components fetch a snapshot (mind strip, last 40 tape lines, positions) so first paint has real data and share previews work | Client takes over with SSE |
-| `/calls/[id]`, `/callers/[id]` | Fully server-rendered dossiers, cached 30 s | Live updates if open |
-| `/cards/[id]` | `next/og` ImageResponse (Satori): ticker, entry mcap, opportunity age, key signals, exit ladder, result | none |
+| Instruments | Server components fetch a snapshot (HUD numbers, last 40 tape lines, positions, milestone) so first paint has real data | Client takes over with SSE |
+| Dossiers | Fully server-rendered, cached 30 s | Live updates if open |
+| `/cards/[id]` | `next/og` image: ticker, entry, opportunity age, key signals, exit ladder, result, commit hash | none |
 
-Share cards come from `next/og` because it is fast, cheap and deterministic. Herald attaches these images to callouts (replaces the screenshot approach in docs/09).
-
-## Data flow into the scene
+## Data flow
 
 ```
-octo SSE  ─► stream client ─► normalizer ─► stores ─► Animator ─► scene cues ─► R3F components (useFrame)
-frame WS  ─► frames worker ─► ImageBitmap ─► PlateAtlas texture (texSubImage2D)
+core → relay SSE ─► stream client ─► normalizer ─► stores ─► Animator ─► cues ─► scene (useFrame)
+relay frames WS  ─► frames worker ─► ImageBitmap ─► session atlas texture (texSubImage2D)
+stores (markets) ─► layout worker ─► point buffers ─► FieldClouds attributes (in place)
 ```
 
-- **SSE** (`/v1/stream?topics=...`) carries public events and signal changes. Each message has the event id, so the why-sheet can fetch `/v1/why/{id}`.
-- **Frame WebSocket** (`/v1/frames`) carries binary messages: header (tentacle, seq, url, task id, sucker boxes as JSON) then JPEG bytes.
-- Stores are plain zustand slices. Components read with selectors. The scene reads cues inside `useFrame`, never through React re-renders per frame.
+Stores are zustand slices read with selectors. The scene reads cues inside `useFrame`; React never re-renders per frame.
 
 ### The Animator (truthful and readable)
 
-Real event rates can reach dozens per second. The Animator keeps every motion true while keeping the screen readable:
-
 | Rule | Value |
 |---|---|
-| Per arm | At most one reach every 600 ms; extra reads queue; queue over 5 collapses into one reach with a count tag ("+7 reads") |
-| Callout cards on T1 | Real frame shows them; the arm taps at most twice per second |
-| Specimen tags | At most 3 in flight per arm |
-| Flares | Never collapsed. One per published callout |
-| Chromatophore clouds | One at a time, new ones extend the current one |
+| Cloud flares | At most 4 per cloud per second; extra events add to a count shown on the cloud label |
+| Filaments | Created or removed only on real position changes; a fill flicker lasts 400 ms |
+| Temperature | Follows the risk state with a 1.5 s critically damped transition; never animated without a state change |
+| Cortex lobes | Lit while their lane has written an event in the last 2 s; tract pulses at most 2 per second per lobe |
+| Lab cards | Added on commit, flipped on resolve; never shuffled for effect |
 | Tape | Lines group by second: "12 callouts" expands on tap |
 
-Every cue keeps its source event ids, so tapping a moving thing in the scene opens the right why-chain.
+Every cue keeps its source event ids, so clicking anything in a scene opens its why-chain.
 
-## Plates and frames
+## Field renderer
 
-- **One atlas texture** of 2048 × 2048 holds all 8 plates at 640 × 360 (3 × 3 grid, one cell spare for the T8 typing overlay). One material, one texture bind for all plates.
-- The frames worker decodes with `createImageBitmap` and posts the bitmap to the main thread; the main thread uploads it into its atlas cell with `texSubImage2D`. No React work per frame.
-- Frame rate per plate: up to 2 fps public (relay-side), skipped when unchanged.
-- **Sucker mapping:** each frame header lists boxes in page pixels. `uv = box_center / viewport_size`, then UV → plate local → world. The arm's IK target moves there with a critically damped spring (no overshoot).
-- A plate that is fogged (crashed tentacle) blends to a frosted texture with the word REGROWING set in the specimen label face.
+| Part | Technique | Budget |
+|---|---|---|
+| Cluster layout | Each market cluster (venue, coin, book) is a node. A force layout in `layout.worker.ts` places clusters: same venue attracts, correlated markets attract, size from attention. Layout updates at 1 Hz, eased. | 1 worker |
+| Point clouds | Per cluster, points sampled inside an irregular blob: sum of 3 to 6 noise-displaced spheres seeded by the market id, so each market has a stable, unique shape. Points stored in one big `BufferGeometry` (positions, cluster index, seed). Rendered as one `Points` draw with a custom shader: size by depth, color amber mixed toward crimson by a `uTemperature` uniform, additive blending, alpha by local density. | 200k points desktop, 40k mobile, 1 draw call |
+| Breathing | Vertex shader offsets each point by low-frequency noise over time; amplitude scales with the cluster's live volume | in shader |
+| Filaments | Instanced line strips (drei `Line` or a custom instanced ribbon) from the Core to each position's cluster, curved by a bezier with noise; additive, thin | ≤ 200 filaments |
+| Labels | MSDF text (drei `Text`, IBM Plex Mono) billboarded on cluster centers, culled by distance | ≤ 60 labels |
+| Session thumbnails | One 2048 × 2048 atlas holds 8 session frames at 640 × 360; updated in place with `texSubImage2D` from the frames worker | 1 texture |
+| Postprocessing | Mild bloom on the additive layer only, SMAA. No depth of field on mobile. | - |
 
-## The octopus
+## Cortex renderer
 
-### Assets
+| Part | Technique | Budget |
+|---|---|---|
+| Brain cloud | Procedural: two hemispheres from deformed ellipsoids with folded-noise displacement (gyri and sulci), sampled into points on and just under the surface. Each point carries a lobe id from its position (fixed region rules). No external brain mesh, so no license issue. | 120k points desktop, 30k mobile |
+| Lobe lighting | Uniform array of 10 lobe intensities; points of a lit lobe shift ink → teal and brighten | in shader |
+| Tracts | Bezier tubes (thin lines) from each lobe center to the Core center; a traveling dash shows a decision chain in flight | ≤ 40 lines |
+| Slices | Three small orthographic `<View>`s of the same cloud with a clipping plane each (axial, coronal, sagittal) | 3 extra renders at low resolution |
+| Detail cards | DOM elements positioned from projected lobe centers, with hairline leader lines | DOM |
 
-| Asset | Made with | Format | Budget |
-|---|---|---|---|
-| Mantle (head and body) | Sculpted in Blender, retopologized | glTF, Meshopt-compressed, via `gltf-transform` | ≤ 30k triangles desktop, ≤ 8k mobile (separate LOD) |
-| Mantle detail | Baked normal map and cavity map from the sculpt | KTX2 (Basis), 2048² desktop, 1024² mobile | ≤ 3 MB total |
-| Eyes | Separate small mesh, W-shaped pupil like a real octopus | in the same glTF | ≤ 2k triangles |
-| Arms | Generated at runtime (no rig) | tube geometry along the IK chain | 24 segments × 12 radial desktop; 12 × 8 mobile |
-| Suckers | One small mesh, instanced | `InstancedMesh` | 8 × 24 = 192 instances |
-| Environment light | Small baked cubemap from Blender | KTX2, 256² | ≤ 300 KB |
-| Seabed contours | Generated in a shader from noise | none | 1 draw call |
-| Marine snow | Instanced points | shader | 2k desktop, 600 mobile |
-| Specimen tag text | MSDF text (drei `Text`, troika) with IBM Plex Mono | font atlas | 1 atlas |
-| 2D low-power sprite | Hand-drawn in Piskel, 64 × 64 frames, 4× nearest-neighbor | PNG sprite sheets | idle, reach (8 directions), grab, flare, ink, sleep |
+## Lab renderer (2D, crisp text)
 
-`gltfjsx` generates typed components from the glTF. All assets are cache-busted by content hash and served with long cache headers.
-
-### Shaders
-
-**Skin (mantle).** A custom `MeshPhysicalMaterial` extension (onBeforeCompile) or a drei `shaderMaterial`:
-
-- Chromatophores: 3D Voronoi cells in object space. Each cell has a type (rust, ochre, umber) from a hash. Cell radius = base × (1 + expansion[type]). Uniforms `uGreed`, `uFomo`, `uFear`, `uDisgust`, `uCalm` come from `mood.skin` (smoothed over 2 s).
-- Passing clouds: a traveling band (uniform `uCloudPhase`, `uCloudStrength`) darkens cells as it sweeps; cues from the Animator start it.
-- Iridophores: a faint fresnel sheen in verdigris, masked to the top of the mantle.
-- Leucophores: bone-white flecks from a second Voronoi layer, brightness from the focus coin's signal confidence.
-- Breathing: a slow vertex displacement along the normal (0.5 Hz), slower when calm.
-
-**Arms.** CPU solves 8 FABRIK chains (24 joints) at 60 Hz, root fixed on the mantle. A vertex shader tapers the tube and bends suckers to face the inner side. Idle arms follow a slow noise curl. Suckers on contact get a short emissive pulse (the only bloom source besides flares).
-
-### Postprocessing
-
-`@react-three/postprocessing`: selective bloom on an emissive layer (suckers in contact, flares), SMAA, vignette, low film grain. Depth of field on desktop only, focused on the active plate. No chromatic aberration.
-
-### Performance
-
-- drei `PerformanceMonitor` + `AdaptiveDpr`: DPR from 2 down to 1, then LOD swap, then low-power 2D mode.
-- `frameloop="demand"` when the tab is hidden; resume on visibility.
-- All geometry and materials created once; arms update buffer attributes in place.
-- Draw calls target: ≤ 40 on the Tank desktop, ≤ 20 on mobile.
-
-## Rooms (2D-first)
-
-| Room | Build |
+| Part | Technique |
 |---|---|
-| `/synthesis` | Two columns. Forum lines stream in with transitions.dev text reveal. Report sections land with the UI-generation reveal. Citation chips open the callout in a sheet. |
-| `/simulations` | Simulated feed cards (hatched umber frame, SIMULATED stamp). Fan charts from tweenly charts fed with row arrays of runs. Preset badge (nano, lite, full) on each run. |
-| `/brood` | Coral in a `<View>`: each genome a polyp (instanced), lineage as tubes. Calcified white for retired. Click opens a sheet with the spec and scores. |
-| `/ledger` | Virtualized table, number pop-ins on new rows, filters as sliding tabs. |
-| `/hunt` | GPU-instanced graph in a `<View>` (visualize-web3-realtime pattern), ink clouds as particle volumes around rings. |
-| `/treasury` | Flow diagram in SVG with animated dashes only when a sweep or payout event arrives; proof chain list. |
-| `/seats` | Price chart with the floor curve and the live premium; deposit panel: input, address with copy and QR, amount, countdown, status steps with skeletons. |
-| `/fly` | Soma positions as instanced points in a `<View>`; spikes light points from `fly.action` frames; attribution line from fly-connectome-template. |
-| `/rewind` | Scrubber; on release, fetch `/v1/board?at=` and stored frames for that minute; the scene replays cues from that window at 1×, 4× or 16×. |
+| Arc | An SVG arc with tick marks. Cards are DOM elements placed along it with CSS transforms (rotate along the tangent), virtualized so only visible cards exist. Scroll or drag rotates the ring. |
+| Threads | Canvas 2D: hairline quadratic curves from evidence points to card anchors; bundling by grouping shared endpoints; redrawn only when cards or evidence change |
+| Rays | Canvas 2D: one ray per resolved card with outcome chips |
+| Counters | react-bits `CountUp` and `SplitFlapText` |
 
-## Mobile
+## Other instruments
 
-- Layout per docs/11. One plate full width with swipe (CSS scroll snap, no JS carousel). Arm chips row for direct jumps.
-- 3D mobile profile: DPR ≤ 1.5, mantle LOD, 12-segment arms, no DOF, bloom at half resolution.
-- Low-power 2D mode uses the Piskel sprite sheets with CSS `steps()` animation and the plates as plain images.
-- Safe areas, 44 px targets, no hover-dependent features.
+| Instrument | Build |
+|---|---|
+| Ledger | Virtualized table; number pop-ins (transitions.dev); filters as sliding tabs |
+| Treasury | SVG flow diagram; dashes animate only when a sweep or payout event arrives; proof chain list |
+| Charter | Markdown render of the constitution and soul; soul diffs as side-by-side; counsel log table |
+| Integrity | GPU-instanced graph in a `<View>` (visualize-web3-realtime pattern) |
+| Connectome | Soma positions as instanced points; spikes from `fly.action`; attribution line |
+| Rewind | react-bits `ScrubField`; on release, fetch `/v1/board?at=` and stored frames; replay cues at 1×, 4× or 16× |
+
+## Assets
+
+| Asset | Source | Format |
+|---|---|---|
+| Fonts | IBM Plex Mono, Plex Sans, Plex Sans Condensed (OFL) | WOFF2, subset, self-hosted |
+| MSDF font atlas | Generated from Plex Mono | PNG + JSON |
+| Glyph set | Hand-drawn hairline SVGs (venue, unit, lane, counsel, proof, seat) | Inline SVG |
+| Low-power stills | Rendered from the live scene every 5 s on the server for mobile low-power mode | WebP |
+
+## Performance
+
+- drei `PerformanceMonitor` + `AdaptiveDpr`: DPR 2 → 1, then point count halves, then low-power stills.
+- `frameloop="demand"` when the tab is hidden.
+- Buffers allocated once; layout updates write into existing attributes.
+- Draw calls: ≤ 20 on the Field desktop, ≤ 12 mobile.
+- Shell JS ≤ 250 KB gz; 3D chunk lazy-loaded after first paint.
 
 ## Testing the UI (E2E)
 
-- `e2e/site-tank`, `e2e/site-labs`, `e2e/site-treasury` drive the real site with agent-browser at 1440 × 900 and 390 × 844, wait for real events, and save screenshots.
-- Visual diffs with `agent-browser diff screenshot --baseline` against approved baselines; a diff over threshold fails the suite and saves the diff image as an artifact.
-- Truth check: every tape line and mind strip value on screen is looked up through the API and must match.
-- Performance check: a scripted 60 s session records frame times through the browser's performance API; the 95th percentile must stay within the budget.
+- `e2e/site-field`, `e2e/site-cortex`, `e2e/site-lab`, `e2e/site-treasury` drive the real site with agent-browser at 1440 × 900 and 390 × 844, wait for real events, and save screenshots.
+- Visual diffs with `agent-browser diff screenshot --baseline`; diffs over threshold fail and save the diff image.
+- Truth check: every HUD number and tape line on screen is looked up through the API and must match.
+- Motion check: record a 10 s screen capture and run it through the `video-frames` skill; every visible change must line up with an event in the tape for that window.
+- Performance: 60 s scripted session; 95th-percentile frame time within budget.

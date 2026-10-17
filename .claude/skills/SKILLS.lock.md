@@ -40,3 +40,4 @@ Copied from `.upstream/repos`. Re-copy to update. Source @ commit.
 | reverse-engineer-anything | morluto/rea/.agents/skills/reverse-engineer-anything | 0c7b6d8 |
 | timesfm-forecasting | google-research/timesfm/timesfm-forecasting | e51928e |
 | typesafe-ai | typesafe-ai/skills/skills/typesafe-ai | 65a39f3 |
+| video-frames | ours (written for this repo, uses ffmpeg) | - |

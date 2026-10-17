@@ -4,116 +4,125 @@
 
 1. The owner's words.
 2. **impeccable** (`.claude/skills/impeccable`). It wins every conflict with other skills.
-3. This doc.
-4. Advisors: `design-taste-frontend` (public pages), Emil Kowalski's skills (`animate`, `find-animation-opportunities`, `review-animations`, `improve-animations`, `animation-performance`, `emil-design-eng`), transitions.dev skills, the r3f skills.
+3. This doc and `docs/inspiration/README.md`.
+4. Advisors: `design-taste-frontend`, Emil Kowalski's motion skills, transitions.dev skills, the r3f skills, react-bits components.
 
-When an advisor disagrees with impeccable or this doc, follow impeccable or this doc, and do not argue the point in code comments.
+## Direction: Instrument
 
-## Direction: the specimen tank
+Asimog's site is a set of scientific instruments for watching an autonomous firm work. Each screen is one instrument: one dominant form that fills the canvas, and a strip of small dense panels under it. Futuristic through precision and live data, not through effects. References: the four videos in `docs/inspiration/`.
 
-A living cephalopod studied under lab light in deep water. Real biology colors, instrument-grade data type, sharp glass. Futuristic through what it does (a creature reading live pages), not through neon.
+## Two modes, one accent each
+
+| Mode | Used by | Ground | Ink | Accent | Stress |
+|---|---|---|---|---|---|
+| **Night** | The Field (markets, money in motion) | warm black | bone | amber (particles, positions) | crimson (drawdown, crisis regime) |
+| **Paper** | Cortex, Lab, Ledger, Treasury, Charter | warm paper | near-black ink | vermilion for money and actions; teal for the mind (Cortex only) | vermilion fill |
+
+The mode belongs to the instrument, not to the visitor. Moving from the Field to the Lab crosses from night to paper with a view transition.
 
 ## Tokens
 
-Single dark world by choice. Colors in OKLCH, variants with `color-mix()`. Grays use hue `none`.
+Colors in OKLCH. Variants with `color-mix()`. Grays use hue `none`.
 
 | Token | Value | Use |
 |---|---|---|
-| `--abyss` | `oklch(0.17 0.015 230)` | Page ground. Never pure black, never white. |
-| `--trench` | `oklch(0.21 0.015 230)` | Panels, plates' backing |
-| `--silt` | `oklch(0.30 0.012 230)` | Hairlines, dividers |
-| `--bone` | `oklch(0.93 0.012 85)` | Main text, plate frames |
-| `--fog` | `oklch(0.70 0.015 230)` | Secondary text |
-| `--rust` | `oklch(0.64 0.14 40)` | Primary accent: the octopus, our own actions |
-| `--ochre` | `oklch(0.78 0.11 80)` | Exits, warnings, greed |
-| `--verdigris` | `oklch(0.72 0.07 175)` | Perception: tentacle reads, buys |
-| `--madder` | `oklch(0.55 0.15 25)` | Losses, kill, danger |
-| `--umber` | `oklch(0.42 0.05 55)` | Simulated content hatch, retired genomes |
+| `--night` | `oklch(0.14 0.012 60)` | Field ground |
+| `--night-2` | `oklch(0.19 0.012 60)` | Field panels |
+| `--amber` | `oklch(0.80 0.13 75)` | Particles, positions, live state |
+| `--amber-dim` | `oklch(0.55 0.08 70)` | Filaments, quiet labels |
+| `--crimson` | `oklch(0.56 0.17 28)` | Stress: drawdown, crisis regime, kill |
+| `--paper` | `oklch(0.955 0.008 85)` | Paper ground (never pure white) |
+| `--paper-2` | `oklch(0.92 0.01 85)` | Panels on paper |
+| `--ink` | `oklch(0.20 0.01 85)` | Text and hairlines on paper |
+| `--ink-soft` | `oklch(0.50 0.01 85)` | Secondary text |
+| `--rule` | `oklch(0.80 0.01 85)` | Rules and panel borders |
+| `--vermilion` | `oklch(0.62 0.19 33)` | Money, actions, the one hot number |
+| `--teal` | `oklch(0.60 0.09 200)` | The mind (Cortex lobes and tracts) |
+| `--bone` | `oklch(0.92 0.012 85)` | Text on night |
 
-Chroma ceiling: 0.16. Nothing neon.
+Chroma ceiling 0.19 (vermilion only); everything else ≤ 0.13. Nothing neon.
 
 | Type role | Face | Use |
 |---|---|---|
-| Display | Unbounded 600/800 | Room titles, tickers, big numbers on cards |
-| Body | IBM Plex Sans 400/500 | Text |
-| Data | IBM Plex Mono 400/600, `tabular-nums` | Every number, IDs, tape |
-| Specimen label | IBM Plex Serif italic 400 | Rare labels only ("Octopus vulgaris · T4") |
+| Labels, data, captions | IBM Plex Mono 400/600, caps micro-titles tracked +0.08em | Panel titles, tape, IDs, tables |
+| KPI numerals | IBM Plex Sans Condensed 600, `tabular-nums` | Header KPIs, counters |
+| Body | IBM Plex Sans 400 | Paragraphs, the constitution, reports |
 
-Type scale: one fluid scale from good-css (`clamp()` with rem plus vw, capped so text still scales with zoom).
+Type scale: one fluid `clamp()` scale (good-css). KPI numerals are the only large type.
 
 | Other | Value |
 |---|---|
-| Radius | 0 to 2 px. Plates and panels 0. Chips 2. |
-| Borders | 1 px `--silt`; plate frames 1 px `--bone` at 60% |
-| Shadows | None. Separation by contrast and hairlines. |
-| Spacing | 4 px base; gaps, not margins, between siblings |
-| Motion tokens | Durations 120 / 200 / 320 ms; ease-out for enter, ease-in for exit; springs only for the 3D arms. UI motion stays under 300 ms. |
+| Radius | 0. Chips 2 px. |
+| Borders | 1 px `--rule` on paper, `--night-2` lines on night |
+| Shadows | None |
+| Glow | Only additive blending on particles and filaments in the Field. Never on UI chrome. |
+| Spacing | 4 px base; gaps, not margins |
+| Motion | UI 120 / 200 / 320 ms; scene motion slow and continuous; color temperature changes over 1 to 3 s |
+
+## Composition rules
+
+1. One dominant form per instrument, edge to edge: the cloud field, the brain, the arc.
+2. Under it, an instrument strip of 6 to 8 dense panels, each with a caps micro-title and a live number.
+3. A KPI header row: caps label over big numeral. At most one KPI in the accent color.
+4. Callout boxes with hairline leader lines explain parts of the dominant form.
+5. Numbers tell the story: counters that fill, costs struck through, streaks that grow.
+6. Captions state facts only when true (`NO HUMAN IN THE LOOP`, `WAITS FOR COUNSEL: 2`).
 
 ## Banned (the vibe-coded list)
 
 | Banned | Our rule instead |
 |---|---|
-| Harsh gradients | Only the water depth gradient, lightness steps ≤ 6% |
-| Lucide icons | Our own small glyph set (arm, sucker, plate, flare, ink), drawn as SVG at text cap height |
-| Pure white background | Never. `--abyss` everywhere |
-| Rainbow coloring | Max 2 accents per view plus semantic colors |
+| Harsh gradients | None. Night ground is flat; depth comes from particle density |
+| Lucide icons | Our own small glyph set drawn as hairline SVG at cap height |
+| Pure white background | `--paper`, never `#fff` |
+| Rainbow coloring | One accent per mode plus stress |
 | Drop shadows | None |
-| 3 feature cards in a row | No marketing card rows at all. The product is the demo |
-| Emojis | None, in UI and in the octopus's posts |
-| Liquid glass | Plates are clear glass with a hairline frame, no blur, no frost |
-| Em dashes | None in UI copy and posts. Use periods or commas |
+| 3 feature cards in a row | No marketing cards. Instruments only |
+| Emojis | None, in UI and in posts |
+| Liquid glass | None |
+| Em dashes | None in UI copy and posts |
 | Inter, Geist, Space Grotesk | Not loaded |
-| Colored left stripe | No accent stripes on cards or rows |
-| Fake testimonials | None. Only real ledger numbers |
-| Bento grids | None. Layout follows the scene and the data |
-| Terminal window | No fake terminal chrome. Data is set in mono type inside normal panels |
+| Colored left stripe | None |
+| Fake testimonials | None. Only real numbers |
+| Bento grids | Instrument strips are rows of equal-height panels under one dominant form, not a bento |
+| Terminal window | No fake window chrome. Logs are mono lists inside normal panels |
 | "It's not X, it's Y" | Banned phrasing |
 | Checkmark bullets | Plain lists or tables |
-| 3 pricing tiers | No pricing. Seats are a curve, shown as a curve |
-| No real product demos | The live Tank is the homepage |
-| Soft corner radius | 0 to 2 px |
-| Purple and black | No purple. Ground is blue-gray slate |
-| No skeleton loaders | Every streaming view has shaped skeletons |
-| Radial orbs | No glowing orbs. Coins are drawn as specimen tags or chart marks |
-| Dot grids | Bathymetric contour lines instead |
+| 3 pricing tiers | No pricing. Seats are a curve shown as a curve |
+| No real product demos | Every instrument shows live data on load |
+| Soft corner radius | 0 |
+| Purple and black | No purple. Night is warm black with amber |
+| No skeleton loaders | Every streaming panel has a shaped skeleton |
+| Radial orbs | No glowing orbs. Clouds are irregular point fields; counters are plain numerals |
+| Dot grids | No dot-grid backgrounds. Pixel glyph clusters only as data marks |
 | Sparkle icons | None |
 | Animated arrows | None |
-| No TOS | `/terms` linked in every footer |
-| No privacy policy | `/privacy` linked in every footer |
+| No TOS | `/terms` in every footer |
+| No privacy policy | `/privacy` in every footer |
 | Hover animations | No hover motion. Focus rings and press feedback only |
-| Neon colors | Chroma ceiling 0.16 |
-| Basic pastel colors | Earth and sea pigments only (rust, ochre, umber, verdigris, bone) |
+| Neon colors | Chroma ceiling 0.19, amber 0.13 |
+| Basic pastel colors | Paper, ink, amber, vermilion, teal, crimson only |
 
 ## CSS rules (from good-css)
 
-- Logical properties (`margin-inline`, `padding-block`).
-- `min-width: 0` on flex and grid children that hold text.
-- `text-wrap: balance` on headings, `pretty` on body.
-- `svh`/`dvh` units for full-height views; `scrollbar-gutter: stable`.
-- Container queries for components (plates, chips, tables), media queries only for page layout.
-- `overflow: clip` instead of `hidden` where scroll is not wanted.
-- `:focus-visible` rings in `--bone`; hover styles only inside `@media (hover: hover)` and only color changes.
-- Motion inside `@media (prefers-reduced-motion: no-preference)`.
-- `@starting-style` and `allow-discrete` for enter and exit; View Transitions for room changes.
-- Hit areas at least 44 px, larger than the visual where needed.
-- Never disable input zoom.
+Logical properties; `min-width: 0` on text-holding grid and flex children; `text-wrap: balance` on headings; `svh`/`dvh`; container queries for panels; `overflow: clip`; `:focus-visible` rings; hover styles only inside `@media (hover: hover)` and only color; motion inside `prefers-reduced-motion: no-preference`; `@starting-style` for enter and exit; View Transitions between instruments; 44 px hit areas; never disable zoom.
 
 ## Components: do not rebuild
 
 | Need | Source |
 |---|---|
-| Number pop-in, odometer, text swap, skeleton, sliding tabs, toasts | transitions.dev snippets (`transitions-dev` skill) |
-| Charts from row data, animated counters | tweenly (shadcn registry) |
-| Rare animated pieces | rare-ui (shadcn registry), one at a time, checked against the ban list |
-| Panels, sheets, inputs | shadcn primitives, restyled to our tokens (radius 0, no shadow, Plex type, our glyphs) |
-| 3D | drei helpers (`Instances`, `Line`, `Text`, `PerformanceMonitor`, `AdaptiveDpr`) |
-| Graph rendering | visualize-web3-realtime pattern (GPU instanced nodes) |
+| Counters, split-flap tickers, scrambled and decrypted text reveals, circular text on arcs | react-bits: `CountUp`, `Counter`, `SplitFlapText`, `DecryptedText`, `ScrambledText`, `CircularText` |
+| Filament and thread backgrounds | react-bits: `GhostFibers`, `Threads`, `WebThreads` (restyled; Field uses our own GPU particles) |
+| Contour backgrounds | react-bits: `Topography` |
+| Gauges and dials | react-bits Micro: `CometDial`, `SloshGauge` |
+| Thinking lines, status marks, loaders | react-bits Micro: `ThoughtLine`, `StatusMark`, `LatticeLoader` |
+| Scrub controls (Rewind) | react-bits Micro: `ScrubField` |
+| Transitions, number pop-ins, skeletons | transitions.dev |
+| Charts from rows | tweenly |
+| Panels, sheets, inputs | shadcn primitives restyled (radius 0, no shadow, Plex, our glyphs) |
 
-Every imported component is restyled to the tokens before it ships. Lucide icons in shadcn components are replaced with our glyphs.
+react-bits is MIT with the Commons Clause: we may use its components in our site, but we must not sell or redistribute the components themselves. Every imported component is restyled to these tokens and checked against the banned list.
 
 ## Copy
 
-- Plain words, active voice, numbers exact.
-- The octopus's own words follow the caveman voice (docs/09).
-- Every page footer: Terms, Privacy, Disclosures, Proofs.
-- Simulated content is always labeled SIMULATED.
+Plain words, numbers exact, active voice. The agent's own words follow its terse voice (docs/09, `SOUL.md`). Simulated content is always labeled SIMULATED. Footer on every page: Terms, Privacy, Disclosures, Proofs, Constitution.

@@ -13,9 +13,9 @@ Every outside service sits behind an adapter in `packages/providers`, selected b
 | LLMs | `LLM_BASE_URL`, `LLM_KEY_<LANE>`, `LLM_MODEL_CHEAP`, `LLM_MODEL_SMART`, `LLM_MODEL_FALLBACK` | OpenRouter; `deepseek/deepseek-v4.1-flash` for cheap and smart; `qwen/qwen3.7-flash` fallback | Any OpenAI-compatible endpoint |
 | Object storage | `S3_ENDPOINT`, `S3_BUCKET`, keys | Railway bucket | Cloudflare R2, MinIO (Coolify) |
 | Alerts | `NOTIFY_URL` | Telegram bot | Any webhook |
-| Tentacle count | `TENTACLES` | 8 | 3 on the budget profile |
+| Session count | `SESSIONS` | 8 | 3 on the budget profile |
 
-`octo doctor` prints the active provider for each role and checks it.
+`ctl doctor` prints the active provider for each role and checks it.
 
 ## Deploy profiles
 
@@ -25,12 +25,12 @@ The canonical runtime is `deploy/compose.yaml`: one image per service. Both prof
 
 | Service | Where | Size (start) | Public? |
 |---|---|---|---|
-| `octo` | Railway | 1 vCPU, 2 GB | No (private API to relay and web) |
-| `tentacles` | Railway | 2 to 4 vCPU, 4 to 8 GB (by `TENTACLES`) | No |
+| `core` | Railway | 1 vCPU, 2 GB | No (private API to relay and web) |
+| `sessions` | Railway | 2 to 4 vCPU, 4 to 8 GB (by `SESSIONS`) | No |
 | `signer` | Railway | 0.25 vCPU, 256 MB | **Never** |
 | `relay` | Railway | 0.5 vCPU, 512 MB | Yes (SSE, frames), behind Cloudflare |
 | `agents` | Railway | 0.5 vCPU, 1 GB | No |
-| `organs-py` | Railway (plus a nightly cron service) | 1 vCPU, 2 GB | No |
+| `analyzers-py` | Railway (plus a nightly cron service) | 1 vCPU, 2 GB | No |
 | `bettafish` | Railway | 1 vCPU, 2 GB | No |
 | `miroshark` | Railway (its own Railway config as a base) | 1 vCPU, 2 GB | No |
 | Postgres, Neo4j, bucket | Railway | small plans | No |
@@ -43,19 +43,19 @@ The canonical runtime is `deploy/compose.yaml`: one image per service. Both prof
 - `signer` binds to the Docker internal network only. It has no tunnel route.
 - Backups: Coolify scheduled Postgres dumps to an off-machine bucket.
 
-On both profiles, `octo doctor` probes the signer from the public side and fails loudly if it answers.
+On both profiles, `ctl doctor` probes the signer from the public side and fails loudly if it answers.
 
 ## Secrets
 
 | Secret | Lives in |
 |---|---|
 | Wallet keys, deposit seed | `signer` only |
-| RPC keys | `octo`, `tentacles` |
-| Jev key | `octo`, `agents`, `organs-py` |
-| OpenRouter keys (one per lane, each with an OpenRouter spend limit) | `bettafish` (A), `miroshark` (B), `octo` extractor (C), `agents` postmortem and researcher (D), `agents` ops, reporter, hunter (E) |
-| T8 session encryption key | `tentacles` |
-| Capability tokens | issued by the Wallet agent and octo at boot, one per lane |
-| Admin token | Owner only; `octo` checks a hash |
+| RPC keys | `core`, `sessions` |
+| Jev key | `core`, `agents`, `analyzers-py` |
+| OpenRouter keys (one per lane, each with an OpenRouter spend limit) | `bettafish` (A), `miroshark` (B), `core` extractor (C), `agents` postmortem and researcher (D), `agents` ops, reporter, integrity writer, social (E), `agents` Builder (F) |
+| S8 session encryption key | `sessions` |
+| Capability tokens | issued by the Signer and core at boot, one per lane |
+| Admin token | Owner only; `core` checks a hash |
 
 Never print secrets. Never commit `.env`. Never put a secret in a prompt.
 
@@ -63,16 +63,16 @@ Never print secrets. Never commit `.env`. Never put a secret in a prompt.
 
 | Command | Effect | Who |
 |---|---|---|
-| `octo pause hands` | Trader and Herald stop taking new work; open orders finish | Owner, Ops agent |
-| `octo kill` | Cancel pending orders, stop all hands, keep senses and the Tape recording | Owner, Ops agent |
-| `octo resume` | After kill | Owner (admin token) |
+| `ctl pause hands` | Trader and Publisher stop taking new work; open orders finish | Owner, Ops agent |
+| `ctl kill` | Cancel pending orders, stop all hands, keep senses and the Tape recording | Owner, Ops agent |
+| `ctl resume` | After kill | Owner (admin token) |
 | Limits or budget caps change | New version in config | Owner (admin token) |
 
-Automatic kill triggers: daily loss stop hit, Wallet agent refuses 3 requests in 10 min, fill-model drift above 3× for an hour, Feed Tap gap longer than 5 min while positions are open.
+Automatic kill triggers: daily loss stop hit, Signer refuses 3 requests in 10 min, fill-model drift above 3× for an hour, Feed Reader gap longer than 5 min while positions are open.
 
 ## Monitoring
 
-- `octo doctor`: Tape write lag, consumer lag, Board freshness per organ, Jev latency and error rate, tentacle health, NATS and RPC connections, RPC credit projection, signer reachability (private yes, public no), budget burn, open positions without a fresh quote.
+- `ctl doctor`: Tape write lag, consumer lag, Board freshness per analyzer, Jev latency and error rate, session health, NATS and RPC connections, RPC credit projection, signer reachability (private yes, public no), budget burn, open positions without a fresh quote.
 - Alerts to `NOTIFY_URL`: kill, any `system.*` drift or gap, budget exhausted, payout blocked, RPC budget at 80%.
 
 ## Budgets (low-cost defaults)
@@ -85,7 +85,7 @@ Automatic kill triggers: daily loss stop hit, Wallet agent refuses 3 requests in
 | Thinking agents | $1 per day per lane | under $5 per day |
 | Extractor | 200k tokens per hour | under $0.10 per day |
 | RPC | Helius free tier | $0 until upgraded |
-| **Target total** | | **under $10 per day of model spend**, paid from W_agent once the coin exists |
+| **Target total** | | **under $10 per day of model spend**, paid from W_agent from fee sweeps |
 
 Presets nano, lite and full switch the System Two costs with one variable each (`BETTAFISH_PRESET`, `SWARM_PRESET`). Code never raises a cap.
 

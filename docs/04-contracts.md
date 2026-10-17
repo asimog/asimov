@@ -1,6 +1,6 @@
 # 04 · Contracts
 
-The shapes every part agrees on. Source of truth: JSON Schemas in `packages/contracts/schemas/`. TS types and Python models are generated from them. If code and this doc disagree, fix both in the same change.
+The shapes every part agrees on. Source of truth: the zod schemas in `packages/contracts/src/index.ts` (`TOPICS`). The Tape validates every body against them on write. JSON Schema for the Python services is emitted from the zod schemas when the first Python service needs it. Commit hashes are computed over `canonical()` JSON (sorted keys). If code and this doc disagree, fix both in the same change.
 
 ## Event envelope
 
@@ -19,8 +19,8 @@ The shapes every part agrees on. Source of truth: JSON Schemas in `packages/cont
 }
 ```
 
-- `source`: `feedtap | tentacle:T1..T8 | nats | rpc | grpc | xeye | reflex | guard | trader | herald | treasurer | wallet | scorekeeper | attention | brood | riskgate | agent:<name> | system`.
-- `subject`: the main ID the event is about. Lets `octo why` and the website jump straight to it.
+- `source`: `feedtap | session:S1..S8 | nats | rpc | grpc | xeye | reflex | guard | trader | publisher | treasurer | wallet | scorekeeper | attention | strategy pool | riskgate | agent:<name> | system`.
+- `subject`: the main ID the event is about. Lets `ctl why` and the website jump straight to it.
 - `causes`: upstream IDs. Must never be empty except for observations.
 - `v`: schema version of `body`. Bump on any change. No backward compatibility (pre-users rule): replays use the tape's own version or are regenerated.
 
@@ -44,21 +44,22 @@ The shapes every part agrees on. Source of truth: JSON Schemas in `packages/cont
 | `holders.snapshot` | `mint`, `taken_at`, `holders[{owner, amount}]` (only for our coin and watched coins) |
 | `wallet.funded_by` | `wallet`, `funder`, `first_funding_tx`, `at` |
 | `x.post` | `handle`, `post_id`, `text`, `created_at`, `screenshot_ref` |
-| `tentacle.task` | `tentacle`, `task_id`, `goal`, `url`, `granted_by` (attention event id) |
-| `tentacle.read` | `tentacle`, `task_id`, `url`, `refs_read[{ref, role, text, box}]`, `extracted` (typed facts) |
-| `tentacle.health` | `tentacle`, `state` (idle, reading, blocked, crashed), `fps`, `error?` |
+| `session.task` | `session`, `task_id`, `goal`, `url`, `granted_by` (attention event id) |
+| `session.read` | `session`, `task_id`, `url`, `refs_read[{ref, role, text, box}]`, `extracted` (typed facts) |
+| `session.health` | `session`, `state` (idle, reading, blocked, crashed), `fps`, `error?` |
 
 ### Mind
 
 | Topic | Body |
 |---|---|
-| `attention.grant` | `job` (tentacle_read, swarm_run, synthesis_deep, x_lookup), `subject`, `voi`, `cost_est`, `budget_left` |
-| `intent.created` | `genome_id`, `mint`, `side` (buy, sell), `size_sol` or `fraction`, `reason` (rule ids that fired), `board_snapshot_ref` |
-| `intent.ghost_filled` | `intent_id`, `price_sol`, `tokens`, `slippage_bps`, `latency_ms_assumed` |
+| `attention.grant` | `job` (session_read, swarm_run, synthesis_deep, x_lookup), `subject`, `voi`, `cost_est`, `budget_left` |
+| `intent.created` | `strategy_id`, `mint`, `side` (buy, sell), `size_sol` (buys) or `fraction` (tokens to sell), `reason[]` (score vs threshold, edge vs cost floor, or the exit rule), `score`, `board` (the score terms, edge and cost in bps, callout id) |
+| `intent.ghost_filled` | `intent_id`, `strategy_id`, `mint`, `side`, `sol` (spent on buys incl. priority fee, received on sells), `tokens`, `price_sol` (average), `fee_sol` (pump fee + priority fee), `rent_sol` (token account, buys), `slippage_bps` |
+| `position.closed` | `position_id`, `strategy_id`, `mint`, `cost_sol` (incl. rent), `proceeds_sol`, `rent_refund_sol`, `net_sol`, `held_ms`, `exit_reason` |
 | `order.created` | `intent_id`, `mint`, `side`, `size_sol`, `max_slippage_bps`, `limits_version` |
-| `order.rejected` | `intent_id`, `reason_code` (see Risk Gate codes in docs/08), `detail` |
-| `genome.born` / `genome.retired` | `genome_id`, `parents[]`, `origin` (mutation, crossover, proposal, seed), `reason?` |
-| `allocation.set` | `genome_id`, `capital_sol`, `posterior` |
+| `order.rejected` | `intent_id`, `reason_code` (Risk Gate codes in docs/08, plus `fill_failed` for a modeled landing failure), `detail` |
+| `strategy.born` | `strategy_id`, `family`, `horizon`, `origin` (seed, mutation, crossover, proposal), `parents[]`, `spec` |
+| `strategy.retired` | `strategy_id`, `reason` (lcb_below_zero, drawdown, markout_60s_negative, idle, pool_cap), `trades`, `lcb` |
 
 ### Hands
 
@@ -72,11 +73,11 @@ The shapes every part agrees on. Source of truth: JSON Schemas in `packages/cont
 | `post.published` | `post_id`, `kind`, `pump_id`, `url`, `published_at` |
 | `post.refused` | `post_id`, `reason` (cooldown, holding_below_threshold, moderation, existing, session) |
 | `fees.swept` | `sweep_id`, `tx_sig`, `sol`, `to_war_chest_sol`, `to_ops_sol` |
-| `profit.hour_closed` | `hour`, `realized_pnl_sol`, `high_water_mark_sol`, `distributable_sol` |
-| `distribution.planned` / `distribution.sent` | `distribution_id`, `hour`, `recipients[{wallet, sol, why}]`, `manifest_sha256`, `tx_sigs[]` |
-| `seat.order_created` | `deposit_id`, `payout_wallet`, `deposit_address`, `quoted_seat`, `quoted_price_tokens`, `expires_at` |
-| `seat.deposit_seen` | `deposit_id`, `amount_tokens`, `from`, `tx_sig` |
-| `seat.granted` / `seat.refunded` | `seat_id` or `deposit_id`, `seat_number`, `payout_wallet`, `burn_tx` or `refund_tx` |
+| `profit.hour_closed` (M5) | `hour`, `realized_pnl_sol`, `high_water_mark_sol`, `distributable_sol` |
+| `distribution.planned` / `distribution.sent` (M5) | `distribution_id`, `hour`, `recipients[{wallet, sol, why}]`, `manifest_sha256`, `tx_sigs[]` |
+| `seat.order_created` (M5) | `deposit_id`, `payout_wallet`, `deposit_address`, `quoted_seat`, `quoted_price_tokens`, `expires_at` |
+| `seat.deposit_seen` (M5) | `deposit_id`, `amount_tokens`, `from`, `tx_sig` |
+| `seat.granted` / `seat.refunded` (M5) | `seat_id` or `deposit_id`, `seat_number`, `payout_wallet`, `burn_tx` or `refund_tx` |
 
 ### Labs
 
@@ -98,13 +99,33 @@ The shapes every part agrees on. Source of truth: JSON Schemas in `packages/cont
 | `job.queued` / `job.started` / `job.done` | `job_id`, `agent`, `trigger_event`, `cost_usd?`, `result_ref?` |
 | `wallet.audit` | `endpoint`, `capability`, `accepted`, `reason?`, `request_sha256` |
 
+### Firm
+
+| Topic | Body |
+|---|---|
+| `commit.made` | `commit_id`, `kind` (hypothesis, forecast, decision), `sha256`, `reveal_after` |
+| `commit.revealed` | `commit_id`, `content`, `matches` (sha256 of canonical JSON of `content` equals the committed hash) |
+| `markout.measured` | `fill_id` (the fill event), `mint`, `side`, `h1s`, `h10s`, `h60s`, `h5m` (bps in our favor against our fill price; null if the coin went quiet) |
+| `books.reconciled` | `hour`, `ledger_sol`, `chain_sol`, `diff_lamports`, `ok` |
+| `nav.daily` | `day`, `nav_usd`, `nav_sol`, `components{}` |
+| `counsel.request` | `request_id`, `action`, `facts_ref` |
+| `counsel.decision` | `request_id`, `decision` (approve, deny, conditions), `signature` |
+| `milestone.changed` | `from`, `to`, `reason`, `evidence[]` |
+| `soul.updated` | `version`, `sha256`, `diff_ref` |
+| `kernel.allocation` | `round`, `hurdle`, `shares[{strategy_id, n, mean, lcb, sample, share, stage}]` (desk level today; venues, social and budget levels reuse the shape) |
+| `forecast.made` / `forecast.resolved` | `market` (venue, id), `question`, `p`, `market_p_at_commit`, `commit_id`; on resolve `outcome`, `brier` |
+| `social.snapshot` | `day`, `followers_pump`, `followers_x`, `engagement{}`, `visitors`, `bounty_participants` |
+| `social.posted` | `channel` (x, pumpfun), `post_id`, `kind`, `because[]` |
+| `bounty.posted` / `bounty.submission` / `bounty.paid` | `bounty_id`, `channel`, `task`, `budget_sol`, `deadline`; submission `by`, `ref`; paid `to`, `sol`, `tx_sig` |
+| `build.task` / `build.pr` / `build.result` | `task_id`, `goal`, `repo`; pr `url`, `branch`; result `suites{}`, `artifacts_ref`, `merged` |
+
 ### Scoring and system
 
 | Topic | Body |
 |---|---|
-| `outcome.resolved` | `about` (signal or intent id), `horizon`, `observed` (value), `resolved_at` |
-| `score.written` | `target` (signal kind, genome, organ, tentacle), `metric`, `value`, `window` |
-| `budget.spent` / `budget.exhausted` | `organ`, `units`, `amount`, `job_event_id` |
+| `outcome.measured` | `callout_id`, `mint`, `horizon_min` (1, 3, 5 by default), `price0_sol`, `price_sol`, `multiple`, `new_callouts` (distinct new callers on the coin) |
+| `score.updated` | `kind` (probability signal), `horizon_min`, `n`, `brier`, `base_rate`, `skill` (1 − Brier / base-rate variance) |
+| `budget.spent` / `budget.exhausted` | `analyzer`, `units`, `amount`, `job_event_id` |
 | `system.mode` / `system.kill` / `system.pause` | `by`, `scope`, `reason` |
 
 ## Signal
@@ -119,13 +140,13 @@ The shapes every part agrees on. Source of truth: JSON Schemas in `packages/cont
   "produced_at": "...",
   "valid_until": "...",
   "inputs": ["ev_...", "sg_..."],
-  "organ": "hawkes@3"
+  "analyzer": "hawkes@3"
 }
 ```
 
 ### Signal kinds (v1)
 
-| Kind | Subject | Value | Valid for | Organ |
+| Kind | Subject | Value | Valid for | Analyzer |
 |---|---|---|---|---|
 | `age.opportunity` | callout | minutes since first call on the coin, and % price move before this call | 6 h | age |
 | `echo.score` | callout | 0..1 share of this call explained by an earlier origin | 2 h | echo |
@@ -137,20 +158,20 @@ The shapes every part agrees on. Source of truth: JSON Schemas in `packages/cont
 | `regime.tremor` | coin | change-point probability and the series that broke | 10 min | regime |
 | `curve.quote` | coin | SOL in → tokens, price impact, mcap at given sizes | 30 s | curve |
 | `curve.progress` | coin | 0..1 and SOL to graduation | 30 s | curve |
-| `shadow.call_p` | coin | per tracked caller: P(calls in 2 h); plus expected count | 10 min | shadows |
-| `caller.dna` | caller | lead time, median opportunity age, hit rate, follower PnL, sample size | 24 h | shadows |
+| `callers.call_p` | coin | per tracked caller: P(calls in 2 h); plus expected count | 10 min | shadows |
+| `caller.dna` | caller | lead time, median opportunity age, hit rate, follower PnL, sample size | 24 h | callers |
 | `synthesis.feed` | global | narratives with heat, cited callout ids | 30 min | bettafish |
 | `synthesis.coin` | coin | stance, heat, key claims with citations | 30 min | bettafish |
-| `mood.skin` | global and coin | fear, greed, fomo, disgust, calm (0..1 each) | 15 min | bettafish |
+| `mood.feed` | global and coin | fear, greed, fomo, disgust, calm (0..1 each) | 15 min | bettafish |
 | `swarm.wave_p` | coin | P(wave) from the swarm, branch A and B | 30 min | miroshark |
-| `swarm.impact` | coin | expected extra callers if the octopus calls | 30 min | miroshark |
-| `hunt.finding` | caller or coin | pattern (echo_ring, late_caller, dump_on_followers), evidence ids, confidence | 7 d | hunt |
+| `swarm.impact` | coin | expected extra callers if the agent calls | 30 min | miroshark |
+| `integrity.finding` | caller or coin | pattern (echo_ring, late_caller, dump_on_followers), evidence ids, confidence | 7 d | hunt |
 | `baseline.attention` | coin | TimesFM forecast of callouts/min | 15 min | baseline |
 | `fly.action` | coin | buy, sell or hold from the fly readout | 1 min | fly |
 | `jev.callout.<q>` | callout | Choice, Score or Noul answer with probabilities and confidence (mint, kind, thesis_quality, promo, countdown, injection) | 6 h | reflex |
 | `jev.coin.<q>` | coin | narrative path, clone score, organic momentum, stance, mood channels | 5 min | reflex |
-| `jev.wave_p` | coin | fast wave probability: Tier 1 Shadows combined with the `shadow` pack | 5 min | reflex |
-| `jev.shadow.call_p` | coin | per candidate caller: P(calls in 2 h) from Jev | 5 min | reflex |
+| `jev.wave_p` | coin | fast wave probability: Tier 1 Caller models combined with the `callers` pack | 5 min | reflex |
+| `jev.callers.call_p` | coin | per candidate caller: P(calls in 2 h) from Jev | 5 min | reflex |
 | `jev.entry.<q>` / `jev.exit.<q>` | coin | semantic red flags at entry; rug reports, cooling, new bellwether interest on held coins | 2 min | reflex |
 | `jev.reply.<q>` | reply | spam, insult, FUD, question, insider claim; hide flag | 24 h | reflex |
 | `jev.link.<q>` | pair of ids | same-entity score and disagreeing fields | 7 d | reflex |
@@ -158,12 +179,12 @@ The shapes every part agrees on. Source of truth: JSON Schemas in `packages/cont
 
 ## Intent and Order rules
 
-- An intent always carries the `board_snapshot_ref`: the exact signals the genome saw. Replays and postmortems use it.
+- An intent always carries the `board_snapshot_ref`: the exact signals the strategy saw. Replays and postmortems use it.
 - An order is created only by the Risk Gate, with the `limits_version` it checked against.
-- A post is created only by Herald from orders, position changes, or hunt findings above threshold.
+- A post is created only by Publisher from orders, position changes, or hunt findings above threshold.
 
 ## Naming
 
 - Topics: `noun.verb_past` (`callout.created`), lowercase, dot-separated.
-- Signal kinds: `organ.quantity` (`hawkes.wave_p`).
+- Signal kinds: `analyzer.quantity` (`hawkes.wave_p`).
 - One term per thing (see `GLOSSARY.md`). If a new word is needed, add it to the glossary in the same change.
