@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { applyBuy, applySell, buyTokens, type Curve, curveFromPrice, FEES, sellSol, START } from "../../../../services/miroshark/src/amm.ts";
+import { applyBuy, applySell, buyTokens, type Curve, curveFromPrice, FEES, sellSol, START } from "../../lib/amm-ref.ts";
 import { env } from "../../../../services/core/src/lib/env.ts";
 import type { Check } from "../../lib/checks.ts";
 import type { Suite } from "../../lib/suite.ts";

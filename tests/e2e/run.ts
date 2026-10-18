@@ -22,8 +22,6 @@ import { suite as killSuite } from "./suites/kill/suite.ts";
 import { suite as liveRoundtrip } from "./suites/live-roundtrip/suite.ts";
 import { suite as signerRefuses } from "./suites/signer-refuses/suite.ts";
 import { suite as ammGolden } from "./suites/amm-golden/suite.ts";
-import { suite as synthesisRun } from "./suites/synthesis-run/suite.ts";
-import { suite as swarmRun } from "./suites/swarm-run/suite.ts";
 import { suite as agentLanes } from "./suites/agent-lanes/suite.ts";
 import { suite as soulUpdate } from "./suites/soul-update/suite.ts";
 import { suite as strategies } from "./suites/strategies-replay/suite.ts";
@@ -36,7 +34,7 @@ import { suite as siteTreasury } from "./suites/site-treasury/suite.ts";
 import { suite as siteRewind } from "./suites/site-rewind/suite.ts";
 import { suite as siteCards } from "./suites/site-cards/suite.ts";
 
-const ALL: Suite[] = [riskgate, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, synthesisRun, swarmRun, agentLanes];
+const ALL: Suite[] = [riskgate, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes];
 const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const tape = process.env.E2E_TAPE ?? "tests/e2e/fixtures/tapes/discovery-10m.ndjson.gz";
 const chosen = args.length ? ALL.filter((s) => args.includes(s.name)) : ALL;

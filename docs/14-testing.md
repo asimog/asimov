@@ -98,9 +98,10 @@ These need a fresh database but no tape. The LLM is a stub (`StubChat`, scripted
 
 | Suite | Proves |
 |---|---|
-| `synthesis-run` | A feed run over fixture callouts: every claim that reaches the Tape cites a callout that exists; invented ids, empty cites and mismatched coins are dropped; presets change the number of forum rounds; a second run during a run is skipped |
+| `bettafish-insight`, `bettafish-full` | The vendored BettaFish engines over our `slow.*` views with an offline stub model: the full plan, search, summary and reflection loop; Query and Media adapters; the forum host feeding back; cited claims kept and invented ids dropped by core (docs/24) |
 | `amm-golden` | 1,000 buy and 1,000 sell quotes from the TS port equal `@pump-fun/pump-sdk` to the lamport |
-| `swarm-run` | A swarm run writes `swarm.wave_p`, `swarm.impact` and labeled `swarm.post` events; the USD cap truncates a run; the same seed gives the same result |
+| `miroshark-pumpfun` | The vendored MiroShark Wonderwall engine with the Pump.fun module and camel agents on a stub model: the holding rule, branches A and B, beliefs, swarm results and the SIMULATED report through the Slow Bridge (docs/24) |
+| `slow-views`, `slow-bridge` | The read-only slow surface and the Bridge: shapes, role limits, `as_of`; one escalation feeds both engines, reports flow both ways, a dead engine fails cleanly |
 | `agent-lanes` | The MCP tool list differs per token; out-of-lane calls and unknown tokens are refused; a no-op agent runs on schedule; the five graphs write only their own topics; a lane over its spend limit is refused; Guard checks refuse a person's name |
 | `soul-update` | Valid updates make versions on a hash chain; protected parts, bad shapes and a tampered chain are refused |
 

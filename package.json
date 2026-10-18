@@ -37,8 +37,8 @@
     "typecheck": "tsc -p services/core --noEmit",
     "agents": "tsx services/agents/src/main.ts",
     "agents:smoke": "tsx services/agents/src/smoke.ts",
-    "bettafish": "tsx services/bettafish/src/main.ts",
-    "miroshark": "tsx services/miroshark/src/main.ts",
+    "bettafish": "cd services/bettafish/engine && .venv-asimog/Scripts/python asimog_worker.py",
+    "miroshark": "cd services/miroshark/engine/backend && .venv-asimog/Scripts/python asimog_worker.py",
     "slow-bridge": "tsx services/slow-bridge/src/main.ts"
   },
   "type": "module"

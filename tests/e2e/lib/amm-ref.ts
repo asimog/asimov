@@ -1,4 +1,4 @@
-// Pump bonding-curve math, ported from @pump-fun/pump-sdk (getBuyTokenAmountFromSolAmount,
+// The reference Pump bonding-curve math (docs/24 P9: moved here from the old TS swarm), ported from @pump-fun/pump-sdk (getBuyTokenAmountFromSolAmount,
 // getSellSolAmountFromTokenAmount) in integers (lamports, base token units). The `amm-golden` suite compares it with
 // the SDK on every run. Fees: protocol and creator basis points on the SOL side (the SDK's flat schedule).
 export type Curve = { vTok: bigint; vSol: bigint; realTok: bigint; realSol: bigint };

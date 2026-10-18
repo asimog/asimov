@@ -349,7 +349,7 @@ Each phase is shippable alone. Effort is in agent days, as the earlier estimate 
 | P6 | **Part done (2026-10-18):** M4 beliefs (upstream BeliefState per agent, updated from each round's posts, fed back into each agent's system message; drift per archetype as `swarm.beliefs` on the Tape); `miroshark-pumpfun` passes 10 checks. **Open:** M2 market-media bridge with a co-running Twitter platform, M5 graph memory on Neo4j, M7 report agent tools, M10 persona MCP. MiroShark M2, M4, M5, M7, M10: market-media bridge, beliefs, graph memory on Neo4j, report agent tools, persona MCP | P5 | 3 to 4 | Belief drift and the swarm report show on `/simulations` |
 | P7 | Report exchange both ways; `report.published`; Board `report.latest`; `slow-fanout` | P4, P6 | 2 | `report-exchange` and `slow-fanout` pass |
 | P8 | Scorekeeper swarm Brier, stance accuracy, claim survival; `ctl slow`; site rooms | P7 | 2 | `swarm-brier` passes; numbers on the site |
-| P9 | Delete the TS slices (`services/bettafish/src`, `services/miroshark/src` except the amm reference moved to tests); update docs/07, 13, 15, 18 | P8 | 0.5 | No dead code; docs agree |
+| P9 | **Done (2026-10-18):** slices and their `synthesis-run`, `swarm-run` suites deleted; the curve reference moved to `tests/e2e/lib/amm-ref.ts`; npm scripts run the Python workers; docs/13, 14 updated. Delete the TS slices (`services/bettafish/src`, `services/miroshark/src` except the amm reference moved to tests); update docs/07, 13, 15, 18 | P8 | 0.5 | No dead code; docs agree |
 
 Total: about 25 to 33 agent days. P3 and P5 can run in parallel sessions after P2, because they touch different submodules.
 

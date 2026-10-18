@@ -1,1 +1,1 @@
-{ "extends": "../../tsconfig.base.json", "include": ["src/**/*.ts", "../../packages/*/src/**/*.ts", "../bettafish/src/**/*.ts", "../miroshark/src/**/*.ts", "../agents/src/**/*.ts", "../slow-bridge/src/**/*.ts", "../../tests/e2e/**/*.ts"] }
+{ "extends": "../../tsconfig.base.json", "include": ["src/**/*.ts", "../../packages/*/src/**/*.ts", "../agents/src/**/*.ts", "../slow-bridge/src/**/*.ts", "../../tests/e2e/**/*.ts"] }
