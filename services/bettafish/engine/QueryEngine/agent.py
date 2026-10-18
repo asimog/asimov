@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
+from .tools.asimog_search import AsimogNewsAgency
 from .llms import LLMClient
 from .nodes import (
     ReportStructureNode,
@@ -41,7 +42,8 @@ class DeepSearchAgent:
         self.llm_client = self._initialize_llm()
         
         # 初始化搜索工具集
-        self.search_agency = TavilyNewsAgency(api_key=self.config.TAVILY_API_KEY)
+        # asimog B4: our sources by QUERY_SEARCH under ASIMOG_FORK=1, else upstream Tavily
+        self.search_agency = AsimogNewsAgency() if os.getenv("ASIMOG_FORK") == "1" else TavilyNewsAgency(api_key=self.config.TAVILY_API_KEY)
         
         # 初始化节点
         self._initialize_nodes()

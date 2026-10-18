@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from loguru import logger
+from .tools.asimog_media import AsimogMediaSearch
 from .llms import LLMClient
 from .nodes import (
     ReportStructureNode,
@@ -39,7 +40,8 @@ class DeepSearchAgent:
         self.llm_client = self._initialize_llm()
         
         # 初始化搜索工具集
-        self.search_agency = BochaMultimodalSearch(api_key=(self.config.BOCHA_API_KEY or self.config.BOCHA_WEB_SEARCH_API_KEY))
+        # asimog B3: our own media under SEARCH_TOOL_TYPE=AsimogMedia, else upstream Bocha
+        self.search_agency = AsimogMediaSearch() if os.getenv("SEARCH_TOOL_TYPE") == "AsimogMedia" else BochaMultimodalSearch(api_key=(self.config.BOCHA_API_KEY or self.config.BOCHA_WEB_SEARCH_API_KEY))
         
         # 初始化节点
         self._initialize_nodes()

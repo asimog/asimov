@@ -22,6 +22,7 @@ import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 os.environ.setdefault("ASIMOG_FORK", "1")
 if os.getenv("BETTAFISH_DB_URL"):  # BettaFish reads DATABASE_URL; ours is the read-only slow_reader role
@@ -51,7 +52,7 @@ def query_for(req: dict) -> str:
     return f"Pump.fun coin {req['subject']}: what callers say about it, how early they are, their track records, the trade flow, and any swarm reports"
 
 
-def run_engine(name: str, query: str):
+def run_engine(name: str, query: str, forum: "Forum | None" = None):
     if name == "insight":
         from InsightEngine.agent import DeepSearchAgent
     elif name == "query":
@@ -64,8 +65,87 @@ def run_engine(name: str, query: str):
         from InsightEngine.tools.sentiment_analyzer import multilingual_sentiment_analyzer
         multilingual_sentiment_analyzer.disable("BETTAFISH_SENTIMENT=off")
     agent = DeepSearchAgent()
+    if forum:  # patch B5: every finished paragraph is a forum speech; the host steers every N speeches
+        for step in ("_initial_search_and_summary", "_reflection_loop"):
+            orig = getattr(agent, step)
+
+            def hooked(i, _orig=orig):
+                out = _orig(i)
+                forum.speak(name, agent.state.paragraphs[i].research.latest_summary)
+                return out
+
+            setattr(agent, step, hooked)
     report = agent.research(query, save_report=False)
     return name, agent.state, report
+
+
+class Forum:
+    """Patch B5: upstream's forum.log (LogMonitor writes it, ForumHost speaks, forum_reader feeds the host's speech back
+    into each engine's next summary) driven by paragraph completions instead of by tailing Streamlit logs."""
+
+    def __init__(self, host_every: int, max_host: int):
+        from ForumEngine.monitor import LogMonitor
+
+        self.mon = LogMonitor(log_dir="logs")  # forum_reader reads logs/forum.log
+        self.mon.clear_forum_log()
+        self.every, self.max_host, self.pending, self.hosts = host_every, max_host, 0, 0
+        self.lines: list[dict] = []
+        self.lock = threading.Lock()
+        self.host = None
+        if host_every > 0 and max_host > 0:
+            from ForumEngine.llm_host import ForumHost
+
+            self.host = ForumHost(api_key=os.getenv("FORUM_HOST_API_KEY"), base_url=os.getenv("FORUM_HOST_BASE_URL"), model_name=os.getenv("FORUM_HOST_MODEL_NAME"))
+
+    def speak(self, source: str, text: str) -> None:
+        if not text:
+            return
+        with self.lock:
+            self.mon.write_to_forum_log(text, source.upper())
+            self.lines.append({"agent": source, "text": re.sub(r"\s+", " ", text)[:600], "cites": cites(text)})
+            self.pending += 1
+            due = self.host and self.pending >= self.every and self.hosts < self.max_host
+            if due:
+                self.pending = 0
+                self.hosts += 1
+        if due:
+            speech = self.host.generate_host_speech(self.mon.get_forum_log_content())
+            if speech:
+                with self.lock:
+                    self.mon.write_to_forum_log(speech, "HOST")
+                    self.lines.append({"agent": "host", "text": re.sub(r"\s+", " ", speech)[:600], "cites": cites(speech)})
+
+
+TEMPLATES = {"feed": "asimog_callout_feed_synthesis.md", "coin": "asimog_coin_synthesis.md"}
+
+
+def full_report(req: dict, results: list, forum: "Forum | None") -> dict | None:
+    """Patch B6: ReportEngine over the engines' reports, the forum and MiroShark's swarm reports (SIMULATED), with our
+    template. Returns a bettafish.report entry with the Document IR and its Markdown rendering, or None when off."""
+    if os.getenv("BETTAFISH_REPORT", "signals") == "signals":
+        return None
+    from ReportEngine.agent import ReportAgent
+    from ReportEngine.renderers.markdown_renderer import MarkdownRenderer
+    import asimog_db
+
+    swarm = asimog_db.query("select report_id, summary, markdown from slow.report_feed where report_id = any($1::text[])", req.get("parent_reports") or [])
+    inputs = [md for _, _, md in results] + [f"SIMULATED swarm report {s['report_id']}:\n{s['markdown'] or s['summary']}" for s in swarm]
+    ra = ReportAgent()
+    captured: dict = {}
+    render = ra.renderer.render
+
+    def capture(ir, *a, **k):
+        captured["ir"] = ir
+        return render(ir, *a, **k)
+
+    ra.renderer.render = capture
+    template = (Path(__file__).parent / "ReportEngine" / "report_template" / TEMPLATES[req["kind"]]).read_text(encoding="utf-8")
+    forum_text = "\n".join(f"[{l['agent'].upper()}] {l['text']}" for l in (forum.lines if forum else []))
+    ra.generate_report(query_for(req), inputs, forum_logs=forum_text, custom_template=template, save_report=False)
+    ir = captured.get("ir") or {}
+    md = MarkdownRenderer().render(ir) if ir else ""
+    return {"producer": "bettafish.report", "kind": req["kind"], "subject": req["subject"], "summary": re.sub(r"\s+", " ", CID.sub("", md)).strip()[:580] or "Report generated.",
+            "cites": cites(md + "\n" + "\n".join(x for _, _, x in results)), "ir": ir, "markdown": md}
 
 
 def to_output(req: dict, results: list) -> dict:
@@ -99,10 +179,24 @@ def execute(run_id: str, req: dict) -> None:
     engines = [e.strip() for e in os.getenv("BETTAFISH_ENGINES", "insight").split(",") if e.strip()]
     query = query_for(req)
     try:
+        forum = Forum(int(os.getenv("BETTAFISH_HOST_EVERY_N", "5")), int(os.getenv("BETTAFISH_FORUM_ROUNDS", "2"))) if len(engines) > 1 or os.getenv("BETTAFISH_FORUM_ALWAYS") == "1" else None
+        import importlib
+        for e in engines:  # import once, in this thread: parallel first imports of the same package race
+            importlib.import_module({"insight": "InsightEngine.agent", "query": "QueryEngine.agent", "media": "MediaEngine.agent"}[e])
         with ThreadPoolExecutor(max_workers=len(engines)) as pool:
-            results = list(pool.map(lambda e: run_engine(e, query), engines))
+            results = list(pool.map(lambda e: run_engine(e, query, forum), engines))
+        out = to_output(req, results)
+        if forum:
+            out["forum_lines"] = forum.lines
+        try:
+            rep = full_report(req, results, forum)
+            if rep:
+                out["reports"].append(rep)
+        except Exception as err:  # noqa: BLE001 - the engines' own reports still stand
+            out["report_error"] = f"{type(err).__name__}: {err}"[:300]
+            traceback.print_exc()
         with LOCK:
-            RUNS[run_id] = {"state": "done", "output": to_output(req, results)}
+            RUNS[run_id] = {"state": "done", "output": out}
     except Exception as err:  # noqa: BLE001 - the Bridge records the reason
         with LOCK:
             RUNS[run_id] = {"state": "failed", "error": f"{type(err).__name__}: {err}"[:300]}
