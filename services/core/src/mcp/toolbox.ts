@@ -23,11 +23,12 @@ export const CAP = {
   integrity: "cap:integrity.write",
   soul: "cap:soul.update",
   exchange: "cap:report.exchange", // the Slow Bridge (docs/24): escalation triggers in, reports out
+  swarmRead: "cap:swarm.read", // the MiroShark worker (docs/24 M7, M10): its report agent and caller personas, reads only
 } as const;
 export const ALL_CAPS: string[] = Object.values(CAP);
 
 /** Who a capability's writes are recorded as on the Tape. */
-const SOURCE: Record<string, string> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul", [CAP.exchange]: "slow-bridge" };
+const SOURCE: Record<string, string> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul", [CAP.exchange]: "slow-bridge", [CAP.swarmRead]: "miroshark" };
 /** Topic prefixes and signal kinds a capability may read through `events_since` and `board_signals`. */
 const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["attention.grant", "jev.escalated"] };
 const READ_KINDS: Record<string, string[]> = { [CAP.integrity]: ["integrity.finding"], [CAP.report]: ["synthesis.", "mood.", "swarm."] };
@@ -57,7 +58,7 @@ export interface Tool {
 }
 const tool = <S extends z.ZodRawShape>(name: string, caps: string[], desc: string, shape: S, run: (a: z.infer<z.ZodObject<S>>, c: ToolCtx) => Promise<unknown>): Tool => ({ name, caps, desc, input: z.object(shape), run: run as Tool["run"] });
 
-const ANY_LANE = ALL_CAPS;
+const ANY_LANE = ALL_CAPS.filter((c) => c !== CAP.swarmRead); // the read-only worker token records nothing
 const source = (c: ToolCtx) => SOURCE[c.cap] ?? "agents";
 const iso = z.string().datetime({ offset: true });
 
@@ -88,7 +89,7 @@ const Stance = z.enum(["bullish", "bearish", "neutral", "avoid"]);
 
 export const TOOLS: Tool[] = [
   // ----- reads -----
-  tool("callouts_window", [CAP.synth, CAP.swarm], "Callouts seen in the last N minutes, hottest first.", { since_min: z.number().min(1).max(1440).default(60), limit: z.number().int().min(1).max(300).default(120) }, async (a, c) => {
+  tool("callouts_window", [CAP.synth, CAP.swarm, CAP.swarmRead], "Callouts seen in the last N minutes, hottest first.", { since_min: z.number().min(1).max(1440).default(60), limit: z.number().int().min(1).max(300).default(120) }, async (a, c) => {
     const w = { like: env.num("W_LIKE", 1), comment: env.num("W_COMMENT", 2), share: env.num("W_SHARE", 3) };
     const now = c.clock.now();
     const rows = await c.sql`
@@ -100,7 +101,7 @@ export const TOOLS: Tool[] = [
     return { callouts: rows };
   }),
 
-  tool("coin_dossier", [CAP.synth, CAP.swarm], "One coin: record, last price, live signals, recent callouts and the most active callers with their DNA.", { mint: z.string().min(32).max(44) }, async (a, c) => {
+  tool("coin_dossier", [CAP.synth, CAP.swarm, CAP.swarmRead], "One coin: record, last price, live signals, recent callouts, the most active callers with their DNA, and the coins that share its callers.", { mint: z.string().min(32).max(44) }, async (a, c) => {
     const at = c.clock.iso();
     const [coin] = await c.sql`select mint, symbol, name, first_seen, last_mcap_usd, callout_count, first_callout_at from mem.coins where mint = ${a.mint}`;
     if (!coin) throw new Refusal("not_found", `no coin ${a.mint}`);
@@ -110,7 +111,20 @@ export const TOOLS: Tool[] = [
     const callers = await c.sql`select wallet, handle, followers, calls_seen from mem.callers order by calls_seen desc limit 40`;
     const dna = await Promise.all(callers.map(async (k) => ({ ...k, dna: (await liveFor(c.sql, k.wallet as string, at))["caller.dna"]?.value ?? null })));
     const live = await liveFor(c.sql, a.mint, at);
-    return { coin, last_price_sol: (px?.price_sol as number | undefined) ?? null, signals: Object.fromEntries(Object.entries(live).map(([k, v]) => [k, { value: v.value, confidence: v.confidence }])), callouts, callers: dna };
+    const shared = await c.sql`select o.mint, k.symbol, count(distinct o.wallet)::int shared from mem.callouts o left join mem.coins k using (mint)
+      where o.wallet in (select wallet from mem.callouts where mint = ${a.mint} and seen_at <= ${at}) and o.mint <> ${a.mint} and o.seen_at <= ${at}
+        and o.created_at > ${new Date(c.clock.now() - 30 * 86_400_000).toISOString()}
+      group by o.mint, k.symbol order by shared desc, o.mint limit 5`;
+    return { coin, last_price_sol: (px?.price_sol as number | undefined) ?? null, signals: Object.fromEntries(Object.entries(live).map(([k, v]) => [k, { value: v.value, confidence: v.confidence }])), callouts, callers: dna, shared_callers: shared };
+  }),
+
+  tool("coin_flow_since", [CAP.synth, CAP.swarm, CAP.swarmRead], "Real flow on one coin since a time (minute bars and callouts seen before now): buys, sells, net SOL, distinct callers calling.", { mint: z.string().min(32).max(44), since: iso }, async (a, c) => {
+    const at = c.clock.iso();
+    const [b] = await c.sql`select count(*)::int minutes, coalesce(sum(buys), 0)::int buys, coalesce(sum(sells), 0)::int sells, coalesce(sum(net_flow_sol), 0)::float net_flow_sol,
+        coalesce(sum(volume_sol), 0)::float volume_sol, (array_agg(c order by minute desc))[1]::float last_close
+      from mem.bars_1m where mint = ${a.mint} and minute >= ${a.since} and minute < ${at}`;
+    const [k] = await c.sql`select count(*)::int callouts, count(distinct wallet)::int distinct_callers from mem.callouts where mint = ${a.mint} and created_at >= ${a.since} and seen_at <= ${at}`;
+    return { mint: a.mint, since: a.since, as_of: at, ...b, ...k };
   }),
 
   tool("events_since", [CAP.propose, CAP.ops, CAP.exchange], "Events of allowed topics after a cursor (seen_time, id), oldest first. The trigger feed for agents.", { topics: z.array(z.string()).min(1).max(8), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
@@ -247,7 +261,7 @@ export const TOOLS: Tool[] = [
   tool("emit_swarm_result", [CAP.swarm], "Write a swarm run: wave probability, impact and the simulated posts.", {
     swarm_id: z.string(), mint: z.string(), preset: z.string(), samples: z.number().int().min(1), usd: z.number().min(0), truncated: z.boolean(),
     wave_p: z.number().min(0).max(1), d_callers: z.number(), d_net_sol: z.number(),
-    posts: z.array(z.object({ branch: z.enum(["A", "B"]), round: z.number().int(), agent: z.string().max(60), archetype: z.string().max(40), text: z.string().max(280) })).max(400),
+    posts: z.array(z.object({ branch: z.enum(["A", "B"]), platform: z.enum(["pumpfun", "twitter"]).default("pumpfun"), round: z.number().int(), agent: z.string().max(60), archetype: z.string().max(40), text: z.string().max(280) })).max(400),
   }, async (a, c) => {
     const subject = a.mint;
     c.tape.emit("swarm.wave_p", { swarm_id: a.swarm_id, mint: a.mint, wave_p: a.wave_p, samples: a.samples, preset: a.preset, usd: a.usd, truncated: a.truncated }, { source: source(c), subject, dedupe: `swarm.wave_p:${a.swarm_id}` });
@@ -354,7 +368,7 @@ export const TOOLS: Tool[] = [
     return { report_id: a.report_id, sha256, cites_kept: cites.length, cites_dropped: a.cites.length - cites.length };
   }),
 
-  tool("reports_for", [CAP.synth, CAP.swarm, CAP.exchange, CAP.report], "The newest published reports for a subject (a mint or global), optionally from one producer family.", { subject: z.string(), producer_prefix: z.string().max(20).optional(), limit: z.number().int().min(1).max(10).default(3) }, async (a, c) => ({
+  tool("reports_for", [CAP.synth, CAP.swarm, CAP.swarmRead, CAP.exchange, CAP.report], "The newest published reports for a subject (a mint or global), optionally from one producer family.", { subject: z.string(), producer_prefix: z.string().max(20).optional(), limit: z.number().int().min(1).max(10).default(3) }, async (a, c) => ({
     reports: await c.sql`select report_id, producer, kind, subject, preset, sha256, summary, cites, parent_reports, ir, markdown, published_at from slow.reports
       where subject = ${a.subject} and published_at <= ${c.clock.iso()} and (${a.producer_prefix ?? ""} = '' or producer like ${`${a.producer_prefix ?? ""}%`})
       order by published_at desc limit ${a.limit}`,

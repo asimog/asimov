@@ -124,6 +124,23 @@ class SentimentSnapshot:
         return "\n".join(lines)
 
 
+@dataclass
+class PumpfunSnapshot:
+    """Asimog (docs/24 M2): the Pump.fun world as social agents see it. SIMULATED numbers from the swarm's own curve."""
+    round_num: int = 0
+    coins: List[Dict[str, Any]] = field(default_factory=list)
+    # Each coin: {symbol, price_sol, price_delta_pct, progress_pct, buyers, top_holder_share, callouts}
+
+    def to_social_media_prompt(self) -> str:
+        if not self.coins:
+            return ""
+        lines = ["# PUMP.FUN MARKET (SIMULATED)", "Live numbers from the coin's bonding curve. You may discuss them in your posts.", ""]
+        for c in self.coins:
+            lines.append(f"  ${c['symbol']}: {c['price_sol']:.10f} SOL ({c['price_delta_pct']:+.1f}% this round), curve {c['progress_pct']:.1f}% to graduation")
+            lines.append(f"    {c['buyers']} buyers, top holder {c['top_holder_share'] * 100:.0f}% of held supply, {c['callouts']} callouts")
+        return "\n".join(lines)
+
+
 class MarketMediaBridge:
     """Shared state enabling feedback between prediction markets and social media.
 
@@ -208,6 +225,34 @@ class MarketMediaBridge:
         if not self.latest_prices or not self.latest_prices.markets:
             return ""
         return self.latest_prices.to_social_media_prompt()
+
+    # ── Pump.fun → Social Media (Asimog, docs/24 M2) ──────────
+
+    latest_pumpfun: Optional[PumpfunSnapshot] = None
+
+    def update_pumpfun(self, pumpfun_db_path: str, round_num: int):
+        """Called by the Pump.fun loop after each round: price, curve progress, buyers, top-holder share per coin."""
+        try:
+            from wonderwall.simulations.pumpfun.amm import START_REAL_TOK, Curve, spot_sol_per_token
+            conn = sqlite3.connect(pumpfun_db_path)
+            prev = {c["symbol"]: c["price_sol"] for c in (self.latest_pumpfun.coins if self.latest_pumpfun else [])}
+            coins = []
+            for coin_id, sym, v_tok, v_sol, real_tok, real_sol in conn.execute("SELECT coin_id, symbol, v_tok, v_sol, real_tok, real_sol FROM coin").fetchall():
+                price = spot_sol_per_token(Curve(v_tok, v_sol, real_tok, real_sol))
+                held = [t for (t,) in conn.execute("SELECT tokens FROM position WHERE coin_id = ? AND tokens > 0", (coin_id,)).fetchall()]
+                buyers = conn.execute("SELECT count(DISTINCT user_id) FROM coin_trade WHERE coin_id = ? AND side = 'buy'", (coin_id,)).fetchone()[0]
+                callouts = conn.execute("SELECT count(*) FROM callout WHERE coin_id = ?", (coin_id,)).fetchone()[0]
+                p0 = prev.get(sym, price)
+                coins.append({"symbol": sym, "price_sol": price, "price_delta_pct": (price / p0 - 1) * 100 if p0 else 0.0,
+                              "progress_pct": (1 - real_tok / START_REAL_TOK) * 100, "buyers": buyers,
+                              "top_holder_share": max(held) / sum(held) if held else 0.0, "callouts": callouts})
+            conn.close()
+            self.latest_pumpfun = PumpfunSnapshot(round_num=round_num, coins=coins)
+        except Exception:
+            pass  # Non-critical, like update_prices
+
+    def get_pumpfun_prompt(self) -> str:
+        return self.latest_pumpfun.to_social_media_prompt() if self.latest_pumpfun else ""
 
     # ── Social Media → Polymarket ──────────────────────────────
 
@@ -319,3 +364,18 @@ def inject_sentiment_context(agent, sentiment_text: str):
         else:
             content = content[:marker_pos]
     agent.system_message.content = content + "\n\n" + sentiment_text
+
+
+_PUMPFUN_MARKER = "\n\n# PUMP.FUN MARKET"
+
+
+def inject_pumpfun_context(agent, pumpfun_text: str):
+    """Inject the Pump.fun snapshot into a social media agent's system message (Asimog, docs/24 M2)."""
+    if not pumpfun_text:
+        return
+    content = agent.system_message.content
+    marker_pos = content.find(_PUMPFUN_MARKER)
+    if marker_pos != -1:
+        next_marker = content.find("\n\n# ", marker_pos + len(_PUMPFUN_MARKER))
+        content = content[:marker_pos] + (content[next_marker:] if next_marker != -1 else "")
+    agent.system_message.content = content + "\n\n" + pumpfun_text

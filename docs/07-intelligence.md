@@ -190,6 +190,10 @@ New module in our fork: `backend/wonderwall/simulations/pumpfun/`, built on the 
 3. Rounds: `SWARM_ROUNDS` rounds of `SWARM_ROUND_MINUTES` simulated minutes (about 2 h in every preset).
 4. Branch A: no agent. Branch B (when `SWARM_BRANCHES` includes B): Director Mode injects "Asimog posts a callout now" with our thesis text and size.
 5. Output: `swarm.wave_p` (share of runs reaching 5 or more distinct tracked callers), `swarm.impact` (B minus A expected callers and net SOL inflow), and every simulated post as a `swarm.post` event, labeled simulated, for `/simulations`.
+6. Beside pumpfun (`SWARM_PLATFORMS=pumpfun,twitter`): a Twitter platform with the same personas, the X stand-in. Upstream's market-media bridge shows Twitter agents the curve (price, progress, buyers, top-holder share) and shows traders Twitter sentiment; upstream's cross-platform digest shows each agent its own actions on the other platform. A wave still counts only pump.fun callouts.
+7. Graph memory (`SWARM_GRAPH_FEATURES`): a fixed Pump.fun ontology (Coin, Caller, Wallet, Callout, Narrative, Report; CALLED, BOUGHT, SOLD, FOLLOWS, SHARES_CALLERS_WITH, CITES). The seed is observed (the dossier, coins sharing callers, the BettaFish reports the run read); each round's simulated actions are their own edges (`source_type` simulation, `simulated` true) and never change the observed ones. `off` keeps it in memory (no Neo4j).
+8. Report: upstream's ReportAgent on that graph with the "Swarm Report (SIMULATED)" template (spread path, branch A vs B, belief drift, the callers who moved it, wave probability with its sample count). Each section opens with numbers from code; the prose comes from the ReAct loop, with two read-only tools over the core MCP: `asimog_reports` (`reports_for`) and `coin_outcome_so_far` (`coin_flow_since`). `SWARM_REPORT=numbers` skips the model.
+9. Persona tools (`MCP_AGENT_TOOLS_ENABLED=true`): caller personas call the core MCP read tools in `SWARM_PERSONA_TOOLS` (default `coin_dossier,reports_for`) through upstream's agent MCP bridge over HTTP, with the read-only `cap:swarm.read` token (`SWARM_CORE_TOKEN`). Any other tool is refused before it reaches the core; results reach the persona the next round.
 
 Budget: escalations only, ranked by Attention, within `SWARM_RUNS_PER_HOUR`. Results are valid for 30 minutes.
 
@@ -207,6 +211,10 @@ The service stays fully deployed. Presets and every step count are variables, so
 | `SWARM_BRANCHES` | A | A,B | A,B |
 | `SWARM_MAX_TOKENS_PER_TURN` | 120 | 160 | 240 |
 | `SWARM_GRAPH_FEATURES` (MiroShark graph-memory flags) | off | minimal | all |
+| `SWARM_PLATFORMS` | pumpfun | pumpfun,twitter | pumpfun,twitter |
+| `SWARM_TWITTER_RECSYS` (Twitter recommender; `twhin-bert` downloads a model) | random | random | random |
+| `SWARM_REPORT` (`agent`: upstream ReportAgent; `numbers`: code-written sections only) | numbers | agent | agent |
+| `MCP_AGENT_TOOLS_ENABLED` (caller personas call core read tools) | false | true | true |
 | `SWARM_RUNS_PER_HOUR` | 2 | 6 | 12 |
 | `SWARM_SAMPLES` (runs per branch; TS build, S7) | 1 | 3 | 5 |
 | `SWARM_USD_CAP_PER_RUN` | 0.02 | 0.10 | 0.50 |

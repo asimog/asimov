@@ -47,7 +47,15 @@ _ACTION_LABELS = {
     'comment_on_market': 'commented on a market',
     'browse_markets': 'browsed markets',
     'view_portfolio': 'checked portfolio',
+    # Pump.fun actions (Asimog, docs/24 M2)
+    'buy': 'bought the coin',
+    'sell': 'sold the coin',
+    'post_callout': 'posted a callout',
+    'update_callout': 'updated a callout',
+    'reply': 'replied to a callout',
+    'follow_caller': 'followed a caller',
 }
+_SKIP_ACTIONS |= {'sign_up', 'browse_callout_feed', 'view_coin', 'view_portfolio'}
 
 # Max content preview length in digest
 _MAX_CONTENT_LEN = 200

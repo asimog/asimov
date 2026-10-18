@@ -75,7 +75,8 @@ Model names live in config, never in code (docs/15 provider profiles).
 | Lane (`LLM_KEY_<LANE>`) | Agents | Capability | Core MCP tools |
 |---|---|---|---|
 | `SYNTH` (A) | BettaFish | `cap:board.synthesis` | read: `callouts_window`, `coin_dossier`; write: `emit_synthesis_feed`, `emit_synthesis_coin`, `emit_forum_line` |
-| `SWARM` (B) | MiroShark | `cap:board.swarm` | read: `coin_dossier`; write: `emit_swarm_result` |
+| `SWARM` (B) | MiroShark (through the Slow Bridge) | `cap:board.swarm` | read: `coin_dossier`, `callouts_window`, `coin_flow_since`, `reports_for`; write: `emit_swarm_result`, `emit_swarm_beliefs` |
+| `SWARM` (B) | MiroShark worker: report agent and caller personas (docs/24 M7, M10) | `cap:swarm.read` | read only: `coin_dossier`, `callouts_window`, `coin_flow_since`, `reports_for`; no write, not even `job_event` |
 | `THINK` (D) | Postmortem | `cap:mind.propose` | read: `events_since` (`position.closed`), `why`, `strategies_list`; write: `propose_strategy` |
 | `THINK` (D) | Question Researcher | `cap:jev.propose` | read: `worst_cases`, `scores`; write: `propose_question` |
 | `OPS` (E) | Ops | `cap:ops.stop` | read: `doctor`, `state`, `events_since` (`system.*`); write: `ops_alert`, `ops_stop` (pause or kill only) |

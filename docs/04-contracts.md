@@ -113,7 +113,7 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `synthesis.forum_line` | `synthesis_id`, `round`, `agent` (insight, query, media, host), `text`, `cites[]` |
 | `swarm.wave_p` | `swarm_id`, `mint`, `wave_p` (share of branch-A samples reaching 5 or more distinct tracked callers), `samples`, `preset`, `usd`, `truncated` |
 | `swarm.impact` | `swarm_id`, `mint`, `d_callers`, `d_net_sol` (branch B minus A), `samples`, `truncated` |
-| `swarm.post` | `swarm_id`, `mint`, `branch` (A, B), `round`, `agent`, `archetype`, `text`, `simulated` (always true) |
+| `swarm.post` | `swarm_id`, `mint`, `branch` (A, B), `platform` (pumpfun, twitter: the co-running X stand-in, docs/24 M1), `round`, `agent`, `archetype`, `text`, `simulated` (always true) |
 | `proposal.strategy` | `proposal_id`, `by`, `spec` (a valid DSL spec, docs/08), `why[]`, `because[]` (event ids). A record only; the Strategy Pool decides what to do with it |
 | `jevq.proposed` | `question_id`, `pack`, `text`, `type` (yes_no, probability), `by` |
 | `report.drafted` | `report_id`, `day`, `text`, `checks[]`. A draft; publishing is S9 |

@@ -210,6 +210,54 @@ class _MCPProcess:
             pass
 
 
+class _MCPHttp:
+    """Asimog (docs/24 M10): one MCP server over streamable HTTP (stateless JSON-RPC POSTs, bearer token), with the
+    same surface as _MCPProcess. A tool outside the spec's allow list is refused here, before the server sees it."""
+
+    def __init__(self, name: str, url: str, token: str, tools: List[str]):
+        self.name, self._url, self._token, self._allow = name, url, token, set(tools or [])
+        self._cached_tools: Optional[List[Dict[str, Any]]] = None
+
+    def _rpc(self, method: str, params: Dict[str, Any], timeout: float) -> Dict[str, Any]:
+        import urllib.request
+        body = json.dumps({"jsonrpc": "2.0", "id": uuid.uuid4().hex[:8], "method": method, "params": params}).encode()
+        req = urllib.request.Request(self._url, data=body, method="POST", headers={
+            "content-type": "application/json", "accept": "application/json, text/event-stream", "authorization": f"Bearer {self._token}"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            text = r.read().decode("utf-8")
+        if text.lstrip().startswith("{"):
+            return json.loads(text)
+        datas = [ln[5:].strip() for ln in text.splitlines() if ln.startswith("data:")]
+        return json.loads(datas[-1]) if datas else {}
+
+    def initialize(self, timeout: float = 10.0) -> None:
+        self._rpc("initialize", {"protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "miroshark-runner", "version": "1.0"}}, timeout)
+
+    def list_tools(self, timeout: float = 10.0) -> List[Dict[str, Any]]:
+        if self._cached_tools is None:
+            tools = ((self._rpc("tools/list", {}, timeout).get("result") or {}).get("tools")) or []
+            self._cached_tools = [t for t in tools if not self._allow or t.get("name") in self._allow]
+        return self._cached_tools
+
+    def call_tool(self, name: str, args: Dict[str, Any], timeout: float) -> Any:
+        if self._allow and name not in self._allow:
+            raise PermissionError(f"tool {name} is not allowed for personas")
+        result = self._rpc("tools/call", {"name": name, "arguments": args}, timeout).get("result") or {}
+        content = result.get("content") or []
+        data: Any = result
+        if content and isinstance(content[0], dict) and "text" in content[0]:
+            try:
+                data = json.loads(content[0]["text"])
+            except json.JSONDecodeError:
+                data = content[0]["text"]
+        if result.get("isError"):
+            raise RuntimeError(json.dumps(data)[:300])
+        return data
+
+    def shutdown(self) -> None:
+        pass
+
+
 class MCPAgentBridge:
     """Pool of MCP server processes usable during a simulation run.
 
@@ -232,6 +280,11 @@ class MCPAgentBridge:
                 return self._servers[name]
             spec = self._registry[name]
             try:
+                if getattr(spec, "url", ""):
+                    proc = _MCPHttp(name, spec.url, getattr(spec, "token", ""), list(getattr(spec, "tools", []) or []))
+                    proc.initialize()
+                    self._servers[name] = proc
+                    return proc
                 proc = _MCPProcess(
                     name=name,
                     command=spec.command,

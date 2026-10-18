@@ -1,6 +1,8 @@
-// MiroShark's real Wonderwall engine with our Pump.fun module (docs/24 P5), offline: camel agents act through tool
+// MiroShark's real Wonderwall engine with our Pump.fun module (docs/24 P5, P6), offline: camel agents act through tool
 // calls answered by a stub model; the Bridge sends the coin dossier from core; branch B injects our callout. Proves the
-// nine-action platform runs, the pump.fun holding rule holds, branches differ, and swarm results reach the Tape.
+// nine-action platform runs, the pump.fun holding rule holds, branches differ, and swarm results reach the Tape; with a
+// Twitter platform beside it (market-media bridge, cross-platform digest), graph memory on Neo4j with SIMULATED edges,
+// upstream's report agent with our two read tools, and caller personas calling the core MCP read tools.
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -15,14 +17,32 @@ import type { Suite } from "../../lib/suite.ts";
 const BACKEND = path.join(env.root, "services", "miroshark", "engine", "backend");
 const PY = path.join(BACKEND, ".venv-asimog", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
 
-/** Each persona acts by a script: callers buy then call (one tries to call before buying), followers buy then sell. */
+/** Each persona acts by a script: callers buy then call (one tries to call before buying), followers buy then sell.
+ *  On Twitter everyone posts once. Callers end their turns with an <mcp_call/> tag: first a read, then a write (refused).
+ *  The report agent calls our two tools, then writes. */
 function swarmAnswer(steps: Map<string, number>) {
+  const next = (k: string) => {
+    const n = steps.get(k) ?? 0;
+    steps.set(k, n + 1);
+    return n;
+  };
   return (r: StubReq): string => {
-    if (r.afterTool || !r.tools.length) return "ok";
-    const name = r.system.match(/You are (\S+?),/)?.[1] ?? "x";
-    const n = steps.get(name) ?? 0;
-    steps.set(name, n + 1);
+    if (r.system.includes("Report title: Swarm Report (SIMULATED)")) {
+      if (r.user.includes("Tool coin_outcome_so_far returned")) return "Final Answer: SIMULATED. The swarm moved on the callers it trusted.";
+      if (r.user.includes("Tool asimog_reports returned")) return '<tool_call>{"name": "coin_outcome_so_far", "parameters": {}}</tool_call>';
+      return '<tool_call>{"name": "asimog_reports", "parameters": {}}</tool_call>';
+    }
+    const name = r.system.match(/(?:You are|Your name is) (\S+?)[,.]/)?.[1] ?? "x";
     const caller = r.system.includes("Pump.fun caller");
+    if (r.tools.includes("create_post")) return r.afterTool ? "ok" : next(`tw:${name}`) === 0 ? 'TOOL:create_post {"content":"PEPE on the curve, watching the callers"}' : "TOOL:do_nothing {}";
+    if (r.afterTool || !r.tools.length) {
+      if (!caller || !r.tools.length) return "ok";
+      const n = next(`mcp:${name}`);
+      if (n === 0) return `<mcp_call server="asimog" tool="coin_dossier" args='{"mint":"${MINT_A}"}' />`;
+      if (n === 1) return `<mcp_call server="asimog" tool="emit_swarm_result" args='{}' />`;
+      return "ok";
+    }
+    const n = next(name);
     if (caller && n === 0) return 'TOOL:post_callout {"mint_or_symbol":"PEPE","content":"PEPE early, no position yet"}'; // refused: no position
     if (n === 0 || (caller && n === 1)) return `TOOL:buy {"mint_or_symbol":"PEPE","amount_sol":${caller ? 0.05 : 0.02}}`;
     if (caller && n === 2) return 'TOOL:post_callout {"mint_or_symbol":"PEPE","content":"PEPE still early, holding"}';
@@ -41,10 +61,11 @@ export const suite: Suite = {
     const w = await slowEnv("mspump");
     const steps = new Map<string, number>();
     const llm = await llmStub(swarmAnswer(steps));
+    const mcp = await w.mcpUp();
     const port = 7900 + Math.floor(Math.random() * 90);
     const worker = spawn(PY, ["asimog_worker.py", "--port", String(port)], {
       cwd: BACKEND,
-      env: { ...process.env, ASIMOG_FORK: "1", PYTHONUTF8: "1", LLM_API_KEY: "stub", LLM_BASE_URL: llm.url, LLM_MODEL_NAME: "gpt-4o-mini", WONDERWALL_MODEL_NAME: "gpt-4o-mini", SWARM_CALLER_AGENTS: "3", SWARM_FOLLOWER_AGENTS: "4", SWARM_ROUNDS: "3", SWARM_SAMPLES: "1", SWARM_BRANCHES: "A,B", SWARM_WAVE_CALLERS: "2", SWARM_TIMEOUT_S: "240", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" },
+      env: { ...process.env, ASIMOG_FORK: "1", PYTHONUTF8: "1", LLM_API_KEY: "stub", LLM_BASE_URL: llm.url, LLM_MODEL_NAME: "gpt-4o-mini", WONDERWALL_MODEL_NAME: "gpt-4o-mini", SWARM_CALLER_AGENTS: "3", SWARM_FOLLOWER_AGENTS: "4", SWARM_ROUNDS: "3", SWARM_SAMPLES: "1", SWARM_BRANCHES: "A,B", SWARM_WAVE_CALLERS: "2", SWARM_TIMEOUT_S: "300", SWARM_PLATFORMS: "pumpfun,twitter", SWARM_GRAPH_FEATURES: "minimal", NEO4J_URI: env.opt("NEO4J_URI") ?? "bolt://127.0.0.1:7687", NEO4J_USER: env.opt("NEO4J_USER") ?? "neo4j", NEO4J_PASSWORD: env.opt("NEO4J_PASSWORD") ?? "", SWARM_REPORT: "agent", SMART_MODEL_NAME: "gpt-4o-mini", CORE_MCP_URL: mcp.url, SWARM_CORE_TOKEN: w.tok(CAP.swarmRead), MCP_AGENT_TOOLS_ENABLED: "true", SWARM_PERSONA_TOOLS: "coin_dossier,reports_for", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let log = "";
@@ -56,7 +77,7 @@ export const suite: Suite = {
       for (let i = 0; i < 180 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the MiroShark worker starts with its model from our env", await eng.healthy(), log.slice(-300));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: null, miroshark: eng }, now: () => Date.now(), newId: () => "sj_ms1", cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 300, pollMs: 500 } });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: null, miroshark: eng }, now: () => Date.now(), newId: () => "sj_ms1", cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 400, pollMs: 500 } });
       w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.5 }, { source: "reflex", subject: MINT_A });
       await w.tape.flush();
       await bridge.schedule();
@@ -81,7 +102,28 @@ export const suite: Suite = {
       add("simulated posts reach the Tape marked simulated", posts.length > 0 && posts.every((p) => (p.body as { simulated: boolean }).simulated === true), `${posts.length} posts`);
       const [rep] = await w.sql`select body from tape.events where topic = 'report.published' and body->>'producer' = 'miroshark.report'`;
       add("the swarm report is published as SIMULATED", (rep?.body as { simulated?: boolean; summary?: string } | undefined)?.simulated === true && String((rep?.body as { summary?: string }).summary).startsWith("SIMULATED"), String((rep?.body as { summary?: string } | undefined)?.summary).slice(0, 160));
-      return { checks, metrics: { model_calls: llm.calls.length, posts: posts.length } };
+      // P6: the Twitter platform beside pumpfun, with upstream's market-media bridge and cross-platform digest
+      const twCalls = llm.calls.filter((c) => c.tools.includes("create_post"));
+      add("a Twitter platform runs beside pumpfun with the same personas", twCalls.length > 0 && posts.some((p) => (p.body as { platform?: string }).platform === "twitter"), `${twCalls.length} twitter turns`);
+      add("Twitter agents see the Pump.fun curve (market-media bridge)", twCalls.some((c) => c.system.includes("# PUMP.FUN MARKET (SIMULATED)")), "");
+      add("traders see Twitter sentiment (market-media bridge)", llm.calls.some((c) => c.tools.includes("buy") && c.system.includes("# SOCIAL MEDIA SENTIMENT")), "");
+      add("each agent sees its own actions on the other platform (cross-platform digest)", llm.calls.some((c) => c.system.includes("# YOUR RECENT ACTIVITY ON OTHER PLATFORMS")), "");
+      // P6: graph memory on Neo4j, seeded from the dossier, simulated actions as their own edges
+      const [body] = await w.sql`select ir, markdown from slow.reports where producer = 'miroshark.report'`;
+      const ir = (body?.ir ?? {}) as { graph?: { features: string; seeded: number; observed: number; simulated: number } };
+      add("graph memory on Neo4j is seeded from the dossier", ir.graph?.features === "minimal" && (ir.graph?.seeded ?? 0) > 0, JSON.stringify(ir.graph));
+      add("simulated actions are SIMULATED edges and observed edges stay as seeded", (ir.graph?.simulated ?? 0) > 0 && ir.graph?.observed === ir.graph?.seeded, JSON.stringify(ir.graph));
+      // P6: upstream's report agent with the Swarm Report (SIMULATED) template and our two read tools
+      const md = String(body?.markdown ?? "");
+      const titles = ["Spread path", "Branch A vs B", "Belief drift", "The callers who moved it", "Wave probability"];
+      add("the report has the fixed Swarm Report (SIMULATED) sections", md.startsWith("# Swarm Report (SIMULATED)") && titles.every((t) => md.includes(`## ${t}`)), md.slice(0, 120));
+      add("the report agent read BettaFish reports and the real flow through the core", llm.calls.some((c) => c.user.includes("Tool asimog_reports returned")) && llm.calls.some((c) => c.user.includes("Tool coin_outcome_so_far returned") && c.user.includes("distinct_callers")), "");
+      add("each section opens with numbers from code", md.includes("wave_p ") && md.includes("over 1 samples"), "");
+      // P6: caller personas call the core MCP read tools; anything else is refused before the core
+      add("caller personas see the core tools", llm.calls.some((c) => c.system.includes("# MCP TOOLS AVAILABLE") && c.system.includes("asimog/coin_dossier")), "");
+      add("a persona's read call comes back the next round", llm.calls.some((c) => c.system.includes("asimog/coin_dossier [OK")), "");
+      add("a persona's write call is refused", llm.calls.some((c) => c.system.includes("asimog/emit_swarm_result [ERR")), "");
+      return { checks, metrics: { model_calls: llm.calls.length, posts: posts.length, twitter_turns: twCalls.length, graph_simulated_edges: ir.graph?.simulated ?? 0 } };
     } finally {
       fs.writeFileSync(path.join(env.root, "artifacts", "miroshark-worker.log"), log);
       worker.kill();

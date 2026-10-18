@@ -51,6 +51,11 @@ class MCPServerSpec:
     command: str
     args: List[str] = field(default_factory=list)
     env: Dict[str, str] = field(default_factory=dict)
+    # Asimog (docs/24 M10): an HTTP server (streamable HTTP MCP) instead of a subprocess, with a bearer token,
+    # and an allow list of tool names (empty: every tool the server lists)
+    url: str = ""
+    token: str = ""
+    tools: List[str] = field(default_factory=list)
 
 
 def _enabled() -> bool:
@@ -96,7 +101,8 @@ def load_registry() -> Dict[str, MCPServerSpec]:
             continue
         name = (entry.get("name") or "").strip()
         command = (entry.get("command") or "").strip()
-        if not name or not command:
+        url = (entry.get("url") or "").strip()
+        if not name or not (command or url):
             continue
         raw_env = entry.get("env") or {}
         resolved_env = {}
@@ -110,6 +116,9 @@ def load_registry() -> Dict[str, MCPServerSpec]:
             command=command,
             args=list(entry.get("args") or []),
             env=resolved_env,
+            url=url,
+            token=os.environ.get(str(entry.get("token_env") or ""), ""),
+            tools=list(entry.get("tools") or []),
         )
 
     logger.info(f"agent_mcp: loaded {len(servers)} MCP server(s) from {path}")
