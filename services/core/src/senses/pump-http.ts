@@ -1,15 +1,16 @@
 // HTTP client for pump.fun read endpoints (docs/research/pumpfun-endpoints.md).
 // Polite by default: one request in flight per host, backoff on 429/5xx, schema-checked by callers.
+import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 
 const UA = "asimog/0.1 (+https://github.com/asimog/asimov)"; // AGENTS.md Platform: we say who we are
-const BASE = "https://frontend-api-v3.pump.fun";
+const BASE = () => env.str("PUMP_API_URL");
 
 let chain: Promise<unknown> = Promise.resolve();
 let backoffMs = 0;
 
 export async function pumpGet<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<{ status: number; body: T | null; raw: string }> {
-  const url = new URL(path.startsWith("http") ? path : BASE + path);
+  const url = new URL(path.startsWith("http") ? path : BASE() + path);
   for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v));
   const run = async () => {
     if (backoffMs) await new Promise((r) => setTimeout(r, backoffMs));

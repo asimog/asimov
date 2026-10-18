@@ -13,6 +13,7 @@ import { slowScores } from "../scorekeeper/slow-scores.ts";
 import { liveClock } from "../lib/clock.ts";
 import { Tape } from "../tape/tape.ts";
 import { buildConsumers } from "../runtime.ts";
+import { loadList, setLimit, showLimits } from "../mind/owner.ts";
 import { balances, nav, recordDeposit } from "../treasury/books.ts";
 import { killState, ownerKill, resume } from "../treasury/kill.ts";
 import { verifyProofs } from "../treasury/proofs.ts";
@@ -86,7 +87,7 @@ async function doctor() {
       checks[name] = String(e);
     }
   };
-  await probe("pump_feed", "https://frontend-api-v3.pump.fun/home-feed/new?pageSize=1&chain=all&platform=WEB", { headers: { Origin: "https://pump.fun" } });
+  await probe("pump_feed", `${env.str("PUMP_API_URL")}/home-feed/new?pageSize=1&chain=all&platform=WEB`, {});
   const rpc = new RpcPool();
   const rpcUsage = rpc.usage();
   for (const [name, health] of Object.entries(await rpc.health())) checks[`rpc:${name}`] = `${health}, units this month ${rpcUsage[name]}`; // names only: URLs hold keys
@@ -148,6 +149,29 @@ const commands: Record<string, () => Promise<unknown>> = {
     return { ok: true };
   },
   // S6.4: the books (docs/10)
+  // fix plan 2.3 and 2.4: the owner's limits and lists. `ctl limits set max_order_sol 0.01 --token T`,
+  // `ctl limits show`, `ctl lists load blocked_creators file.txt --token T` (one base58 address per line)
+  limits: async () => {
+    const [sub, key, value] = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--token");
+    if (sub === "show" || !sub) return showLimits(sql);
+    if (sub !== "set" || !key || value === undefined) throw new Error("usage: ctl limits show | ctl limits set <key> <value> --token <admin>");
+    const tape = new Tape(sql, liveClock("live"));
+    try {
+      return await setLimit(sql, tape, opt("token"), key, value);
+    } finally {
+      await tape.close();
+    }
+  },
+  lists: async () => {
+    const [sub, kind, file] = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--token");
+    if (sub !== "load" || !kind || !file) throw new Error("usage: ctl lists load <kind> <file> --token <admin>");
+    const tape = new Tape(sql, liveClock("live"));
+    try {
+      return await loadList(sql, tape, opt("token"), kind, fs.readFileSync(file, "utf8"));
+    } finally {
+      await tape.close();
+    }
+  },
   books: async () => ({ kill: await killState(sql), balances: await balances(sql), nav: await nav(sql, {}), proofs: await verifyProofs(sql) }),
   deposit: async () => {
     const tape = new Tape(sql, liveClock("live"));
@@ -165,7 +189,7 @@ const commands: Record<string, () => Promise<unknown>> = {
     const lanes = await Promise.all(ENGINES.map(async (e) => {
       const url = env.opt(e.url);
       const ok = url ? await fetch(`${url}/asimog/health`, { signal: AbortSignal.timeout(2000) }).then((r) => r.ok, () => false) : false;
-      return { engine: e.engine, lane: e.lane, health: url ? (ok ? "up" : "down") : "unset", usd_last_hour: spend.find((s) => s.engine === e.engine)?.last_hour ?? 0, usd_cap_hour: env.num(`LLM_USD_HOUR_${e.lane}`, 0) };
+      return { engine: e.engine, lane: e.lane, health: url ? (ok ? "up" : "down") : "unset", usd_last_hour: spend.find((s) => s.engine === e.engine)?.last_hour ?? 0, usd_cap_hour: env.numOpt(`LLM_USD_HOUR_${e.lane}`) ?? null };
     }));
     const reports = await sql`select report_id, producer, kind, subject, published_at, left(summary, 160) summary from slow.reports order by published_at desc limit 5`;
     return { lanes, jobs_24h: jobs, recent, reports, scores: await slowScores(sql, at) };

@@ -4,13 +4,13 @@ import { curveFromPrice, FEE, quoteBuy, quoteSell } from "../analyzers/curve-mat
 import { env } from "../lib/env.ts";
 
 export const F = {
-  latencyMedianMs: env.num("FILL_LATENCY_MEDIAN_MS", 1500),
-  latencySigma: env.num("FILL_LATENCY_SIGMA", 0.5),
-  failP: env.num("FILL_FAIL_P", 0.05),
-  priorityFeeSol: env.num("PRIORITY_FEE_SOL", 0.00005),
-  rentSol: env.num("ATA_RENT_SOL", 0.00203928), // a 165-byte token account, rent exempt: 2,039,280 lamports
-  staleFillMs: env.int("FILL_STALE_MS", 30_000),
-  ammFee: env.num("AMM_FEE_BPS", 125) / 10_000,
+  latencyMedianMs: env.num("FILL_LATENCY_MEDIAN_MS"),
+  latencySigma: env.num("FILL_LATENCY_SIGMA"),
+  failP: env.num("FILL_FAIL_P"),
+  priorityFeeSol: env.num("PRIORITY_FEE_SOL"),
+  rentSol: env.num("ATA_RENT_SOL"), // a 165-byte token account, rent exempt: 2,039,280 lamports
+  staleFillMs: env.int("FILL_STALE_MS"),
+  ammFee: env.num("AMM_FEE_BPS") / 10_000,
 };
 
 export function sampleLatencyMs(rand: () => number) {

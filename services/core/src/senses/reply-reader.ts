@@ -20,7 +20,7 @@ export class ReplyReader {
   constructor(private tape: Tape, private sql: Sql) {}
 
   start() {
-    const every = env.int("REPLY_POLL_S", 60) * 1000;
+    const every = env.int("REPLY_POLL_S") * 1000;
     const tick = () => void this.tick().catch((err) => (this.stats.errors++, log.warn("reply-reader", { err: String(err).slice(0, 160) })));
     tick();
     this.timer = setInterval(tick, every);
@@ -31,10 +31,10 @@ export class ReplyReader {
   }
 
   async tick() {
-    const hours = env.num("REPLY_WINDOW_H", 6);
+    const hours = env.num("REPLY_WINDOW_H");
     const rows = await this.sql`select callout_id, mint, replies from mem.callouts
       where replies > 0 and created_at > now() - make_interval(hours => ${hours}) order by created_at desc limit 500`;
-    const due = rows.filter((r) => (this.seen.get(r.callout_id as string) ?? -1) < Number(r.replies)).slice(0, env.int("REPLY_CALLOUTS_PER_MIN", 20));
+    const due = rows.filter((r) => (this.seen.get(r.callout_id as string) ?? -1) < Number(r.replies)).slice(0, env.int("REPLY_CALLOUTS_PER_MIN"));
     for (const r of due) await this.read(r.callout_id as string, r.mint as string, Number(r.replies));
   }
 

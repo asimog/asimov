@@ -23,7 +23,7 @@ export class Tape {
   private timer: NodeJS.Timeout | null = null;
   /** flushes run one after another; concurrent writers deadlocked on tape.dedupe */
   private chain: Promise<void> = Promise.resolve();
-  private readonly batchMs = env.int("TAPE_BATCH_MS", 100);
+  private readonly batchMs = env.int("TAPE_BATCH_MS");
   private readonly listeners = new Set<(e: Envelope[]) => void>();
   written = 0;
   dropped = 0;

@@ -10,9 +10,9 @@ import { log } from "../../core/src/lib/log.ts";
 import { rooms } from "./rooms.ts";
 import { slowRooms } from "./slow-rooms.ts";
 
-const sql = postgres(env.str("DATABASE_URL"), { max: env.int("RELAY_DB_POOL", 3), idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } });
-const PORT = env.int("RELAY_PORT", 7401);
-const MANDATE_SOL = env.num("MANDATE_SOL", 0.2);
+const sql = postgres(env.str("DATABASE_URL"), { max: env.int("RELAY_DB_POOL"), idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } });
+const PORT = env.int("RELAY_PORT");
+const MANDATE_SOL = env.num("MANDATE_SOL");
 
 // ---------- names ----------
 const symbols = new Map<string, string>();
@@ -128,7 +128,7 @@ async function snapshot() {
   const [limits] = await sql`select body from mind.limits order by version desc limit 1`;
   const body = {
     now: now.getTime(),
-    mode: env.str("ASIMOG_MODE", "paper"),
+    mode: env.str("ASIMOG_MODE"),
     mandate_sol: MANDATE_SOL,
     floor_frac: (limits?.body as { daily_loss_stop_frac?: number } | undefined)?.daily_loss_stop_frac ?? 0.25,
     milestone: "START",
@@ -283,6 +283,6 @@ app.get("/health", (c) => c.json({ ok: true, viewers: clients.size }));
 await refreshSymbols();
 setInterval(() => void refreshSymbols().catch(() => {}), 10_000);
 await sql.listen("tape", () => void tick()).catch((err) => log.info("relay listen off; polling", { err: String(err) }));
-setInterval(() => void tick(), env.int("RELAY_POLL_MS", 400));
+setInterval(() => void tick(), env.int("RELAY_POLL_MS"));
 serve({ fetch: app.fetch, port: PORT });
 log.info("relay up", { port: PORT });

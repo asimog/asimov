@@ -28,35 +28,49 @@ function load(): Record<string, string> {
 
 const ENV = load();
 
+/** Every key has its one default in .env.example (fix plan 2.1); a key missing there is a bug and stops boot. */
+function need(name: string): string {
+  const v = ENV[name];
+  if (v === undefined || v.trim() === "") throw new Error(`missing env ${name}: set it in .env.example (the default) or .env.local`);
+  return v;
+}
+
 export const env = {
-  str(name: string, fallback?: string): string {
-    const v = ENV[name] ?? fallback;
-    if (v === undefined || v === "") throw new Error(`missing env ${name}`);
-    return v;
+  str(name: string): string {
+    return need(name);
   },
   opt(name: string): string | undefined {
     const v = ENV[name];
     return v === undefined || v === "" ? undefined : v;
   },
-  int(name: string, fallback: number): number {
-    const n = env.num(name, fallback);
+  int(name: string): number {
+    const n = env.num(name);
     if (!Number.isInteger(n)) throw new Error(`env ${name} must be a whole number, got ${ENV[name]}`);
     return n;
   },
   /** A typo must stop boot: NaN would silently turn a cap or a kill trigger off. */
-  num(name: string, fallback: number): number {
-    const v = ENV[name];
-    if (v === undefined || v.trim() === "") return fallback;
-    const n = Number(v);
-    if (!Number.isFinite(n)) throw new Error(`env ${name} must be a number, got ${v}`);
-    return n;
+  num(name: string): number {
+    return finite(name, need(name));
   },
-  bool(name: string, fallback = false): boolean {
+  /** Keys built at runtime (one per RPC endpoint or lane) have no fixed default: unset is undefined, never 0. */
+  numOpt(name: string): number | undefined {
     const v = ENV[name];
-    return v === undefined || v === "" ? fallback : ["1", "true", "yes", "on"].includes(v.toLowerCase());
+    return v === undefined || v.trim() === "" ? undefined : finite(name, v);
+  },
+  bool(name: string): boolean {
+    const v = need(name).toLowerCase();
+    if (["1", "true", "yes", "on"].includes(v)) return true;
+    if (["0", "false", "no", "off"].includes(v)) return false;
+    throw new Error(`env ${name} must be true or false, got ${v}`);
   },
   root: ROOT,
 };
+
+function finite(name: string, v: string): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) throw new Error(`env ${name} must be a number, got ${v}`);
+  return n;
+}
 
 const SECRET = /(KEY|PASS|TOKEN|SECRET|SEED)/;
 /** Providers put keys in the path (QuickNode, Chainstack) or the query (Helius, RPC Fast): show only scheme and host. */

@@ -6,7 +6,7 @@ import { log } from "./lib/log.ts";
 import { runtime } from "./runtime.ts";
 
 async function main() {
-  const mode = env.str("ASIMOG_MODE", "paper");
+  const mode = env.str("ASIMOG_MODE");
   if (mode === "replay") throw new Error("core main runs paper or live; use `ctl replay` for replays");
   const sql = connect();
   await migrate(sql);

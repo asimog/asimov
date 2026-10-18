@@ -9,7 +9,7 @@ export interface SignerClient {
 }
 
 export class HttpSigner implements SignerClient {
-  constructor(private token: string, private base = `http://${env.opt("SIGNER_HOST") ?? "127.0.0.1"}:${env.int("SIGNER_PORT", 7410)}`) {}
+  constructor(private token: string, private base = `http://${env.opt("SIGNER_HOST") ?? "127.0.0.1"}:${env.int("SIGNER_PORT")}`) {}
   async sign(endpoint: string, tx: string, ctx: SignCtx = {}): Promise<SignReply> {
     const res = await fetch(`${this.base}${endpoint}`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${this.token}` }, body: JSON.stringify({ tx, ctx }), signal: AbortSignal.timeout(5000) });
     const j = (await res.json()) as { ok: boolean; signed?: string; signature?: string; reason?: string; detail?: string };

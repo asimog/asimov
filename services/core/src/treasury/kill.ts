@@ -24,12 +24,12 @@ export function writeKillFile(killFile: string, state: KillState) {
 }
 
 export function kill(tape: Tape, killFile: string | null): Consumer {
-  const need = env.int("KILL_SIGNER_REFUSALS", 3);
-  const windowMs = env.num("KILL_REFUSAL_WINDOW_MIN", 10) * 60_000;
-  const gapMs = env.num("KILL_FEED_GAP_MIN", 5) * 60_000;
-  const driftX = env.num("KILL_FILL_DRIFT_X", 3);
-  const driftFills = env.int("KILL_FILL_DRIFT_FILLS", 3);
-  const driftWindowMs = env.num("KILL_FILL_DRIFT_WINDOW_MIN", 60) * 60_000;
+  const need = env.int("KILL_SIGNER_REFUSALS");
+  const windowMs = env.num("KILL_REFUSAL_WINDOW_MIN") * 60_000;
+  const gapMs = env.num("KILL_FEED_GAP_MIN") * 60_000;
+  const driftX = env.num("KILL_FILL_DRIFT_X");
+  const driftFills = env.int("KILL_FILL_DRIFT_FILLS");
+  const driftWindowMs = env.num("KILL_FILL_DRIFT_WINDOW_MIN") * 60_000;
   let fileState: KillState | null = null;
   let trippedInBatch = false; // the kill.changed we emit is projected in a later batch
 
@@ -95,9 +95,14 @@ export function ownerKill(tape: Tape, reason: string, killFile: string | null) {
 
 const same = (a: string, b: string) => crypto.timingSafeEqual(crypto.createHash("sha256").update(a).digest(), crypto.createHash("sha256").update(b).digest());
 
+/** Owner-only commands (resume, limits, lists) need ADMIN_TOKEN; compared in constant time. */
+export function requireAdmin(token: string | undefined, want = env.opt("ADMIN_TOKEN"), what = "this command") {
+  if (!want || !token || !same(token, want)) throw new Error(`${what} needs the admin token`);
+}
+
 /** ctl resume: needs the admin token from the owner's config. */
 export function resume(tape: Tape, token: string | undefined, want = env.opt("ADMIN_TOKEN"), killFile: string | null = null) {
-  if (!want || !token || !same(token, want)) throw new Error("resume needs the admin token");
+  requireAdmin(token, want, "resume");
   if (killFile) writeKillFile(killFile, "running");
   return tape.emit("kill.changed", { state: "running", reason: "resumed", by: "admin" }, { source: "system" });
 }

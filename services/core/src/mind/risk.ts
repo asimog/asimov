@@ -1,7 +1,9 @@
 // Risk Gate (docs/08): a pure function. Same inputs, same answer, in ghost, paper and live.
 import type { KillState } from "@asimog/contracts";
-// Limits come from mind.limits (set by the owner through the admin path). DEFAULT_LIMITS is the documented
-// default for the 0.2 SOL start, used only while mind.limits is empty.
+import type { Sql } from "../lib/db.ts";
+import type { Tx } from "../tape/consumer.ts";
+// Limits come from mind.limits and the lists from mind.lists, both set by the owner with the admin token (ctl limits,
+// ctl lists). DEFAULT_LIMITS is the documented default for the 0.2 SOL start, used for every key the owner has not set.
 
 export type Limits = {
   max_order_sol: number;
@@ -15,8 +17,10 @@ export type Limits = {
   min_real_sol: number;
   max_quote_age_ms: number;
   max_slippage_bps: number;
-  blocklist: string[];
+  blocked_mints: string[];
   own_mints: string[];
+  blocked_creators: string[];
+  blocked_wallets: string[];
   // rug and bundle floor (docs/23 section 3): shares of SOL bought; top-10 of the circulating supply
   max_bundle_share: number;
   max_top10_share: number;
@@ -35,8 +39,10 @@ export const DEFAULT_LIMITS: Limits = {
   min_real_sol: 3,
   max_quote_age_ms: 3000,
   max_slippage_bps: 300,
-  blocklist: [],
+  blocked_mints: [],
   own_mints: [],
+  blocked_creators: [],
+  blocked_wallets: [],
   max_bundle_share: 0.2,
   max_top10_share: 0.3,
   max_fresh_share: 0.6,
@@ -62,7 +68,17 @@ export function bookFrom(equity_sol: number, lots: { mint: string; cost_sol: num
   return b;
 }
 
-export type GateIntent = { id: string; mint: string; side: "buy" | "sell"; size_sol: number; duplicate: boolean };
+/** The owner's limits and lists in force at `asOf` (the newest when omitted). */
+export async function loadLimits(sql: Sql | Tx, asOf?: string): Promise<Limits> {
+  const known = asOf ? sql`where set_at <= ${asOf}` : sql``;
+  const [lim] = await sql`select body from mind.limits ${known} order by version desc limit 1`;
+  const lists = await sql`select distinct on (kind) kind, items from mind.lists ${known} order by kind, version desc`;
+  const L: Limits = { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits> | undefined) ?? {}) };
+  for (const r of lists) if (r.kind in L) (L as Record<string, unknown>)[r.kind as string] = r.items;
+  return L;
+}
+
+export type GateIntent = { id: string; mint: string; side: "buy" | "sell"; size_sol: number; duplicate: boolean; creator?: string | null; caller?: string | null };
 export type GateRisk = { bundle_share: number; top10_share: number | null; fresh_share: number; creator_sold: number };
 export type GateQuote = { at_ms: number; impact_bps: number; real_sol: number | null; graduated: boolean; risk?: GateRisk | null };
 export type GateFlags = { kill: KillState; mode_ok: boolean; strategy_live: boolean };
@@ -80,7 +96,9 @@ export function riskGate(i: GateIntent, book: Book, L: Limits, q: GateQuote | nu
   if (!(i.size_sol > 0)) return no("order_cap", `buy size ${i.size_sol} SOL is not positive`);
   if (!f.strategy_live) return no("strategy_not_live", "strategy has no capital");
   if (L.own_mints.includes(i.mint)) return no("own_coin", "never trade our own coin");
-  if (L.blocklist.includes(i.mint)) return no("blocklisted", "coin is on the blocklist");
+  if (L.blocked_mints.includes(i.mint)) return no("blocklisted", "coin is on the blocklist");
+  if (i.creator && L.blocked_creators.includes(i.creator)) return no("blocklisted", "creator is on the blocklist");
+  if (i.caller && L.blocked_wallets.includes(i.caller)) return no("blocklisted", "caller wallet is on the blocklist");
   if (!q) return no("stale_quote", "no quote for this coin");
   if (now_ms - q.at_ms > L.max_quote_age_ms) return no("stale_quote", `quote ${now_ms - q.at_ms} ms old`);
   if (!q.graduated && (q.real_sol ?? 0) < L.min_real_sol) return no("liquidity_too_low", `curve real SOL ${(q.real_sol ?? 0).toFixed(2)}`);

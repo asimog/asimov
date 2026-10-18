@@ -5,7 +5,7 @@ import { env } from "./env.ts";
 
 export type Sql = postgres.Sql<Record<string, unknown>>;
 
-export function connect(url = env.str("DATABASE_URL"), max = env.int("DB_POOL", 8)): Sql {
+export function connect(url = env.str("DATABASE_URL"), max = env.int("DB_POOL")): Sql {
   return postgres(url, {
     max,
     idle_timeout: 30,

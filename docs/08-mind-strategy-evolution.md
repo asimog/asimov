@@ -142,7 +142,7 @@ A pure function. Inputs: intent, current portfolio, the live limits version, the
 | Coins never traded | our own coin, coins in our blocklist |
 | Rug and bundle floor (docs/23) | first-slot buyers holding 20% of supply, top 10 holding 30% of supply (curve excluded), fresh-wallet share 60%, creator sold 50% |
 
-Limits live in `mind.limits` with a version. Only the admin path changes them. Code never changes limits.
+Limits live in `mind.limits` with a version, and the owner lists in `mind.lists`. Only the admin path changes them: `ctl limits set <key> <value> --token <admin>`, `ctl limits show`, `ctl lists load <kind> <file> --token <admin>`, each with an event on the Tape (`limits.changed`, `lists.loaded`). Every gate reads them through `loadLimits`, as of the decision time. Code never changes limits.
 
 ### Reason codes
 

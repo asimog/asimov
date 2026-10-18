@@ -294,6 +294,15 @@ create table if not exists mind.limits (
   set_by text not null,
   set_at timestamptz not null default now()
 );
+-- owner lists, one version per load (ctl lists load); the newest version of each kind is in force
+create table if not exists mind.lists (
+  kind text not null,
+  version int not null,
+  items text[] not null,
+  set_by text not null,
+  set_at timestamptz not null default now(),
+  primary key (kind, version)
+);
 
 -- ---------- ops ----------
 -- soul versions on a hash chain (docs/22): chain = sha256(prev chain + sha256(body))

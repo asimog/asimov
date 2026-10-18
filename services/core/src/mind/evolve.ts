@@ -5,14 +5,14 @@ import { CATALOG, HORIZON_MAX_MIN, type Spec, specDistance, validate } from "./d
 import { lcb, type Stats } from "./kernel.ts";
 
 export const E = {
-  poolMax: env.int("POOL_MAX", 128),
-  offspring: env.int("EVOLVE_OFFSPRING", 16),
-  parentMinTrades: env.int("EVOLVE_PARENT_MIN_TRADES", 2),
-  minDistance: env.num("EVOLVE_MIN_DISTANCE", 0.05),
-  nicheMax: env.int("EVOLVE_NICHE_MAX", 12),
-  retireMinTrades: env.int("RETIRE_MIN_TRADES", 50),
-  retireIdleMs: env.int("RETIRE_IDLE_MIN", 120) * 60_000,
-  retireDdFrac: env.num("RETIRE_DD_FRAC", 0.3),
+  poolMax: env.int("POOL_MAX"),
+  offspring: env.int("EVOLVE_OFFSPRING"),
+  parentMinTrades: env.int("EVOLVE_PARENT_MIN_TRADES"),
+  minDistance: env.num("EVOLVE_MIN_DISTANCE"),
+  nicheMax: env.int("EVOLVE_NICHE_MAX"),
+  retireMinTrades: env.int("RETIRE_MIN_TRADES"),
+  retireIdleMs: env.int("RETIRE_IDLE_MIN") * 60_000,
+  retireDdFrac: env.num("RETIRE_DD_FRAC"),
 };
 
 export type Member = { spec: Spec; stats: Stats; born_ms: number; last_trade_ms: number | null; mk60: number[] };

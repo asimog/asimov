@@ -3,11 +3,11 @@
 // 793,100,000 real tokens. Fees: protocol 95 bps + creator 30 bps per side (FEE_BPS overrides).
 import { env } from "../lib/env.ts";
 
-const V_SOL0 = env.num("CURVE_V_SOL0", 30);
-const V_TOK0 = env.num("CURVE_V_TOK0", 1_073_000_000);
-const REAL_TOK0 = env.num("CURVE_REAL_TOK0", 793_100_000);
+const V_SOL0 = env.num("CURVE_V_SOL0");
+const V_TOK0 = env.num("CURVE_V_TOK0");
+const REAL_TOK0 = env.num("CURVE_REAL_TOK0");
 const K = V_SOL0 * V_TOK0;
-export const FEE = env.num("FEE_BPS", 125) / 10_000;
+export const FEE = env.num("FEE_BPS") / 10_000;
 
 export type CurveState = { vSol: number; vTok: number; realSol: number; progress: number; k: number };
 

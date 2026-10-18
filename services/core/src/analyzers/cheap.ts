@@ -8,15 +8,15 @@ import { curveFromPrice, quoteBuy } from "./curve-math.ts";
 
 const MIN = 60_000;
 const p = {
-  echoWindowMin: env.num("ECHO_WINDOW_MIN", 10),
-  hawkesMu: env.num("HAWKES_MU_PER_MIN", 0.01),
-  hawkesAlpha: env.num("HAWKES_ALPHA", 0.6),
-  hawkesBetaPerMin: env.num("HAWKES_BETA_PER_MIN", 1 / 3),
-  waveN: env.int("WAVE_N", 3),
-  waveHorizonMin: env.num("WAVE_HORIZON_MIN", 5),
-  dnaHorizonMin: env.num("DNA_HORIZON_MIN", 5),
-  mcPaths: env.int("HAWKES_MC_PATHS", 300),
-  activeCallers: env.int("CALLERS_ACTIVE_MAX", 200),
+  echoWindowMin: env.num("ECHO_WINDOW_MIN"),
+  hawkesMu: env.num("HAWKES_MU_PER_MIN"),
+  hawkesAlpha: env.num("HAWKES_ALPHA"),
+  hawkesBetaPerMin: env.num("HAWKES_BETA_PER_MIN"),
+  waveN: env.int("WAVE_N"),
+  waveHorizonMin: env.num("WAVE_HORIZON_MIN"),
+  dnaHorizonMin: env.num("DNA_HORIZON_MIN"),
+  mcPaths: env.int("HAWKES_MC_PATHS"),
+  activeCallers: env.int("CALLERS_ACTIVE_MAX"),
   quoteSizes: (env.opt("QUOTE_SIZES_SOL") ?? "0.02,0.05,0.1,0.25,0.5").split(",").map(Number),
 };
 

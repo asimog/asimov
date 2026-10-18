@@ -24,13 +24,13 @@ export class Scout {
   private timers: NodeJS.Timeout[] = [];
   readonly rollup = new Rollup();
   private readonly p = {
-    heatBuyers: env.int("SCOUT_HEAT_BUYERS", 8),
-    heatNetSol: env.num("SCOUT_HEAT_NET_SOL", 1.5),
+    heatBuyers: env.int("SCOUT_HEAT_BUYERS"),
+    heatNetSol: env.num("SCOUT_HEAT_NET_SOL"),
     // the scan floor only decides what we record in full; every strategy sets and evolves its own thresholds
-    minMcapUsd: env.num("SCOUT_MIN_MCAP_USD", 4000),
-    minBuyers: env.int("SCOUT_MIN_BUYERS", 10),
-    refreshMs: env.int("SCOUT_CALLERS_REFRESH_S", 60) * 1000,
-    repromoteMs: env.num("WATCH_HOURS", 6) * 3_600_000,
+    minMcapUsd: env.num("SCOUT_MIN_MCAP_USD"),
+    minBuyers: env.int("SCOUT_MIN_BUYERS"),
+    refreshMs: env.int("SCOUT_CALLERS_REFRESH_S") * 1000,
+    repromoteMs: env.num("WATCH_HOURS") * 3_600_000,
   };
   stats = { trades: 0, callers: 0, live_coins: 0, launches: 0, caller_buy: 0, smart_buy: 0, heat: 0, metrics: 0 };
 

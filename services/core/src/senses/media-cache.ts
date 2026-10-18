@@ -30,8 +30,8 @@ export class MediaCache {
   async tick() {
     const rows = await this.sql`select m.media_id, m.url, m.kind, m.mint, m.callout_id from slow.media m
       where m.url is not null and not exists (select 1 from tape.events e where e.topic = 'media.cached' and e.subject = m.media_id)
-      order by m.media_id desc limit ${env.int("MEDIA_PER_MIN", 30) + this.tried.size}`;
-    for (const r of rows.filter((x) => !this.tried.has(x.media_id as string)).slice(0, env.int("MEDIA_PER_MIN", 30))) await this.fetchOne(r.media_id as string, r.url as string, r.kind as string, r.mint as string, (r.callout_id as string | null) ?? null);
+      order by m.media_id desc limit ${env.int("MEDIA_PER_MIN") + this.tried.size}`;
+    for (const r of rows.filter((x) => !this.tried.has(x.media_id as string)).slice(0, env.int("MEDIA_PER_MIN"))) await this.fetchOne(r.media_id as string, r.url as string, r.kind as string, r.mint as string, (r.callout_id as string | null) ?? null);
   }
 
   async fetchOne(mediaId: string, rawUrl: string, kind: string, mint: string, calloutId: string | null) {
@@ -49,7 +49,7 @@ export class MediaCache {
     const type = res?.headers.get("content-type") ?? "";
     if (!res?.ok || !type.startsWith("image/")) return void this.stats.skipped++;
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > env.int("MEDIA_MAX_BYTES", 2_000_000)) return void this.stats.skipped++;
+    if (buf.length > env.int("MEDIA_MAX_BYTES")) return void this.stats.skipped++;
     const blob = await putBlob(this.sql, "media", url, buf);
     this.tape.emit("media.cached", { media_id: mediaId, kind: kind as "callout" | "coin", mint, callout_id: calloutId, url, sha256: blob.sha256, bytes: blob.bytes, mime: type }, { source: "feedreader", subject: mediaId, dedupe: `media:${mediaId}` });
     this.stats.cached++;

@@ -15,11 +15,11 @@ type Coin = {
 };
 
 const P = {
-  latencyMs: env.num("FILL_LATENCY_MEDIAN_MS", 1500),
-  freshWarmupMs: env.num("INDEX_FRESH_WARMUP_H", 24) * 3_600_000,
+  latencyMs: env.num("FILL_LATENCY_MEDIAN_MS"),
+  freshWarmupMs: env.num("INDEX_FRESH_WARMUP_H") * 3_600_000,
   launchPrice: 30 / 1_073_000_000, // SOL per token at a fresh curve (virtual reserves 30 SOL / 1.073B tokens)
-  bundleSlots: env.int("BUNDLE_SLOTS", 3),
-  idleMs: env.int("INDEX_COIN_IDLE_MIN", 30) * 60_000,
+  bundleSlots: env.int("BUNDLE_SLOTS"),
+  idleMs: env.int("INDEX_COIN_IDLE_MIN") * 60_000,
 };
 
 const SUPPLY = 1_000_000_000; // every pump.fun coin mints 1B tokens

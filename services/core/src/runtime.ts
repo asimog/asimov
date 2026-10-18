@@ -49,19 +49,19 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
   const tape = new Tape(sql, clock);
   const treasury = treasuryWiring(sql, tape, clock); // null without keys: paper runs as before
   const consumers = [...buildConsumers(tape), ...(treasury?.consumers ?? [])];
-  const feed = env.bool("SENSE_FEED", true) ? new FeedReader(tape) : null;
-  const replies = env.bool("SENSE_REPLIES", true) ? new ReplyReader(tape, sql) : null;
-  const media = env.bool("SENSE_MEDIA", true) ? new MediaCache(tape, sql) : null;
+  const feed = env.bool("SENSE_FEED") ? new FeedReader(tape) : null;
+  const replies = env.bool("SENSE_REPLIES") ? new ReplyReader(tape, sql) : null;
+  const media = env.bool("SENSE_MEDIA") ? new MediaCache(tape, sql) : null;
   const pool = new RpcPool();
-  const backfill = env.bool("SENSE_BACKFILL", true) && pool.size ? new Backfill(tape, sql, pool) : null;
-  const chain = env.bool("SENSE_CHAIN", true) ? new ChainReader(tape, sql, (mint) => backfill?.enqueue(mint)) : null;
-  const scout = chain && env.bool("SCOUT", true)
+  const backfill = env.bool("SENSE_BACKFILL") && pool.size ? new Backfill(tape, sql, pool) : null;
+  const chain = env.bool("SENSE_CHAIN") ? new ChainReader(tape, sql, (mint) => backfill?.enqueue(mint)) : null;
+  const scout = chain && env.bool("SCOUT")
     ? new Scout(tape, sql, (mint) => chain.isWatched(mint), (mint, curveAccount, eventId) => {
         chain.watchNow(mint); // subscribes and queues the Backfill
         // a coin seconds old may be unknown to the RPC yet: snapshot after HOLDERS_DELAY_S, retry once
         const snap = (tries: number) => void snapshotHolders(pool, tape, mint, curveAccount, [eventId]).catch((err) =>
           tries > 0 ? setTimeout(() => snap(tries - 1), 30_000) : log.warn("holders", { mint, err: String(err).slice(0, 120) }));
-        if (pool.size) setTimeout(() => snap(1), env.int("HOLDERS_DELAY_S", 15) * 1000);
+        if (pool.size) setTimeout(() => snap(1), env.int("HOLDERS_DELAY_S") * 1000);
       })
     : null;
   const timers: NodeJS.Timeout[] = [];
@@ -95,11 +95,11 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
       await chain?.start();
       await scout?.start();
       backfill?.start();
-      timers.push(setInterval(() => log.info("stats", rt.stats()), env.int("STATS_EVERY_MS", 30_000)));
+      timers.push(setInterval(() => log.info("stats", rt.stats()), env.int("STATS_EVERY_MS")));
       if (scout) {
         void indexJobs(true);
-        timers.push(setInterval(() => void indexJobs(false), env.num("INDEX_REFRESH_MIN", 60) * 60_000));
-        timers.push(setInterval(() => void indexJobs(true), env.num("INDEX_SEED_HOURS", 6) * 3_600_000));
+        timers.push(setInterval(() => void indexJobs(false), env.num("INDEX_REFRESH_MIN") * 60_000));
+        timers.push(setInterval(() => void indexJobs(true), env.num("INDEX_SEED_HOURS") * 3_600_000));
       }
     },
     async stop() {

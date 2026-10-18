@@ -65,12 +65,12 @@ export class FeedReader {
   constructor(private tape: Tape) {}
 
   async start() {
-    await this.backfill(env.int("FEED_BACKFILL_MIN", 30), env.int("FEED_BACKFILL_PAGES", 40), 0, "poll");
+    await this.backfill(env.int("FEED_BACKFILL_MIN"), env.int("FEED_BACKFILL_PAGES"), 0, "poll");
     void this.pollLoop();
     // the Index's callout history (docs/23): 30 days, paged slowly in the background so live polling keeps its turn
-    const days = env.num("INDEX_CALLOUT_DAYS", 30);
-    if (days > 0) void this.backfill(days * 1440, env.int("INDEX_CALLOUT_PAGES", 30_000), env.int("INDEX_CALLOUT_PAGE_MS", 2000), "history");
-    if (env.bool("FEED_PUSH", true)) await this.startPush();
+    const days = env.num("INDEX_CALLOUT_DAYS");
+    if (days > 0) void this.backfill(days * 1440, env.int("INDEX_CALLOUT_PAGES"), env.int("INDEX_CALLOUT_PAGE_MS"), "history");
+    if (env.bool("FEED_PUSH")) await this.startPush();
   }
 
   async stop() {
@@ -80,7 +80,7 @@ export class FeedReader {
 
   // ---------- poll ----------
   private async pollLoop() {
-    const every = env.int("FEED_POLL_MS", 3000);
+    const every = env.int("FEED_POLL_MS");
     while (!this.stopped) {
       try {
         await this.pollOnce();
@@ -101,7 +101,7 @@ export class FeedReader {
     let token = page.nextPageToken;
     let pages = 0;
     let oldest = page.coins.at(-1)?.position?.callout?.calloutTimestamp;
-    while (fresh === page.coins.length && token && pages < env.int("FEED_GAP_PAGES", 10)) {
+    while (fresh === page.coins.length && token && pages < env.int("FEED_GAP_PAGES")) {
       this.stats.gaps++;
       const older = await this.fetchPage(token);
       if (!older) break;
@@ -134,7 +134,7 @@ export class FeedReader {
 
   private async fetchPage(pageToken?: string): Promise<FeedPage | null> {
     const res = await pumpGet<FeedPage>("/home-feed/new", {
-      pageSize: env.int("FEED_PAGE_SIZE", 50),
+      pageSize: env.int("FEED_PAGE_SIZE"),
       chain: "all",
       platform: "WEB",
       pageToken,

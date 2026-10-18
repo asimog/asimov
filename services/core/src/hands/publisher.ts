@@ -13,7 +13,7 @@ import type { Tape } from "../tape/tape.ts";
 import { checkText, type PostKind } from "./text-checks.ts";
 import { calloutText, closeText, exitText, formThesis, type Thesis } from "./thesis.ts";
 
-const PRECALL_H = env.num("PRECALL_HORIZON_MIN", 5);
+const PRECALL_H = env.num("PRECALL_HORIZON_MIN");
 const sha = (x: unknown) => crypto.createHash("sha256").update(canonical(x)).digest("hex");
 const iso = (ms: number) => new Date(ms).toISOString();
 

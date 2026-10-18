@@ -3,14 +3,14 @@
 import { env } from "../lib/env.ts";
 
 export const K = {
-  priorMean: env.num("KERNEL_PRIOR_MEAN", -0.01),
-  priorN: env.num("KERNEL_PRIOR_N", 5),
-  priorSd: env.num("KERNEL_PRIOR_SD", 0.25),
-  hurdle: env.num("KERNEL_HURDLE", 0),
-  capFull: env.num("KERNEL_CAP_FULL", 0.25),
-  capProbe: env.num("KERNEL_CAP_PROBE", 0.05),
-  promoteMinTrades: env.int("PROMOTE_MIN_TRADES", 30),
-  maxDdFrac: env.num("PROMOTE_MAX_DD_FRAC", 0.3),
+  priorMean: env.num("KERNEL_PRIOR_MEAN"),
+  priorN: env.num("KERNEL_PRIOR_N"),
+  priorSd: env.num("KERNEL_PRIOR_SD"),
+  hurdle: env.num("KERNEL_HURDLE"),
+  capFull: env.num("KERNEL_CAP_FULL"),
+  capProbe: env.num("KERNEL_CAP_PROBE"),
+  promoteMinTrades: env.int("PROMOTE_MIN_TRADES"),
+  maxDdFrac: env.num("PROMOTE_MAX_DD_FRAC"),
 };
 
 export type Stats = { n: number; sum: number; sq: number; rets: number[]; max_dd: number };
@@ -58,7 +58,7 @@ export function stageOf(s: Stats, bookSol: number): "ghost" | "probe" | "full" {
   const part = (r: number[]): Stats => ({ n: r.length, sum: r.reduce((a, b) => a + b, 0), sq: r.reduce((a, b) => a + b * b, 0), rets: r, max_dd: 0 });
   const ok = lcb(part(s.rets.slice(0, half))) > K.hurdle && lcb(part(s.rets.slice(half))) > K.hurdle;
   if (!ok) return "ghost";
-  return s.n >= K.promoteMinTrades + env.int("PROMOTE_FULL_EXTRA_TRADES", 20) ? "full" : "probe";
+  return s.n >= K.promoteMinTrades + env.int("PROMOTE_FULL_EXTRA_TRADES") ? "full" : "probe";
 }
 
 export type Allocation = { strategy_id: string; n: number; mean: number | null; lcb: number | null; sample: number; share: number; stage: string };

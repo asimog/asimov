@@ -30,9 +30,9 @@ export function specsFromEnv(): EndpointSpec[] {
     ? raw.split(",").map((s) => s.trim()).filter(Boolean).map((s) => {
         const [name, rps, ...rest] = s.split("|");
         const N = name!.toUpperCase();
-        return { name: name!, rps: Number(rps), url: rest.join("|"), deny: list(env.opt(`RPC_DENY_${N}`)), budget: env.num(`RPC_BUDGET_${N}`, 0), cost: env.num(`RPC_COST_${N}`, 1) };
+        return { name: name!, rps: Number(rps), url: rest.join("|"), deny: list(env.opt(`RPC_DENY_${N}`)), budget: env.numOpt(`RPC_BUDGET_${N}`) ?? Number.POSITIVE_INFINITY, cost: env.numOpt(`RPC_COST_${N}`) ?? 1 };
       })
-    : env.opt("RPC_URL") ? [{ name: "rpc", rps: env.num("RPC_RPS", 5), url: env.str("RPC_URL") }] : [];
+    : env.opt("RPC_URL") ? [{ name: "rpc", rps: env.num("RPC_RPS"), url: env.str("RPC_URL") }] : [];
   return specs.filter((s) => s.url); // a provider whose URL is not in .env.local is dropped
 }
 
@@ -41,9 +41,9 @@ const monthOf = (ms: number) => new Date(ms).toISOString().slice(0, 7);
 export class RpcPool {
   private eps: Endpoint[];
   private id = 0;
-  private readonly timeoutMs = env.int("RPC_TIMEOUT_MS", 8000);
+  private readonly timeoutMs = env.int("RPC_TIMEOUT_MS");
   private readonly maxTries: number;
-  private readonly stop = env.num("RPC_BUDGET_STOP", 0.95);
+  private readonly stop = env.num("RPC_BUDGET_STOP");
   private readonly usageFile: string | null;
   private readonly nowMs: () => number;
   private readonly saveEveryMs: number;
@@ -52,8 +52,8 @@ export class RpcPool {
   stats: Record<string, { ok: number; failed: number }>;
 
   constructor(o: PoolOpts = {}) {
-    this.eps = (o.endpoints ?? specsFromEnv()).map((s) => ({ name: s.name, url: s.url, rps: s.rps, deny: new Set(s.deny ?? []), budget: s.budget ?? 0, cost: s.cost ?? 1, used: 0, nextFreeMs: 0, restUntilMs: 0, restMs: 0 }));
-    this.maxTries = o.maxTries ?? env.int("RPC_MAX_TRIES", 6);
+    this.eps = (o.endpoints ?? specsFromEnv()).map((s) => ({ name: s.name, url: s.url, rps: s.rps, deny: new Set(s.deny ?? []), budget: s.budget ?? Number.POSITIVE_INFINITY, cost: s.cost ?? 1, used: 0, nextFreeMs: 0, restUntilMs: 0, restMs: 0 }));
+    this.maxTries = o.maxTries ?? env.int("RPC_MAX_TRIES");
     this.nowMs = o.nowMs ?? Date.now;
     this.saveEveryMs = o.saveEveryMs ?? 5000;
     this.usageFile = o.usageFile === undefined ? path.join(env.root, "artifacts", "rpc-usage.json") : o.usageFile;
@@ -72,7 +72,7 @@ export class RpcPool {
   /** Units used this month against the budget, by endpoint name (ctl doctor). */
   usage() {
     this.roll();
-    return Object.fromEntries(this.eps.map((e) => [e.name, e.budget ? `${e.used}/${e.budget}` : `${e.used}/no cap`]));
+    return Object.fromEntries(this.eps.map((e) => [e.name, Number.isFinite(e.budget) ? `${e.used}/${e.budget}` : `${e.used}/no cap`]));
   }
 
   private load() {
@@ -104,7 +104,7 @@ export class RpcPool {
 
   /** May this endpoint take this call: method allowed by its plan, budget left under the stop line. */
   private eligible(e: Endpoint, method: string) {
-    return !e.deny.has(method) && (!e.budget || e.used + e.cost <= e.budget * this.stop);
+    return !e.deny.has(method) && e.used + e.cost <= e.budget * this.stop;
   }
 
   /** The first eligible endpoint that is not resting, waiting for its rate-limit slot; or the one that wakes soonest. */

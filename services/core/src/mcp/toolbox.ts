@@ -91,7 +91,7 @@ const Stance = z.enum(["bullish", "bearish", "neutral", "avoid"]);
 export const TOOLS: Tool[] = [
   // ----- reads -----
   tool("callouts_window", [CAP.synth, CAP.swarm, CAP.swarmRead], "Callouts seen in the last N minutes, hottest first.", { since_min: z.number().min(1).max(1440).default(60), limit: z.number().int().min(1).max(300).default(120) }, async (a, c) => {
-    const w = { like: env.num("W_LIKE", 1), comment: env.num("W_COMMENT", 2), share: env.num("W_SHARE", 3) };
+    const w = { like: env.num("W_LIKE"), comment: env.num("W_COMMENT"), share: env.num("W_SHARE") };
     const now = c.clock.now();
     const rows = await c.sql`
       select c.callout_id, c.mint, k.symbol, c.wallet, c.text, c.created_at, c.likes, c.replies, c.reposts, c.quotes,
@@ -146,7 +146,7 @@ export const TOOLS: Tool[] = [
     return { signals: rows };
   }),
 
-  tool("missed_waves", [CAP.propose], "Measured callouts that ran (net multiple at or above a bar at a horizon, coverage ok) on coins no strategy traded, after a cursor.", { min_net_multiple: z.number().min(1).default(env.num("POSTMORTEM_MISSED_MULT", 2)), horizon_min: z.number().int().default(5), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(50).default(20) }, async (a, c) => ({
+  tool("missed_waves", [CAP.propose], "Measured callouts that ran (net multiple at or above a bar at a horizon, coverage ok) on coins no strategy traded, after a cursor.", { min_net_multiple: z.number().min(1).default(env.num("POSTMORTEM_MISSED_MULT")), horizon_min: z.number().int().default(5), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(50).default(20) }, async (a, c) => ({
     events: await c.sql`select e.id, e.seen_time, e.subject, e.body from tape.events e
       where e.topic = 'outcome.measured' and e.seen_time <= ${c.clock.iso()} and (e.seen_time, e.id) > (${a.after_seen_time ?? "1970-01-01T00:00:00Z"}::timestamptz, ${a.after_id ?? ""})
         and (e.body->>'horizon_min')::int = ${a.horizon_min} and e.body->>'coverage' = 'ok' and (e.body->>'net_multiple')::float >= ${a.min_net_multiple}
@@ -184,10 +184,10 @@ export const TOOLS: Tool[] = [
     // the head is the last event from the world or the desk: thinking lanes write job events all the time and must not hide a stall
     const [h] = await c.sql`select max(seen_time) head from tape.events where source <> all(${LANE_SOURCES})`;
     const headAge = h?.head ? (now - (h.head as Date).getTime()) / 1000 : null;
-    if (headAge === null || headAge > env.num("DOCTOR_HEAD_STALL_S", 120)) findings.push({ code: "tape_stalled", severity: "page", scope: "tape", detail: headAge === null ? "tape is empty" : `no event for ${Math.round(headAge)} s` });
+    if (headAge === null || headAge > env.num("DOCTOR_HEAD_STALL_S")) findings.push({ code: "tape_stalled", severity: "page", scope: "tape", detail: headAge === null ? "tape is empty" : `no event for ${Math.round(headAge)} s` });
     for (const r of await c.sql`select consumer, last_seen_time from tape.consumer_offsets`) {
       const lag = headAge === null || !h?.head ? 0 : ((h.head as Date).getTime() - (r.last_seen_time as Date).getTime()) / 1000;
-      if (lag > env.num("DOCTOR_CONSUMER_LAG_S", 300)) findings.push({ code: "consumer_lag", severity: "warn", scope: r.consumer as string, detail: `${Math.round(lag)} s behind the head` });
+      if (lag > env.num("DOCTOR_CONSUMER_LAG_S")) findings.push({ code: "consumer_lag", severity: "warn", scope: r.consumer as string, detail: `${Math.round(lag)} s behind the head` });
     }
     const gaps = await c.sql`select body->>'source' source, count(*)::int n from tape.events where topic = 'system.gap' and seen_time > ${new Date(now - 900_000).toISOString()} group by 1`;
     for (const g of gaps) findings.push({ code: "data_gap", severity: "warn", scope: g.source as string, detail: `${g.n} gaps in 15 min` });

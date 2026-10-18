@@ -11,7 +11,7 @@ export async function natsConnect(which: Which, now: () => number, onGap: (fromM
   const pass = which === "trades" ? env.str("PUMP_NATS_PASS") : env.str("PUMP_NATS_FEED_PASS");
   const nc = await wsconnect({
     servers,
-    user: env.str("PUMP_NATS_USER", "subscriber"),
+    user: env.str("PUMP_NATS_USER"),
     pass,
     name: `asimog-${which}`,
     maxReconnectAttempts: -1,

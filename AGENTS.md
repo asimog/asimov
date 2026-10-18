@@ -23,7 +23,7 @@ One rule shapes the code: **everything meets on the Tape.** Senses write input e
 | `services/core/src/hands/` | Thesis, Publisher (paper callouts, updates, data replies), text checks | built (paper) |
 | `services/core/src/scorekeeper/` | Outcomes (`ov2`), Brier scores, caller ledger, coverage | built |
 | `services/core/src/hunt/` | Case files with evidence classes | built |
-| `services/core/src/cli/ctl.ts` | `ctl state, why, tail, doctor, case, callers, coverage, house, index` | built |
+| `services/core/src/cli/ctl.ts` | `ctl state, why, tail, doctor, case, callers, coverage, house, index, limits, lists, kill, resume` | built |
 | `services/core/src/runtime.ts` | The one consumer list (`buildConsumers`), live and replay | built |
 | `services/relay/` | Public SSE fan-out, read-only | built |
 | `apps/web/` | Next.js + R3F site (the Field) | scaffold |

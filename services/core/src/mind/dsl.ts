@@ -34,9 +34,9 @@ export const CATALOG: Record<string, SigInfo> = {
 
 /** Compressed horizons (docs/08): the longest a position of each horizon may be held. */
 export const HORIZON_MAX_MIN = {
-  fast: env.num("HORIZON_FAST_MIN", 3),
-  medium: env.num("HORIZON_MEDIUM_MIN", 10),
-  slow: env.num("HORIZON_SLOW_MIN", 30),
+  fast: env.num("HORIZON_FAST_MIN"),
+  medium: env.num("HORIZON_MEDIUM_MIN"),
+  slow: env.num("HORIZON_SLOW_MIN"),
 } as const;
 export type Horizon = keyof typeof HORIZON_MAX_MIN;
 

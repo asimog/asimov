@@ -61,6 +61,10 @@ On both profiles, `ctl doctor` probes the signer from the public side and fails 
 
 Never print secrets. Never commit `.env`. Never put a secret in a prompt.
 
+## Config
+
+Every env key has exactly one default, in `.env.example`; `.env.local` overrides and the process env wins. Code never carries a fallback: `env.num`, `env.int`, `env.bool` and `env.str` throw on a missing or malformed value and name the key, so boot stops instead of running with a silent `NaN` or `0`. Keys built at runtime (one per RPC endpoint or lane, such as `RPC_BUDGET_<NAME>`) use `env.numOpt`: unset means no cap, `0` means zero.
+
 ## Kill switch and pauses
 
 | Command | Effect | Who |
@@ -68,7 +72,7 @@ Never print secrets. Never commit `.env`. Never put a secret in a prompt.
 | `ctl pause hands` | Trader and Publisher stop taking new work; open orders finish | Owner, Ops agent |
 | `ctl kill` | `halted`: nothing trades or signs, pending orders fail, senses and the Tape keep recording. Writes `artifacts/KILL` itself, so it works with core down | Owner |
 | `ctl resume` | Back to `running` | Owner (admin token) |
-| Limits or budget caps change | New version in config | Owner (admin token) |
+| `ctl limits set <key> <value>` and `ctl lists load <kind> <file>` | New version of the limits or a list, on the Tape | Owner (admin token) |
 
 Automatic kill triggers move the firm to `exit_only` (no new buys; exits keep running so no position is stranded): live daily loss stop hit, Signer refuses 3 requests in 10 min, 3 live fills drifting 3x or more from their ghost twin within an hour, Feed Reader gap longer than 5 min while positions are open, a failed reconciliation, the Ops agent's `ops.stop_requested`.
 

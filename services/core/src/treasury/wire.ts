@@ -42,11 +42,11 @@ export function treasuryWiring(sql: Sql, tape: Tape, clock: Clock): Treasury | n
   return {
     consumers,
     start() {
-      timers.push(setInterval(guard("trader.retry", () => tr.retry()), env.int("TRADER_RETRY_EVERY_MS", 2_000)));
-      timers.push(setInterval(guard("reconcile", () => reconcile(sql, tape, chain, bk, wallets, hourOf(clock.iso()))), env.num("RECONCILE_EVERY_MIN", 60) * 60_000));
+      timers.push(setInterval(guard("trader.retry", () => tr.retry()), env.int("TRADER_RETRY_EVERY_MS")));
+      timers.push(setInterval(guard("reconcile", () => reconcile(sql, tape, chain, bk, wallets, hourOf(clock.iso()))), env.num("RECONCILE_EVERY_MIN") * 60_000));
       if (creator && agent && operator && mint && env.opt("SIGNER_CLIENT_TOKEN_TREASURY")) {
-        const deps = { tape, clock, chain, builder: new FunBlock(), signer: treasurySigner, wallets: { trade, creator, agent, operator }, mint, runwayLamports: () => Math.round(env.num("AGENT_RUNWAY_SOL", 0) * 1e9) };
-        timers.push(setInterval(guard("sweep", () => sweep(deps, sweepIdAt(clock.now()))), env.num("SWEEP_EVERY_MIN", 10) * 60_000));
+        const deps = { tape, clock, chain, builder: new FunBlock(), signer: treasurySigner, wallets: { trade, creator, agent, operator }, mint, runwayLamports: () => Math.round(env.num("AGENT_RUNWAY_SOL") * 1e9) };
+        timers.push(setInterval(guard("sweep", () => sweep(deps, sweepIdAt(clock.now()))), env.num("SWEEP_EVERY_MIN") * 60_000));
         timers.push(setInterval(guard("proof", () => publishProof({ sql, tape, chain, signer: treasurySigner, agent }, hourOf(new Date(clock.now() - 3_600_000).toISOString()))), 60 * 60_000));
       }
     },

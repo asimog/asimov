@@ -82,12 +82,12 @@ export type ReflexTrigger = Consumer & { stats: Record<string, number>; budget: 
 export function reflexTrigger(tape: Tape, clock: Clock): ReflexTrigger {
   const key = env.opt("TYPESAFE_API_KEY");
   const client = key ? new TypeSafeClient({ apiKey: key }) : null;
-  const model = env.str("JEV_MODEL", "jev-1.14.0");
-  const budget = new Budget(env.int("JEV_TOKENS_PER_HOUR", 1_500_000));
-  const maxInFlight = env.int("JEV_CONCURRENCY", 4);
-  const queueMax = env.int("JEV_QUEUE_MAX", 64);
-  const maxAgeMs = env.int("JEV_MAX_AGE_S", 60) * 1000;
-  const minFollowers = env.int("JEV_CALLOUT_MIN_FOLLOWERS", 0);
+  const model = env.str("JEV_MODEL");
+  const budget = new Budget(env.int("JEV_TOKENS_PER_HOUR"));
+  const maxInFlight = env.int("JEV_CONCURRENCY");
+  const queueMax = env.int("JEV_QUEUE_MAX");
+  const maxAgeMs = env.int("JEV_MAX_AGE_S") * 1000;
+  const minFollowers = env.int("JEV_CALLOUT_MIN_FOLLOWERS");
   type Job = { pack: PackName; subject: string; state: Record<string, ContentValue>; causes: string[] };
   const queue: Job[] = [];
   let inFlight = 0;
@@ -108,7 +108,7 @@ export function reflexTrigger(tape: Tape, clock: Clock): ReflexTrigger {
     inFlight++;
     const t0 = performance.now();
     try {
-      const r = await client!.systemOne({ model, state, questions: PACKS[pack].questions }, { timeout: env.int("JEV_TIMEOUT_MS", 4000) });
+      const r = await client!.systemOne({ model, state, questions: PACKS[pack].questions }, { timeout: env.int("JEV_TIMEOUT_MS") });
       stats.called++;
       stats.lastMs = Math.round(performance.now() - t0);
       lat.push(stats.lastMs);

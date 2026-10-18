@@ -110,13 +110,13 @@ export class ChainReader {
   private async watchLoop() {
     while (!this.stopped) {
       try {
-        const hours = env.num("WATCH_HOURS", 6);
+        const hours = env.num("WATCH_HOURS");
         // coins called or promoted in the window, most recent first; a coin called again comes back
         const rows = await this.sql`
           select mint, max(at) at from (
             select mint, seen_at at from mem.callouts where seen_at > now() - make_interval(hours => ${hours})
             union all select mint, watched_at from mem.coins where watched_at > now() - make_interval(hours => ${hours})) x
-          group by mint order by at desc limit ${env.int("WATCH_MAX_COINS", 250)}`;
+          group by mint order by at desc limit ${env.int("WATCH_MAX_COINS")}`;
         const want = new Set(rows.map((r) => subject(r.mint as string)));
         for (const [s, sub] of this.subs)
           if (!want.has(s)) {

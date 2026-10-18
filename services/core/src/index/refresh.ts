@@ -8,14 +8,14 @@ import { pumpGet } from "../senses/pump-http.ts";
 import type { Tape } from "../tape/tape.ts";
 
 const P = {
-  windowDays: env.num("INDEX_WINDOW_DAYS", 30),
-  halfLifeDays: env.num("INDEX_HALF_LIFE_DAYS", 7),
-  minAgeMin: env.num("INDEX_MIN_AGE_MIN", 30), // a buy younger than this has no outcome yet
-  minCoins: env.int("INDEX_MIN_COINS", 8),
-  minCoinsSeed: env.int("INDEX_MIN_COINS_SEED", 3),
-  smartMax: env.int("INDEX_SMART_MAX", 500),
-  cost: env.num("INDEX_ROUND_TRIP_COST", 0.03), // fees both ways plus slippage at 0.02 SOL (docs/21 cost floor)
-  sniperShare: env.num("INDEX_SNIPER_SHARE", 0.5),
+  windowDays: env.num("INDEX_WINDOW_DAYS"),
+  halfLifeDays: env.num("INDEX_HALF_LIFE_DAYS"),
+  minAgeMin: env.num("INDEX_MIN_AGE_MIN"), // a buy younger than this has no outcome yet
+  minCoins: env.int("INDEX_MIN_COINS"),
+  minCoinsSeed: env.int("INDEX_MIN_COINS_SEED"),
+  smartMax: env.int("INDEX_SMART_MAX"),
+  cost: env.num("INDEX_ROUND_TRIP_COST"), // fees both ways plus slippage at 0.02 SOL (docs/21 cost floor)
+  sniperShare: env.num("INDEX_SNIPER_SHARE"),
 };
 
 type Smart = BodyOf<"index.refreshed">["smart"][number];

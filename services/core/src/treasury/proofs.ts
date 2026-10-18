@@ -44,7 +44,7 @@ export async function publishProof(d: ProofDeps, hour: string) {
     hash = sha(body);
     await sql`insert into books.proofs (n, hour, sha256, prev_sha256, body) values (${n}, ${hour}, ${hash}, ${body.prev_sha256}, ${sql.json(body as never)})`;
   }
-  if (!memoSig && env.bool("PROOF_MEMO", true)) {
+  if (!memoSig && env.bool("PROOF_MEMO")) {
     try {
       const signed = await d.signer.sign("/sign/memo", await proofMemoTx(d.chain, d.agent, hash));
       if (signed.ok) {

@@ -55,7 +55,8 @@ Roles: `core_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` the
 | `desk_clock` | name pk (next_alloc, next_evolve), at, round. Periodic rounds run on Tape time. |
 | `outcome_watch` | callout pk, the callout's event id, mint, author, created_at (platform time), at (`t0`, our seen time), probs jsonb (probability signals at callout time), done int[] (resolved horizons). Prices are read from the Tape at resolution (docs/07) |
 | `scores` | (kind, horizon_min) pk, n, brier_sum, hits, p_sum |
-| `limits` | `version` pk, body jsonb, set_by, set_at | Only the admin path inserts. |
+| `limits` | `version` pk, body jsonb, set_by, set_at | Only the admin path (`ctl limits set`) inserts. A version holds every key set so far; unset keys use `DEFAULT_LIMITS`. |
+| `lists` | (kind, version) pk, items text[], set_by, set_at | Owner lists (`ctl lists load`); the newest version of each kind is in force. |
 
 ## money
 

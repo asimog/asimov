@@ -4,7 +4,7 @@
 // Default: LIVE_STRATEGIES is empty, so nothing here ever fires until the owner says so (S6.8).
 import type { Envelope } from "@asimog/contracts";
 import { quoteFor } from "../mind/fill.ts";
-import { type Book, bookFrom, DEFAULT_LIMITS, type GateRisk, type Limits, riskGate } from "../mind/risk.ts";
+import { type Book, bookFrom, type GateRisk, loadLimits, riskGate } from "../mind/risk.ts";
 import { curveFromPrice } from "../analyzers/curve-math.ts";
 import { liveFor } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
@@ -34,8 +34,10 @@ export function orderGate(tape: Tape, clock: Clock, wallets: { trade: string }, 
     const b = ie.body as { strategy_id: string; mint: string; side: "buy" | "sell"; size_sol: number | null; fraction: number | null };
     const e = fill;
     const now = Date.parse(e.seen_time);
-    const [lim] = await tx`select version, body from mind.limits order by version desc limit 1`;
-    const limits: Limits = { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits> | undefined) ?? {}) };
+    const [lim] = await tx`select version from mind.limits order by version desc limit 1`;
+    const limits = await loadLimits(tx);
+    const [coin] = b.side === "buy" ? await tx`select creator from idx.coin where mint = ${b.mint}` : [];
+    const [call] = b.side === "buy" ? await tx`select wallet from mem.callouts where mint = ${b.mint} order by created_at limit 1` : [];
     const [dup] = await tx`select 1 from tape.events c where c.topic = 'order.created' and c.body->>'mint' = ${b.mint} and c.body->>'strategy_id' = ${b.strategy_id}
       and c.seen_time > ${new Date(now - 600_000).toISOString()} and not exists (select 1 from hands.orders h where h.order_id = c.subject and h.state in ('filled', 'failed'))`;
     let quote = null;
@@ -49,7 +51,7 @@ export function orderGate(tape: Tape, clock: Clock, wallets: { trade: string }, 
         quote = { at_ms: (t.seen_time as Date).getTime(), impact_bps: q.impact_bps, real_sol: graduated ? null : curveFromPrice(t.p as number).realSol, graduated, risk: (board["risk.state"]?.value as GateRisk | undefined) ?? null };
       }
     }
-    const g = riskGate({ id: intentId, mint: b.mint, side: b.side, size_sol: b.size_sol ?? 0, duplicate: !!dup }, await book(tx, now), limits, quote, { kill: await killState(tx), mode_ok: cfg.live(), strategy_live: liveSet.has(b.strategy_id) } /* handle() already skips both; passed for real so the gate checks them too */, now);
+    const g = riskGate({ id: intentId, mint: b.mint, side: b.side, size_sol: b.size_sol ?? 0, duplicate: !!dup, creator: (coin?.creator as string | null) ?? null, caller: (call?.wallet as string | undefined) ?? null }, await book(tx, now), limits, quote, { kill: await killState(tx), mode_ok: cfg.live(), strategy_live: liveSet.has(b.strategy_id) } /* handle() already skips both; passed for real so the gate checks them too */, now);
     if (!g.ok) return void (await tape.emitIn(tx, "order.rejected", { intent_id: intentId, reason_code: g.reason_code, detail: g.detail }, { source: "riskgate.live", subject: intentId, causes: [e.id], after: e.seen_time }));
     const orderId = clock.id("order");
     await tape.emitIn(tx, "order.created", { order_id: orderId, intent_id: intentId, strategy_id: b.strategy_id, mint: b.mint, side: b.side, size_sol: b.size_sol, fraction: b.fraction, max_slippage_bps: limits.max_slippage_bps, limits_version: Number(lim?.version ?? 0) },

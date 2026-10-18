@@ -5,12 +5,12 @@ import type { BodyOf, Envelope } from "@asimog/contracts";
 import { putSignal } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
-import { DEFAULT_LIMITS, type Limits } from "../mind/risk.ts";
+import { loadLimits } from "../mind/risk.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 
 const TRADES = ["trade.curve", "trade.amm"];
 const MIN = 60_000;
-const SMART_WINDOW_MIN = env.num("SMART_WINDOW_MIN", 5);
+const SMART_WINDOW_MIN = env.num("SMART_WINDOW_MIN");
 type Smart = BodyOf<"index.refreshed">["smart"][number];
 const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[(xs.length - 1) >> 1]! : null);
 
@@ -38,8 +38,7 @@ export function indexSignals(clock: Clock): Consumer {
         from tape.events where subject = ${mint} and topic = any(${TRADES}) and body->>'wallet' = ${f.creator} and seen_time <= ${e.seen_time}`;
       if ((s!.bought as number) > 0) creatorSold = Math.max(creatorSold, Math.min(1, (s!.sold as number) / (s!.bought as number)));
     }
-    const [lim] = await tx`select body from mind.limits order by version desc limit 1`;
-    const L: Limits = { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits>) ?? {}) };
+    const L = await loadLimits(tx, e.seen_time);
     const top10 = h ? (h.body as BodyOf<"holders.snapshot">).top10_share : null;
     const ratios = [f.bundle_share / L.max_bundle_share, (top10 ?? 0) / L.max_top10_share, f.fresh_share / L.max_fresh_share, creatorSold / L.max_creator_sold];
     await putSignal(tx, clock, {

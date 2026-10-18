@@ -34,7 +34,7 @@ export class RpcChain implements Chain {
   constructor(private url = env.str("TX_SEND_URL")) {}
 
   private async rpc<T>(method: string, params: unknown[]): Promise<T> {
-    const res = await fetch(this.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }), signal: AbortSignal.timeout(env.int("TX_RPC_TIMEOUT_MS", 10_000)) });
+    const res = await fetch(this.url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }), signal: AbortSignal.timeout(env.int("TX_RPC_TIMEOUT_MS")) });
     const j = (await res.json()) as { result?: T; error?: { message: string } };
     if (j.error) throw new Error(`${method}: ${j.error.message}`);
     return j.result as T;

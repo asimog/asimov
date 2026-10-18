@@ -14,17 +14,17 @@ import { type BoardValues, evaluateEntry, type Spec, validate, whenHolds } from 
 import { evolve, type Member } from "./evolve.ts";
 import { F, fillBuy, fillSell, type Market, quoteFor, sampleLatencyMs } from "./fill.ts";
 import { allocate, lcb, type Stats } from "./kernel.ts";
-import { type Book, bookFrom, DEFAULT_LIMITS, type GateRisk, type Limits, riskGate } from "./risk.ts";
+import { type Book, bookFrom, DEFAULT_LIMITS, type GateRisk, type Limits, loadLimits, riskGate } from "./risk.ts";
 import { seedSpecs } from "./seeds.ts";
 
 const D = {
-  bookSol: env.num("GHOST_BOOK_SOL", 0.2),
-  evalMinMs: env.int("EVAL_MIN_MS", 5000),
-  entryWindowMs: env.int("ENTRY_WINDOW_MIN", 10) * 60_000,
-  reentryMs: env.int("REENTRY_COOLDOWN_S", 60) * 1000,
-  sweepMs: env.int("SWEEP_MS", 5000),
-  allocateMs: env.int("ALLOCATE_EVERY_S", 120) * 1000,
-  evolveMs: env.int("EVOLVE_EVERY_S", 120) * 1000,
+  bookSol: env.num("GHOST_BOOK_SOL"),
+  evalMinMs: env.int("EVAL_MIN_MS"),
+  entryWindowMs: env.int("ENTRY_WINDOW_MIN") * 60_000,
+  reentryMs: env.int("REENTRY_COOLDOWN_S") * 1000,
+  sweepMs: env.int("SWEEP_MS"),
+  allocateMs: env.int("ALLOCATE_EVERY_S") * 1000,
+  evolveMs: env.int("EVOLVE_EVERY_S") * 1000,
   markouts: [1, 10, 60, 300] as const,
 };
 const MK_KEYS = { 1: "h1s", 10: "h10s", 60: "h60s", 300: "h5m" } as const;
@@ -73,8 +73,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   /** Rebuild every cache in the order an uninterrupted run would have built it: map order decides iteration and RNG draws. */
   async function load(tx: Tx) {
     for (const m of [strategies, st, open, closedToday, realized, pending, fills, market, coinCallout, calloutMint, coinPrecall, lastEval, lastExit] as Map<unknown, unknown>[]) m.clear();
-    const [lim] = await tx`select body from mind.limits order by version desc limit 1`;
-    limits = { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits>) ?? {}) };
+    limits = await loadLimits(tx);
     for (const r of await tx`select id, spec, born_at from mind.strategies where retired_at is null order by born_at, id`)
       strategies.set(r.id as string, { spec: r.spec as Spec, born_ms: (r.born_at as Date).getTime() });
     for (const r of await tx`select * from mind.stats order by strategy_id`)
@@ -452,7 +451,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
       await newIntent(tx, { strategy_id: spec.id, mint, side: "buy", size_sol: size, tokens: null, position_id: null, reason: "entry", created_ms: now, score: d.score },
         [`score ${d.score.toFixed(3)} >= ${spec.enter_if.score_gte.toFixed(3)}`, `edge ${d.edge_bps.toFixed(0)} bps > cost ${d.cost_bps.toFixed(0)} bps`],
         { terms: d.terms, edge_bps: d.edge_bps, cost_bps: d.cost_bps, callout_id: cc?.callout_id ?? null, caller: callerOf(mint) },
-        e, () => riskGate({ id: "", mint, side: "buy", size_sol: size, duplicate: false }, book(spec.id, now), limits,
+        e, () => riskGate({ id: "", mint, side: "buy", size_sol: size, duplicate: false, caller: callerOf(mint) }, book(spec.id, now), limits,
           { at_ms: m.at_ms, impact_bps: q.impact_bps, real_sol: m.real_sol, graduated: m.graduated, risk: (board["risk.state"] as GateRisk | undefined) ?? null }, { kill: "running", mode_ok: true, strategy_live: true }, now));
     }
   }
@@ -461,7 +460,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   return {
     name: "desk",
     startAtHead: true,
-    topics: ["callout.created", "jev.answer", "trade.curve", "trade.amm"],
+    topics: ["callout.created", "jev.answer", "trade.curve", "trade.amm", "limits.changed", "lists.loaded"],
     batch: 500,
     stats,
     async handle(events, tx) {
@@ -470,6 +469,10 @@ export function desk(tape: Tape, clock: Clock): Desk {
         for (const e of events) {
           const now = Date.parse(e.seen_time);
           clock.advance?.(now);
+          if (e.topic === "limits.changed" || e.topic === "lists.loaded") {
+            limits = await loadLimits(tx, e.seen_time);
+            continue;
+          }
           await rounds(tx, e, now);
           if (e.topic === "callout.created") {
             const b = e.body as BodyOf<"callout.created">;

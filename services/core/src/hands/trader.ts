@@ -4,7 +4,7 @@
 // and an order with a stored signature is only ever confirmed again, never rebuilt (docs/25 5.3). retry() drives
 // unconfirmed orders, sells that failed and closes that failed.
 import type { Envelope } from "@asimog/contracts";
-import { DEFAULT_LIMITS, type Limits } from "../mind/risk.ts";
+import { type Limits, loadLimits } from "../mind/risk.ts";
 import { env } from "../lib/env.ts";
 import type { Clock } from "../lib/clock.ts";
 import type { Sql } from "../lib/db.ts";
@@ -21,18 +21,15 @@ type Order = { order_id: string; intent_id: string; strategy_id: string; mint: s
 export type Trader = Consumer & { retry(): Promise<number> };
 
 const lam = (sol: number) => Math.round(sol * LAMPORTS);
-const RENT_ALLOWANCE = () => env.int("TRADER_RENT_ALLOWANCE_LAMPORTS", 2_100_000); // a first buy also pays for the token account
-const HEADROOM = () => env.int("TRADER_HEADROOM_LAMPORTS", 100_000); // priority fee and network fee room on top of the buy
-const GIVE_UP_MS = () => env.int("TRADER_GIVE_UP_MS", 120_000); // past this a sent transaction's blockhash has expired: it can no longer land
-const SELL_ATTEMPTS = () => env.int("TRADER_SELL_ATTEMPTS", 5);
-const RETRY_BASE_MS = () => env.int("TRADER_RETRY_BASE_MS", 2_000);
+const RENT_ALLOWANCE = () => env.int("TRADER_RENT_ALLOWANCE_LAMPORTS"); // a first buy also pays for the token account
+const HEADROOM = () => env.int("TRADER_HEADROOM_LAMPORTS"); // priority fee and network fee room on top of the buy
+const GIVE_UP_MS = () => env.int("TRADER_GIVE_UP_MS"); // past this a sent transaction's blockhash has expired: it can no longer land
+const SELL_ATTEMPTS = () => env.int("TRADER_SELL_ATTEMPTS");
+const RETRY_BASE_MS = () => env.int("TRADER_RETRY_BASE_MS");
 const FULL_EXIT = 0.999; // a fraction this close to 1 sells the whole on-chain balance, so no dust holds the slot
 const memoOf = (o: Order, attempt: number) => (attempt ? `asimog:${o.order_id}:r${attempt}` : `asimog:${o.order_id}`);
 
-async function limitsOf(tx: Tx): Promise<Limits> {
-  const [lim] = await tx`select body from mind.limits order by version desc limit 1`;
-  return { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits> | undefined) ?? {}) };
-}
+const limitsOf = (tx: Tx) => loadLimits(tx);
 
 /** The Trader re-checks what it is told: size and slippage never pass the owner's limits, whatever the event says. */
 function clamp(o: Order, L: Limits): Order {
@@ -41,7 +38,7 @@ function clamp(o: Order, L: Limits): Order {
 
 export function trader(d: TraderDeps): Trader {
   const { tape, chain, wallet } = d;
-  const confirmMs = d.confirmMs ?? env.int("TRADER_CONFIRM_MS", 30_000);
+  const confirmMs = d.confirmMs ?? env.int("TRADER_CONFIRM_MS");
   const at = () => d.clock.iso();
 
   async function setState(tx: Tx | Sql, o: Order, state: string, sig: string | null, attempt: number, nextAt: string | null = null) {

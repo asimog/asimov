@@ -10,22 +10,22 @@ import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 
 const HORIZONS = (env.opt("OUTCOME_HORIZONS_MIN") ?? "1,3,5").split(",").map(Number);
-const SCORE_EVERY_MS = env.int("SCORE_EVERY_S", 60) * 1000;
-const STALE_MS = env.int("ENTRY_STALE_S", 60) * 1000;
-const GRACE_MS = env.int("OUTCOME_GRACE_S", 60) * 1000;
-export const REF_SOL = env.num("OUTCOME_REF_SOL", 0.02);
+const SCORE_EVERY_MS = env.int("SCORE_EVERY_S") * 1000;
+const STALE_MS = env.int("ENTRY_STALE_S") * 1000;
+const GRACE_MS = env.int("OUTCOME_GRACE_S") * 1000;
+export const REF_SOL = env.num("OUTCOME_REF_SOL");
 const PROB_KINDS = ["hawkes.wave_p", "callers.wave_p"];
 const PRECALL = "precall.callout_p";
 // docs/24 P8: the swarm's wave probability is scored too. Hit: SWARM_WAVE_CALLERS or more distinct callers call the coin
 // within SWARM_HORIZON_MIN after the run (the same wave the swarm counted, measured on the real feed).
 const SWARM = "swarm.wave_p";
-const SWARM_H = env.int("SWARM_HORIZON_MIN", 120);
-const SWARM_WAVE = env.int("SWARM_WAVE_CALLERS", 5);
+const SWARM_H = env.int("SWARM_HORIZON_MIN");
+const SWARM_WAVE = env.int("SWARM_WAVE_CALLERS");
 // docs/24 P8: BettaFish's coin stance, read as P(price up at STANCE_H): bullish 1, bearish and avoid 0, neutral 0.5.
 // Hit: the last price seen at the horizon is above the last price seen at the stance. For a decisive stance the Brier
 // score is the miss rate, so 1 - brier is its accuracy. A coin with no trade on either side is not scored.
 const SYNTH = "synthesis.coin";
-const STANCE_H = env.int("STANCE_HORIZON_MIN", 60);
+const STANCE_H = env.int("STANCE_HORIZON_MIN");
 /** Decisive stances that were right (n, hits only); not a probability, so it is never published as a Brier score. */
 export const STANCE_RIGHT = "synthesis.coin.right";
 

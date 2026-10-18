@@ -8,9 +8,9 @@ import { env } from "../lib/env.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 
 const P = {
-  horizonMin: env.num("PRECALL_HORIZON_MIN", 5),
-  priorN: env.num("PRECALL_PRIOR_N", 4),
-  peakAt: env.num("PRECALL_PEAK_MULT", 1.2),
+  horizonMin: env.num("PRECALL_HORIZON_MIN"),
+  priorN: env.num("PRECALL_PRIOR_N"),
+  peakAt: env.num("PRECALL_PEAK_MULT"),
 };
 const TRADES = ["trade.curve", "trade.amm"];
 const MIN = 60_000;

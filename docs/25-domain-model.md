@@ -181,7 +181,7 @@ Each job has a stage (docs/26 section 9): 0 math and Jev, 1 nano synthesis, 2 li
 
 Lists are the owner's supplied sets. The code ships with every list empty. Wallet lists, private keys and callout tapes arrive later from the owner. Keys never go in a list: only the Signer holds keys.
 
-Status: PLANNED (fix plan Phase 2). Today the only list is `Limits.blocklist` and `Limits.own_mints`, both mint lists inside `mind.limits`, which nothing writes.
+Status: PARTIAL (fix plan Phase 2). `ctl lists load` stores every kind in `mind.lists` and the Risk Gate reads `blocked_creators`, `blocked_wallets` (as the caller of the coin), `blocked_mints` and `own_mints`. The Index and pre-call analyzer do not read `smart_wallets` or `caller_wallets` yet, and `blocked_wallets` does not raise `risk.state` yet.
 
 | Kind | Members | Meaning | Who reads it |
 |---|---|---|---|
@@ -194,8 +194,8 @@ Status: PLANNED (fix plan Phase 2). Today the only list is `Limits.blocklist` an
 
 Rules:
 
-1. A list is loaded only through the admin path: `ctl lists load <kind> <file> --token <admin>`. The file is one address per line, or CSV with a `source` column. Each load writes a new version and emits `lists.loaded` with the kind, version, count and file hash, never the members.
-2. Every address is validated as base58 on the ed25519 curve or as a mint address before loading. Invalid lines are reported, not dropped silently.
+1. A list is loaded only through the admin path: `ctl lists load <kind> <file> --token <admin>`. The file is one address per line; `#` starts a comment. Each load writes a new version and emits `lists.loaded` with the kind, version, count and file hash, never the members.
+2. Every address is validated as base58 on the ed25519 curve or as a mint address before loading. A file with an invalid line is refused whole and the line is named. (The curve check is not built; the format check is.)
 3. A list member never changes a number in code. It changes which rule applies. Blocked means refused. Smart means scored with a lower evidence floor, never trusted unscored.
 4. Lists are read as of the decision time, so a replay uses the list version that was active then.
 5. Refreshing from outside sources (leaderboards, public APIs) writes to a separate kind with its own `source`, never into the owner's lists.
@@ -210,11 +210,11 @@ Rules that must always hold. "Enforced by" names the check that makes them true 
 | I2 | Every order passes the live gate. | Only `hands/order-gate.ts` writes `order.created`; no MCP tool can. | SHIPPED |
 | I3 | A live leg exists only after its ghost leg filled. | The live gate reads `intent.ghost_filled`, not `intent.created` (`kill` suite). | SHIPPED |
 | I4 | A paper event never changes live state. | The paper desk writes source `riskgate.paper`; the kill consumer trips on `riskgate.live` only (`kill` suite). | SHIPPED |
-| I5 | Limits and lists come from the owner's admin path, never from code. | None; no writer exists, so `DEFAULT_LIMITS` is the live set. | PLANNED |
+| I5 | Limits and lists come from the owner's admin path, never from code. | `ctl limits set` and `ctl lists load` with the admin token; `loadLimits` reads them as of the decision time; `DEFAULT_LIMITS` fills only unset keys (`owner-config` suite). | SHIPPED |
 | I6 | Nothing reads a row seen after the Clock's now. | Partly; see section 4. | PARTIAL |
 | I7 | Thinking agents never trade, sign, post or change limits. | MCP capability check on every call; no tool writes `order.*`. | SHIPPED |
 | I8 | Every public text passes one deterministic check. | Per tool; several fields skip it. | PARTIAL |
-| I9 | Every malformed config value stops boot. | `env.num` and `env.int` throw on a value that is not a finite number; the Signer does the same. One zod config module is fix plan Phase 2. | PARTIAL |
+| I9 | Every malformed config value stops boot. | Every key has one default in `.env.example`; `env.num`, `env.int`, `env.bool` and `env.str` throw on a missing or malformed value and name the key; the Signer does the same (`owner-config` suite). | SHIPPED |
 | I10 | A strategy pool is never empty. | None. | PLANNED |
 | I11 | Every slow run has a USD cap that stops it. | None in code. | PLANNED |
 | I12 | Keys never share a process with untrusted text or an LLM. | `docker-compose.yml` gives the engine container `.env.example` and a named list of the secrets it needs. | SHIPPED |
@@ -226,8 +226,6 @@ These topics do not exist yet. Each is added to `packages/contracts` and docs/04
 | Topic | Written by | Read by | For |
 |---|---|---|---|
 | `precall.detected` | pre-call analyzer | desk, Slow Bridge | Section 5.6, docs/26 section 9 |
-| `limits.changed` | `ctl limits set` | every gate reader | Section 7 I5 |
-| `lists.loaded` | `ctl lists load` | Index, gate, analyzers | Section 6 |
 | `slow.escalated` | the escalation gate | Slow Bridge | docs/26 section 9 |
 | `synthesis.partial` | Slow Bridge | analyzers.slow | docs/26 section 9 |
 

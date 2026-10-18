@@ -68,8 +68,8 @@ export class Backfill {
   private stopped = false;
   private hour = { bucket: -1, n: 0 };
   private readonly p = {
-    sigs: env.int("RPC_BACKFILL_SIGS", 200),
-    perHour: env.int("RPC_BACKFILL_TX_PER_HOUR", 3000),
+    sigs: env.int("RPC_BACKFILL_SIGS"),
+    perHour: env.int("RPC_BACKFILL_TX_PER_HOUR"),
   };
   stats = { coins: 0, calls: 0, trades: 0, overlap: 0, skipped_null: 0, decode_errors: 0, queued: 0 };
   /** The pool paces each endpoint and falls back between them (docs/15); this class only counts its hourly budget. */

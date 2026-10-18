@@ -20,8 +20,8 @@ export type SweepDeps = {
   runwayLamports: () => number;
 };
 
-const SPLIT_RESERVE = () => env.int("SWEEP_FEE_RESERVE_LAMPORTS", 20_000); // the creator wallet pays the split's fee out of what it collected
-export const sweepIdAt = (ms: number) => `sp_${Math.floor(ms / (env.num("SWEEP_EVERY_MIN", 10) * 60_000))}`;
+const SPLIT_RESERVE = () => env.int("SWEEP_FEE_RESERVE_LAMPORTS"); // the creator wallet pays the split's fee out of what it collected
+export const sweepIdAt = (ms: number) => `sp_${Math.floor(ms / (env.num("SWEEP_EVERY_MIN") * 60_000))}`;
 
 async function once(d: SweepDeps, memo: string, make: () => Promise<{ tx: string; endpoint: string; ctx: object } | null>): Promise<Parsed | null> {
   const have = await d.chain.findByMemo(d.wallets.creator, memo);
@@ -30,7 +30,7 @@ async function once(d: SweepDeps, memo: string, make: () => Promise<{ tx: string
   if (!m) return null;
   const signed = await d.signer.sign(m.endpoint, m.tx, m.ctx);
   if (!signed.ok) throw new Error(`signer_refused:${signed.reason}`);
-  return d.chain.confirm(await d.chain.send(signed.signed), env.int("TRADER_CONFIRM_MS", 30_000));
+  return d.chain.confirm(await d.chain.send(signed.signed), env.int("TRADER_CONFIRM_MS"));
 }
 
 export async function sweep(d: SweepDeps, id = sweepIdAt(d.clock.now())) {

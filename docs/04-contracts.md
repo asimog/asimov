@@ -77,6 +77,8 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `ledger.entry` | `entry_id`, `kind` (deposit, close_account, sweep_collect, sweep_split, memo, fee; fills are journaled by Books itself from `order.filled`), `tx_sig?`, `legs[{account, lamports}]` (debits positive, credits negative, sum 0). Accounts: `sol:<wallet>` (the chain balance), `pos:<mint>` (cost of tokens held), `rent:<wallet>`, `exp:fees`, `inc:creator_fees`, `ext:world`. |
 | `books.reconciled` | `hour`, `ok`, `wallets[{wallet, ledger_lamports, chain_lamports}]`, `degraded?` |
 | `kill.changed` | `state` (running, exit_only, halted), `reason`, `by` (owner, admin, daily_loss, signer_refusals, fill_drift, feed_gap, books, ops_stop) |
+| `limits.changed` | `version`, `key`, `value`, `by` (admin). Written by `ctl limits set`; the desk reloads its limits on it. |
+| `lists.loaded` | `kind` (smart_wallets, caller_wallets, blocked_creators, blocked_wallets, blocked_mints, own_mints), `version`, `count`, `sha256` of the members, `by` (admin). Never the members themselves. Written by `ctl lists load`. |
 | `proof.published` | `n`, `hour`, `sha256`, `prev_sha256`, `memo_sig?` |
 | `thesis.formed` | `thesis_id`, `mint`, `strategy_id`, `position_id`, `kind` (`pre_call`, `post_call`), `claims[{class, text}]`, `prediction{p, horizon_min, what}`, `plan{entry_price_sol, size_sol, ladder[{mult, sell}], stop, max_hold_min}`, `invalidation[]`, `commit_id` |
 | `post.queued` | `post_id`, `kind` (callout, update, reply), `mint`, `house_id` (our callout on the coin), `thesis_id` (null on updates), `text`, `checks[]` (rules passed), `because[]` (fill or position event ids), `paper` |

@@ -478,6 +478,11 @@ export const KILL_CAUSES = ["owner", "daily_loss", "signer_refusals", "fill_drif
 export const KILL_STATES = ["running", "exit_only", "halted"] as const;
 export type KillState = (typeof KILL_STATES)[number];
 export const KillChanged = z.object({ state: z.enum(KILL_STATES), reason: z.string(), by: z.enum([...KILL_CAUSES, "admin"]) });
+/** Owner lists (docs/25 section 6), loaded with `ctl lists load`; the Risk Gate reads the blocked and own ones. */
+export const LIST_KINDS = ["smart_wallets", "caller_wallets", "blocked_creators", "blocked_wallets", "blocked_mints", "own_mints"] as const;
+export type ListKind = (typeof LIST_KINDS)[number];
+export const LimitsChanged = z.object({ version: z.number().int(), key: z.string(), value: z.unknown(), by: z.literal("admin") });
+export const ListsLoaded = z.object({ kind: z.enum(LIST_KINDS), version: z.number().int(), count: z.number().int(), sha256: z.string(), by: z.literal("admin") });
 export const ProofPublished = z.object({ n: z.number().int(), hour: z.string(), sha256: z.string(), prev_sha256: z.string(), memo_sig: z.string().nullable() });
 
 export const TOPICS = {
@@ -508,6 +513,8 @@ export const TOPICS = {
   "fees.swept": FeesSwept,
   "books.reconciled": BooksReconciled,
   "kill.changed": KillChanged,
+  "limits.changed": LimitsChanged,
+  "lists.loaded": ListsLoaded,
   "proof.published": ProofPublished,
   "markout.measured": MarkoutMeasured,
   "commit.made": CommitMade,
