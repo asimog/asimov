@@ -270,6 +270,7 @@ create table if not exists mind.precall_watch (
   horizon_min int not null,
   done boolean not null default false
 );
+alter table mind.precall_watch add column if not exists kind text not null default 'precall.callout_p'; -- docs/24 P8: swarm.wave_p too
 create table if not exists mind.coin_precall (
   mint text primary key,
   caller text not null,

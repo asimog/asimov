@@ -16,12 +16,17 @@ const GRACE_MS = env.int("OUTCOME_GRACE_S", 60) * 1000;
 export const REF_SOL = env.num("OUTCOME_REF_SOL", 0.02);
 const PROB_KINDS = ["hawkes.wave_p", "callers.wave_p"];
 const PRECALL = "precall.callout_p";
+// docs/24 P8: the swarm's wave probability is scored too. Hit: SWARM_WAVE_CALLERS or more distinct callers call the coin
+// within SWARM_HORIZON_MIN after the run (the same wave the swarm counted, measured on the real feed).
+const SWARM = "swarm.wave_p";
+const SWARM_H = env.int("SWARM_HORIZON_MIN", 120);
+const SWARM_WAVE = env.int("SWARM_WAVE_CALLERS", 5);
 
 type Prob = { kind: string; p: number; n: number; horizon_min: number };
 type Watch = { callout_id: string; event_id: string; mint: string; author: string | null; created_ms: number; t0_ms: number; probs: Prob[]; done: number[] };
 type Outcome = BodyOf<"outcome.measured">;
 type Pt = { id: string; at: number; p: number; amm: boolean };
-type Pre = { signal_id: string; mint: string; at_ms: number; p: number; horizon_min: number };
+type Pre = { signal_id: string; kind: string; mint: string; at_ms: number; p: number; horizon_min: number };
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
@@ -90,7 +95,7 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
       const w: Watch = { callout_id: r.callout_id as string, event_id: r.event_id as string, mint: r.mint as string, author: r.author as string | null, created_ms: (r.created_at as Date).getTime(), t0_ms: (r.at as Date).getTime(), probs: r.probs as Prob[], done: r.done as number[] };
       (watches.get(w.mint) ?? watches.set(w.mint, []).get(w.mint)!).push(w);
     }
-    pre = (await tx`select * from mind.precall_watch where not done order by at, signal_id`).map((r) => ({ signal_id: r.signal_id as string, mint: r.mint as string, at_ms: (r.at as Date).getTime(), p: r.p as number, horizon_min: r.horizon_min as number }));
+    pre = (await tx`select * from mind.precall_watch where not done order by at, signal_id`).map((r) => ({ signal_id: r.signal_id as string, kind: r.kind as string, mint: r.mint as string, at_ms: (r.at as Date).getTime(), p: r.p as number, horizon_min: r.horizon_min as number }));
     const [c] = await tx`select at, signal_id from mind.precall_watch order by at desc, signal_id desc limit 1`;
     preCursor = c ? { at: (c.at as Date).toISOString(), id: c.signal_id as string } : { at: new Date(0).toISOString(), id: "" };
     const [s] = await tx`select max(seen_time) at from tape.events where topic = 'score.updated'`;
@@ -138,22 +143,23 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
     }
   }
 
-  /** Brier for precall.callout_p (docs/07 precall): hit = any callout on the coin within the horizon after the signal. */
+  /** Brier for precall.callout_p (docs/07 precall): hit = any callout on the coin within the horizon after the signal.
+   * And for swarm.wave_p (docs/24 P8): hit = SWARM_WAVE distinct callers call the coin within SWARM_H after the run. */
   async function precallTick(tx: Tx, nowIso: string) {
     const now = Date.parse(nowIso);
-    const fresh = await tx`select id, subject, produced_at, (value->>'p')::float p, (value->>'horizon_min')::int h from board.signals
-      where kind = ${PRECALL} and (produced_at, id) > (${preCursor.at}, ${preCursor.id}) and produced_at <= ${nowIso} order by produced_at, id`;
+    const fresh = await tx`select id, kind, subject, produced_at, coalesce(value->>'p', value->>'wave_p')::float p, coalesce((value->>'horizon_min')::int, ${SWARM_H}) h from board.signals
+      where kind in (${PRECALL}, ${SWARM}) and (produced_at, id) > (${preCursor.at}, ${preCursor.id}) and produced_at <= ${nowIso} order by produced_at, id`;
     for (const r of fresh) {
-      const w: Pre = { signal_id: r.id as string, mint: r.subject as string, at_ms: (r.produced_at as Date).getTime(), p: r.p as number, horizon_min: r.h as number };
-      await tx`insert into mind.precall_watch (signal_id, mint, at, p, horizon_min) values (${w.signal_id}, ${w.mint}, ${iso(w.at_ms)}, ${w.p}, ${w.horizon_min}) on conflict do nothing`;
+      const w: Pre = { signal_id: r.id as string, kind: r.kind as string, mint: r.subject as string, at_ms: (r.produced_at as Date).getTime(), p: r.p as number, horizon_min: r.h as number };
+      await tx`insert into mind.precall_watch (signal_id, kind, mint, at, p, horizon_min) values (${w.signal_id}, ${w.kind}, ${w.mint}, ${iso(w.at_ms)}, ${w.p}, ${w.horizon_min}) on conflict do nothing`;
       pre.push(w);
       preCursor = { at: iso(w.at_ms), id: w.signal_id };
     }
     for (const w of pre.filter((x) => now >= x.at_ms + x.horizon_min * 60_000)) {
-      const [c] = await tx`select count(*)::int n from tape.events where topic = 'callout.created' and body->>'mint' = ${w.mint}
+      const [c] = await tx`select count(*)::int n, count(distinct body->>'author_wallet')::int callers from tape.events where topic = 'callout.created' and body->>'mint' = ${w.mint}
         and seen_time > ${iso(w.at_ms)} and seen_time <= ${iso(w.at_ms + w.horizon_min * 60_000)}`;
-      const hit = (c!.n as number) > 0 ? 1 : 0;
-      await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${PRECALL}, ${w.horizon_min}, 1, ${(w.p - hit) ** 2}, ${hit}, ${w.p})
+      const hit = w.kind === SWARM ? ((c!.callers as number) >= SWARM_WAVE ? 1 : 0) : (c!.n as number) > 0 ? 1 : 0;
+      await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${w.kind}, ${w.horizon_min}, 1, ${(w.p - hit) ** 2}, ${hit}, ${w.p})
         on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, brier_sum = mind.scores.brier_sum + excluded.brier_sum,
           hits = mind.scores.hits + excluded.hits, p_sum = mind.scores.p_sum + excluded.p_sum`;
       await tx`update mind.precall_watch set done = true where signal_id = ${w.signal_id}`;
