@@ -129,7 +129,8 @@ def full_report(req: dict, results: list, forum: "Forum | None") -> dict | None:
     import asimog_db
 
     swarm = asimog_db.query("select report_id, summary, markdown from slow.report_feed where report_id = any($1::text[])", req.get("parent_reports") or [])
-    inputs = [md for _, _, md in results] + [f"SIMULATED swarm report {s['report_id']}:\n{s['markdown'] or s['summary']}" for s in swarm]
+    by_engine = {name: md for name, _, md in results}  # upstream's order: Query, Media, Insight, then swarm reports
+    inputs = [by_engine.get(e, "") for e in ("query", "media", "insight")] + [f"SIMULATED swarm report {s['report_id']}:\n{s['markdown'] or s['summary']}" for s in swarm]
     ra = ReportAgent()
     captured: dict = {}
     render = ra.renderer.render
@@ -143,6 +144,10 @@ def full_report(req: dict, results: list, forum: "Forum | None") -> dict | None:
     forum_text = "\n".join(f"[{l['agent'].upper()}] {l['text']}" for l in (forum.lines if forum else []))
     ra.generate_report(query_for(req), inputs, forum_logs=forum_text, custom_template=template, save_report=False)
     ir = captured.get("ir") or {}
+    if ir:  # upstream's IR validator on every chapter, recorded with the IR
+        from ReportEngine.ir.validator import IRValidator
+        bad = [(c.get("chapterId"), errs[:3]) for c in ir.get("chapters", []) for ok, errs in [IRValidator().validate_chapter(c)] if not ok]
+        ir["asimogChecks"] = {"chapters": len(ir.get("chapters", [])), "invalid": bad}
     md = MarkdownRenderer().render(ir) if ir else ""
     return {"producer": "bettafish.report", "kind": req["kind"], "subject": req["subject"], "summary": re.sub(r"\s+", " ", CID.sub("", md)).strip()[:580] or "Report generated.",
             "cites": cites(md + "\n" + "\n".join(x for _, _, x in results)), "ir": ir, "markdown": md}

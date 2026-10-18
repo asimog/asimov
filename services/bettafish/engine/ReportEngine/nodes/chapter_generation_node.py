@@ -333,6 +333,7 @@ class ChapterGenerationNode(BaseNode):
                 "query_engine": reports.get("query_engine", ""),
                 "media_engine": reports.get("media_engine", ""),
                 "insight_engine": reports.get("insight_engine", ""),
+                **({"swarm_reports": reports["swarm_reports"]} if reports.get("swarm_reports") else {}),  # Asimog B6
             },
             "forumLogs": context.get("forum_logs", ""),
             "dataBundles": context.get("data_bundles", []),

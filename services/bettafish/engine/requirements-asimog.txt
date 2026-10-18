@@ -17,4 +17,5 @@ tavily-python>=0.3.0
 json-repair
 jinja2
 markdown
+matplotlib==3.9.0  # ReportEngine renderers import it (math to SVG, charts)
 tenacity

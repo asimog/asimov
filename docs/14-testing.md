@@ -98,7 +98,7 @@ These need a fresh database but no tape. The LLM is a stub (`StubChat`, scripted
 
 | Suite | Proves |
 |---|---|
-| `bettafish-insight`, `bettafish-full` | The vendored BettaFish engines over our `slow.*` views with an offline stub model: the full plan, search, summary and reflection loop; Query and Media adapters; the forum host feeding back; cited claims kept and invented ids dropped by core (docs/24) |
+| `bettafish-insight`, `bettafish-full` | The vendored BettaFish engines over our `slow.*` views with an offline stub model: the full plan, search, summary and reflection loop; Query and Media adapters; the forum host feeding back; the full ReportEngine IR run with a swarm report as a fourth input; cited claims kept and invented ids dropped by core (docs/24) |
 | `amm-golden` | 1,000 buy and 1,000 sell quotes from the TS port equal `@pump-fun/pump-sdk` to the lamport |
 | `miroshark-pumpfun` | The vendored MiroShark Wonderwall engine with the Pump.fun module and camel agents on a stub model: the holding rule, branches A and B, beliefs, swarm results and the SIMULATED report through the Slow Bridge (docs/24) |
 | `slow-views`, `slow-bridge` | The read-only slow surface and the Bridge: shapes, role limits, `as_of`; one escalation feeds both engines, reports flow both ways, a dead engine fails cleanly |
