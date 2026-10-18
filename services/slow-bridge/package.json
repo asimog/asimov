@@ -1,0 +1,10 @@
+{
+  "name": "@asimog/slow-bridge",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@asimog/contracts": "workspace:*",
+    "@asimog/lane": "workspace:*",
+    "postgres": "3.4.9"
+  }
+}

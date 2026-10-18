@@ -440,6 +440,7 @@ create table if not exists slow.jobs (
   slot text not null, state text not null default 'queued', cost_usd double precision not null default 0,
   started_at timestamptz, finished_at timestamptz, error text, result jsonb, unique (engine, kind, subject, slot)
 );
+create table if not exists slow.cursors (name text primary key, seen_time timestamptz, event_id text);
 create or replace function slow.as_of() returns timestamptz language sql stable as
   $$ select coalesce(nullif(current_setting('slow.as_of', true), '')::timestamptz, now()) $$;
 

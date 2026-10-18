@@ -202,6 +202,18 @@ importers:
         specifier: 4.13.13
         version: 4.13.13
 
+  services/slow-bridge:
+    dependencies:
+      '@asimog/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@asimog/lane':
+        specifier: workspace:*
+        version: link:../../packages/lane
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
+
 packages:
 
   '@babel/runtime@7.29.10':

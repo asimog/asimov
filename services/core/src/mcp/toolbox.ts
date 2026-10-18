@@ -1,6 +1,7 @@
 // The core's tools for thinking agents (docs/18). Each tool names the capabilities that may call it; a token maps to
 // exactly one capability. This file is the only door thinking agents have: reads of the Tape, Board and mind tables,
 // and writes of proposal, synthesis, swarm and report events. Nothing here trades, signs, posts or changes limits.
+import { canonical } from "@asimog/contracts";
 import { z } from "zod";
 import { liveFor } from "../board/board.ts";
 import { checkProse } from "../hands/text-checks.ts";
@@ -21,17 +22,18 @@ export const CAP = {
   report: "cap:report",
   integrity: "cap:integrity.write",
   soul: "cap:soul.update",
+  exchange: "cap:report.exchange", // the Slow Bridge (docs/24): escalation triggers in, reports out
 } as const;
 export const ALL_CAPS: string[] = Object.values(CAP);
 
 /** Who a capability's writes are recorded as on the Tape. */
-const SOURCE: Record<string, string> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul" };
+const SOURCE: Record<string, string> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul", [CAP.exchange]: "slow-bridge" };
 /** Topic prefixes and signal kinds a capability may read through `events_since` and `board_signals`. */
-const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."] };
+const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["attention.grant", "jev.escalated"] };
 const READ_KINDS: Record<string, string[]> = { [CAP.integrity]: ["integrity.finding"], [CAP.report]: ["synthesis.", "mood.", "swarm."] };
 
 /** Sources written by thinking lanes and core on their behalf. */
-const LANE_SOURCES = ["agents", "bettafish", "miroshark", "soul"];
+const LANE_SOURCES = ["agents", "bettafish", "miroshark", "soul", "slow-bridge"];
 
 export class Refusal extends Error {
   constructor(readonly code: string, message: string) {
@@ -111,7 +113,7 @@ export const TOOLS: Tool[] = [
     return { coin, last_price_sol: (px?.price_sol as number | undefined) ?? null, signals: Object.fromEntries(Object.entries(live).map(([k, v]) => [k, { value: v.value, confidence: v.confidence }])), callouts, callers: dna };
   }),
 
-  tool("events_since", [CAP.propose, CAP.ops], "Events of allowed topics after a cursor (seen_time, id), oldest first. The trigger feed for agents.", { topics: z.array(z.string()).min(1).max(8), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
+  tool("events_since", [CAP.propose, CAP.ops, CAP.exchange], "Events of allowed topics after a cursor (seen_time, id), oldest first. The trigger feed for agents.", { topics: z.array(z.string()).min(1).max(8), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
     const allowed = READ_TOPICS[c.cap] ?? [];
     for (const t of a.topics) if (!allowed.some((p) => t.startsWith(p))) throw new Refusal("out_of_lane", `topic ${t} is not readable with ${c.cap}`);
     const rows = await c.sql`select id, topic, seen_time, subject, body from tape.events
@@ -317,6 +319,37 @@ export const TOOLS: Tool[] = [
     await c.tape.flush();
     return { ok: true };
   }),
+
+  // ----- report exchange (docs/24 section 6): one envelope on the Tape, the body in slow.reports -----
+  tool("report_publish", [CAP.exchange], "Publish a finished BettaFish or MiroShark report. Cites must be callouts or events seen already; the summary passes the prose Guard.", {
+    report_id: z.string().min(4).max(80), producer: z.enum(["bettafish.insight", "bettafish.query", "bettafish.media", "bettafish.report", "miroshark.report", "miroshark.signal"]),
+    kind: z.enum(["feed", "coin", "swarm"]), subject: z.string().min(1).max(64), window_from: iso.nullable().default(null), window_to: iso.nullable().default(null), preset: z.string().max(20),
+    summary: z.string().min(10).max(600), cites: z.array(z.string()).max(200).default([]), parent_reports: z.array(z.string()).max(20).default([]),
+    ir: z.record(z.string(), z.unknown()).nullable().default(null), markdown: z.string().max(400_000).nullable().default(null), simulated: z.boolean().default(false),
+  }, async (a, c) => {
+    const bad = checkProse(a.summary, 600);
+    if (bad.length) throw new Refusal("guard", `summary refused: ${bad.join(", ")}`);
+    const now = c.clock.iso();
+    const callouts = a.cites.length ? new Set((await c.sql`select callout_id from mem.callouts where callout_id = any(${a.cites}) and seen_at <= ${now}`).map((r) => r.callout_id as string)) : new Set<string>();
+    const events = a.cites.length ? new Set((await c.sql`select id from tape.events where id = any(${a.cites}) and seen_time <= ${now}`).map((r) => r.id as string)) : new Set<string>();
+    const cites = a.cites.filter((x) => callouts.has(x) || events.has(x));
+    const parents = a.parent_reports.length ? (await c.sql`select report_id from slow.reports where report_id = any(${a.parent_reports}) and published_at <= ${now}`).map((r) => r.report_id as string) : [];
+    if (parents.length !== a.parent_reports.length) throw new Refusal("bad_parent", "a parent report is unknown or newer than now");
+    const body = { ir: a.ir, markdown: a.markdown };
+    const sha256 = (await import("node:crypto")).createHash("sha256").update(canonical(body)).digest("hex");
+    await c.sql`insert into slow.reports (report_id, producer, kind, subject, window_from, window_to, preset, sha256, summary, cites, parent_reports, ir, markdown, published_at)
+      values (${a.report_id}, ${a.producer}, ${a.kind}, ${a.subject}, ${a.window_from}, ${a.window_to}, ${a.preset}, ${sha256}, ${a.summary}, ${cites}, ${parents}, ${a.ir ? c.sql.json(a.ir as never) : null}, ${a.markdown}, ${now})
+      on conflict (report_id) do nothing`;
+    c.tape.emit("report.published", { report_id: a.report_id, producer: a.producer, kind: a.kind, subject: a.subject, window_from: a.window_from, window_to: a.window_to, preset: a.preset, sha256, summary: a.summary, cites, parent_reports: parents, simulated: a.simulated, cites_dropped: a.cites.length - cites.length }, { source: source(c), subject: a.subject, dedupe: `report:${a.report_id}` });
+    await c.tape.flush();
+    return { report_id: a.report_id, sha256, cites_kept: cites.length, cites_dropped: a.cites.length - cites.length };
+  }),
+
+  tool("reports_for", [CAP.synth, CAP.swarm, CAP.exchange, CAP.report], "The newest published reports for a subject (a mint or global), optionally from one producer family.", { subject: z.string(), producer_prefix: z.string().max(20).optional(), limit: z.number().int().min(1).max(10).default(3) }, async (a, c) => ({
+    reports: await c.sql`select report_id, producer, kind, subject, preset, sha256, summary, cites, parent_reports, ir, markdown, published_at from slow.reports
+      where subject = ${a.subject} and published_at <= ${c.clock.iso()} and (${a.producer_prefix ?? ""} = '' or producer like ${`${a.producer_prefix ?? ""}%`})
+      order by published_at desc limit ${a.limit}`,
+  })),
 
   tool("soul_update", [CAP.soul], "Replace SOUL.md with a new version. Validated, hashed and chained.", { text: z.string().min(200), reason: z.string().min(5).max(300) }, async (a, c) => {
     const r = await updateSoul(c.sql, c.tape, c.soulFile, { text: a.text, reason: a.reason, by: "agent" });

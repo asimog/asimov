@@ -7,7 +7,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { ZodType } from "zod";
 import { loadEnv, need, num } from "./env.ts";
 
-export { loadEnv, need } from "./env.ts";
+export { loadEnv, need, num } from "./env.ts";
 export * from "./core-client.ts";
 export const LANES = ["SYNTH", "SWARM", "EXTRACT", "THINK", "OPS", "BUILD"] as const;
 export type LaneName = (typeof LANES)[number];

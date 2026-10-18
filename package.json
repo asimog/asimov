@@ -38,7 +38,8 @@
     "agents": "tsx services/agents/src/main.ts",
     "agents:smoke": "tsx services/agents/src/smoke.ts",
     "bettafish": "tsx services/bettafish/src/main.ts",
-    "miroshark": "tsx services/miroshark/src/main.ts"
+    "miroshark": "tsx services/miroshark/src/main.ts",
+    "slow-bridge": "tsx services/slow-bridge/src/main.ts"
   },
   "type": "module"
 }
