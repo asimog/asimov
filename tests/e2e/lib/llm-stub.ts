@@ -3,7 +3,7 @@
 // `respond` sees the system and user text and returns the answer; the default echoes a small JSON object.
 import http from "node:http";
 
-export type StubReq = { model: string; system: string; user: string; json: boolean };
+export type StubReq = { model: string; system: string; user: string; json: boolean; tools: string[]; afterTool: boolean };
 export async function llmStub(respond: (r: StubReq) => string = () => "{}"): Promise<{ url: string; calls: StubReq[]; close(): void }> {
   const calls: StubReq[] = [];
   const srv = http.createServer((req, res) => {
@@ -19,9 +19,16 @@ export async function llmStub(respond: (r: StubReq) => string = () => "{}"): Pro
       if (req.url?.endsWith("/chat/completions")) {
         const msgs = (j.messages ?? []) as { role: string; content: unknown }[];
         const text = (m: { content: unknown }) => (typeof m.content === "string" ? m.content : JSON.stringify(m.content));
-        const r: StubReq = { model: j.model, system: msgs.filter((m) => m.role === "system").map(text).join("\n"), user: msgs.filter((m) => m.role !== "system").map(text).join("\n"), json: j.response_format?.type === "json_object" };
+        const tools = ((j.tools ?? []) as { function: { name: string } }[]).map((t) => t.function.name);
+        const r: StubReq = { model: j.model, system: msgs.filter((m) => m.role === "system").map(text).join("\n"), user: msgs.filter((m) => m.role !== "system").map(text).join("\n"), json: j.response_format?.type === "json_object", tools, afterTool: msgs.at(-1)?.role === "tool" };
         calls.push(r);
         const content = respond(r);
+        // "TOOL:<name> <json args>" answers with an OpenAI tool call (camel agents act through tool calls)
+        const tc = content.match(/^TOOL:(\w+)\s*(\{.*\})?$/s);
+        if (tc && tools.includes(tc[1]!)) {
+          const call = { id: `call_${calls.length}`, type: "function", function: { name: tc[1]!, arguments: tc[2] ?? "{}" } };
+          return send({ id: `stub-${calls.length}`, object: "chat.completion", model: j.model, choices: [{ index: 0, finish_reason: "tool_calls", message: { role: "assistant", content: null, tool_calls: [call] } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } });
+        }
         if (j.stream) { // OpenAI server-sent events: one content chunk, then the stop chunk and [DONE]
           res.writeHead(200, { "content-type": "text/event-stream" });
           const chunk = (delta: Record<string, unknown>, finish: string | null) => `data: ${JSON.stringify({ id: `stub-${calls.length}`, object: "chat.completion.chunk", model: j.model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`;

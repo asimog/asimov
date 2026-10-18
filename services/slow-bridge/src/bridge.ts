@@ -99,7 +99,11 @@ export class Bridge {
       await this.waitForChain(job);
       const parents = await this.parents(job);
       const windowMin = job.kind === "feed" ? this.d.cfg.feedWindowMin : 60;
-      const runId = await engine.start({ job_id: job.id, kind: job.kind, subject: job.subject, preset: job.preset, window_min: windowMin, parent_reports: parents });
+      // MiroShark reads no database: the swarm's seed (the coin dossier, the parent reports' text) comes in the request
+      const extra = job.engine === "miroshark"
+        ? { dossier: await this.d.cores.swarm.call("coin_dossier", { mint: job.subject }), parent_texts: (await this.d.cores.exchange.call<{ reports: { report_id: string; producer: string; summary: string; markdown: string | null }[] }>("reports_for", { subject: job.subject, producer_prefix: "bettafish.", limit: 3 })).reports }
+        : {};
+      const runId = await engine.start({ job_id: job.id, kind: job.kind, subject: job.subject, preset: job.preset, window_min: windowMin, parent_reports: parents, ...extra });
       const until = this.d.now() + this.d.cfg.runTimeoutS * 1000;
       for (;;) {
         const s = await engine.status(runId);
