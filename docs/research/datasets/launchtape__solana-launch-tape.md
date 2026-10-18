@@ -1,6 +1,6 @@
 # launchtape/solana-launch-tape
 
-Checked 2026-10-17. Data kept at `.upstream/datasets/launchtape__solana-launch-tape/` (not in git). Scripts: session scratchpad `datasets/lt1.py`, `lt2.py`, `lt3.py`.
+Checked 2026-10-17. Data kept at `.upstreamref/datasets/launchtape__solana-launch-tape/` (not in git). Scripts: session scratchpad `datasets/lt1.py`, `lt2.py`, `lt3.py`.
 All numbers below were computed by code from the files. Small samples: read every share with its count.
 
 ## 1. What it is

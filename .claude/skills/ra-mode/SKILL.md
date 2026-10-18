@@ -19,7 +19,7 @@ disable-model-invocation: true
 
 For a strategy, a design, an analyzer, or when the user says "deeper", answer these four before planning. Skip them for small edits.
 
-1. What would a top practitioner do here that the user did not ask for? If unsure, read the primary sources first (papers, protocol docs, `.upstream/` code, the authors' own writing), using cheaper subagents for the bulk reading.
+1. What would a top practitioner do here that the user did not ask for? If unsure, read the primary sources first (papers, protocol docs, `.upstreamref/` code, the authors' own writing), using cheaper subagents for the bulk reading.
 2. What raw material would they start from? Prefer the Tape, on-chain trades, raw callout text and source code over summaries, dashboards and someone else's labels.
 3. Which methods and tools would they use, and why each fits (a point-in-time backtest, a Brier score, a tape replay).
 4. What, other than you or the user, shows the result is right? Name the check that cannot argue back: a matching replay, paper PnL after costs, a calibration score, a typecheck, a `verify-asimog` screenshot.

@@ -1,5 +1,5 @@
-# Upstream prior-art code: read-only, never committed, never imported. See .upstream/UPSTREAM.md
-/.upstream/
+# Upstream prior-art code: read-only, never committed, never imported. See .upstreamref/UPSTREAM.md
+/.upstreamref/
 
 # Secrets
 .env
@@ -22,7 +22,7 @@ data/
 artifacts/
 *.har
 
-# Owner's raw reference videos (GIFs and sheets live in docs/inspiration)
+# Owner's raw reference videos (GIFs and sheets live in docs/.archive/inspiration)
 uxinsipirevideos/
 *:Zone.Identifier
 .impeccable/
@@ -32,7 +32,7 @@ uxinsipirevideos/
 *.tsbuildinfo
 
 # Old docs and audit notes: agents do not read them, and the audits name attack paths (the repo is public)
-docs/archive/
+docs/.archive/
 
 # Local tool state and OS files
 .claude/settings.local.json

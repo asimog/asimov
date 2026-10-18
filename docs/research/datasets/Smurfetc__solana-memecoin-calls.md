@@ -1,6 +1,6 @@
 # Smurfetc/solana-memecoin-calls
 
-Checked 2026-10-17 by code on the local copy in `.upstream/datasets/Smurfetc__solana-memecoin-calls/`. Every number below has its denominator.
+Checked 2026-10-17 by code on the local copy in `.upstreamref/datasets/Smurfetc__solana-memecoin-calls/`. Every number below has its denominator.
 
 ## 1. What it is
 - Source: Hugging Face dataset `Smurfetc/solana-memecoin-calls`. Made by "SmugCalls", a fully automated bot that posts to a public Telegram channel when its own filters fire (not human callers). The card says the file is hashed and the hash is anchored in Bitcoin (OpenTimestamps). I checked the SHA-256 of `calls.jsonl`: it equals `attest.json` (5731c5b1...4f1). I did not verify the .ots receipts.

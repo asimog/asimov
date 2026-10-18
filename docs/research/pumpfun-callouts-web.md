@@ -1,6 +1,6 @@
 # Pump.fun callouts: what the web client shows
 
-Source: pump.fun web JS chunks fetched 2026-10-16 (`.upstream/sites/pumpfun-web-bundles/`) and the callout terms page. These are facts read from shipped client code. API hosts and payload shapes are not confirmed yet. Phase 0 confirms them with HAR capture (docs/PIPELINE.md).
+Source: pump.fun web JS chunks fetched 2026-10-16 (`.upstreamref/sites/pumpfun-web-bundles/`) and the callout terms page. These are facts read from shipped client code. API hosts and payload shapes are not confirmed yet. Phase 0 confirms them with HAR capture (docs/PIPELINE.md).
 
 ## Routes
 

@@ -1,6 +1,6 @@
 # Literature review: what the papers change in Asimog
 
-Read 2026-10-17. PDFs in `docs/literature/`. For each paper: the question, the data, the unit, features and labels, timing assumptions, evaluation, limits and leakage, and the Asimog part it informs. Then the decisions it led to.
+Read 2026-10-17. PDFs in `docs/.archive/literature/`. For each paper: the question, the data, the unit, features and labels, timing assumptions, evaluation, limits and leakage, and the Asimog part it informs. Then the decisions it led to.
 
 Rule: no reported number from a paper is a claim about Asimog. Where a paper gives a baseline we can compute on our own tapes, we compute it (listed at the end) and publish our own number.
 
@@ -113,7 +113,7 @@ Its lesson about its own correction is also ours: publish corrections in place a
 
 ## Not read (no PDF)
 
-`Decompose Market Manipulation Strategies` (SSRN 5953738), `RED-REJECT-2026-v1` (SSRN 7129798) and `SOLMEMES` (ACM, 10.1145/3789982.3790023). See `docs/literature/README.md`. Nothing in the plan depends on them.
+`Decompose Market Manipulation Strategies` (SSRN 5953738), `RED-REJECT-2026-v1` (SSRN 7129798) and `SOLMEMES` (ACM, 10.1145/3789982.3790023). See `docs/.archive/literature/README.md`. Nothing in the plan depends on them.
 
 ## Decisions this review led to
 

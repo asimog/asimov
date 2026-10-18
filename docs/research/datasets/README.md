@@ -1,6 +1,6 @@
 # Datasets: what each gives Asimog
 
-Studied 2026-10-17 by six analysis agents, one report per dataset in this folder. Key numbers spot-checked against the data by the lead agent (marked ✓). Raw data lives in `.upstream/datasets/` (gitignored; launchtape's licence forbids redistribution).
+Studied 2026-10-17 by six analysis agents, one report per dataset in this folder. Key numbers spot-checked against the data by the lead agent (marked ✓). Raw data lives in `.upstreamref/datasets/` (gitignored; launchtape's licence forbids redistribution).
 
 ## Verdicts
 

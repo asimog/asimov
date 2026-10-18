@@ -1,6 +1,6 @@
 # Zinteck/MELT (Memecoin Launch Trace)
 
-Checked 2026-10-17. Local copy: `.upstream/datasets/Zinteck__MELT/` (gitignored). The card has no text aimed at an AI agent. It says the paper is "under review" and anonymized, so there is no paper to cite.
+Checked 2026-10-17. Local copy: `.upstreamref/datasets/Zinteck__MELT/` (gitignored). The card has no text aimed at an AI agent. It says the paper is "under review" and anonymized, so there is no paper to cite.
 
 ## 1. What it is
 - Source: Hugging Face `Zinteck/MELT`, last modified 2026-07-30. Licence **CC BY-NC 4.0** (non-commercial; fine for research, a legal question if Asimog trains on it for a business).

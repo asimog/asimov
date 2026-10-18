@@ -21,7 +21,14 @@ This file is a map. Read a doc only when your task touches it.
 | `docs/generated/` | Topics, tables, settings and signal kinds, generated from code. Run `npm run docs:gen` after changing any of them |
 | `docs/research/` | Literature, datasets and endpoints: evidence, not rules |
 
-`docs/archive/` holds retired docs and private audit notes. It is gitignored and skipped by search; leave it unread unless the owner points you there.
+### Folders to leave unread
+
+Two folders are kept for reference only. Both are gitignored and skipped by search, so they never crowd a task's context. Open them only when a task cannot be done without them, and say which file you read and why.
+
+| Folder | Holds | Open it when |
+|---|---|---|
+| `docs/.archive/` | Retired docs, the old audits and fix plan (they name attack paths, so they stay private), design inspiration, the literature PDFs | The owner points you there, or a security fix in `docs/PLAN.md` needs the audit detail |
+| `.upstreamref/` | Read-only prior-art code and mirrored sites | You need to check how an upstream library or engine really works. Search it with `rg --no-ignore --hidden <pattern> .upstreamref/`; never import, install from or bulk-copy it |
 
 ## Shape
 
@@ -30,7 +37,6 @@ Everything meets on the Tape. Senses write input events; consumers read topics a
 - `packages/contracts/`: zod schemas for every topic (`TOPICS`), checked on every write.
 - `services/core/src/`: `tape/`, `lib/` (Clock, env, db, `RpcPool`), `senses/`, `memory/`, `index/`, `board/`, `analyzers/`, `reflex/` (Jev), `mind/` (strategies, Risk Gate), `hands/`, `treasury/`, `scorekeeper/`, `hunt/`, `mcp/`, `soul/`, `cli/ctl.ts`. `runtime.ts` holds the one consumer list.
 - `services/signer`, `relay`, `agents`, `slow-bridge`, `bettafish/engine`, `miroshark/engine`; `packages/lane/`; `apps/web/`; `tests/e2e/`; `agent/skills/` (runtime skills for the firm's thinking agents); `scripts/`.
-- `.upstream/`: read-only prior art, gitignored and skipped by search. Search it on purpose with `rg --no-ignore --hidden`; never import, install from or bulk-copy it.
 
 To add a sense: a module in `senses/`, its topics in contracts, `npm run docs:gen`. To add a consumer: its folder, one line in `runtime.ts`, restart-safe. To add a provider: chosen by env, behind a pool if there are several.
 

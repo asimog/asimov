@@ -1,6 +1,6 @@
 # Dataset review: Solid-Sea/pump-gold-dataset
 
-Checked 2026-10-17. Clone: `.upstream/datasets/Solid-Sea__pump-gold-dataset` (gitignored). Scripts were read, never run. Analysis scripts: scratchpad `datasets/pg.py`, `pg2.py` (duckdb, `python -I`). Counts are over the 1,306,082 rows unless a denominator is given.
+Checked 2026-10-17. Clone: `.upstreamref/datasets/Solid-Sea__pump-gold-dataset` (gitignored). Scripts were read, never run. Analysis scripts: scratchpad `datasets/pg.py`, `pg2.py` (duckdb, `python -I`). Counts are over the 1,306,082 rows unless a denominator is given.
 
 ## 1. What it is
 - Source: a student paper (ICDM 2026 Teen Research Symposium submission) about wash trading (fake volume between a person's own wallets). Raw trades are said to come from a public Kaggle pump.fun trade dump. `.zenodo.json` says month 2025-02, "extracted by Dune". The README claims 17,033,442 trades, but the trades are NOT in the repo.

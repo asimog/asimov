@@ -1,6 +1,6 @@
 # RED-REJECT-2026-v2: rejected coins and what they did next
 
-Dataset note, written 2026-10-17. Local copy: `.upstream/RED-REJECT-2026-v2_v2.3/` (read-only). All numbers below were computed by my own DuckDB queries on the main file; the denominator is given with each one.
+Dataset note, written 2026-10-17. Local copy: `.upstreamref/RED-REJECT-2026-v2_v2.3/` (read-only). All numbers below were computed by my own DuckDB queries on the main file; the denominator is given with each one.
 
 Integrity: `sha256sum -c SHA256SUMS` passed, 32 of 32 files OK (data, scripts, docs). No text in the pack was aimed at an AI agent.
 

@@ -5,7 +5,7 @@ The website: rooms, design language, the banned list and how it is built. Rule z
 ## 1. Who decides
 
 1. The owner's words.
-2. This doc and `docs/inspiration/README.md`.
+2. This doc. The reference videos and frame sheets are in `docs/.archive/inspiration/` for design work that needs them.
 3. Advisors: motion and r3f skills, react-bits components.
 
 ## 2. Rooms

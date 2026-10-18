@@ -37,7 +37,7 @@ The site reads core's public relay (server-sent events and a snapshot endpoint) 
 
 - Name: Asimog. Neutral, functional names for parts (Feed Reader, Scout, Desk, Scorekeeper, Publisher); no creature naming.
 - The agent's voice is terse: short, exact, no emojis, no em dashes, position disclosed (agent/skills/voice-terse).
-- Owner's direction for the look: "futuristic, unique, never seen before, ethereal; not too wordy; it should amaze a person and capture interest first." The visual world is defined in docs/UI.md (Instrument, Night and Paper modes) and the four reference videos in docs/inspiration/.
+- Owner's direction for the look: "futuristic, unique, never seen before, ethereal; not too wordy; it should amaze a person and capture interest first." The visual world is defined in docs/UI.md (Instrument, Night and Paper modes) and the four reference videos in docs/.archive/inspiration/.
 
 ## Evidence on Hand
 

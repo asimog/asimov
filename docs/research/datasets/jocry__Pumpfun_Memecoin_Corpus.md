@@ -1,6 +1,6 @@
 # jocry/Pumpfun_Memecoin_Corpus
 
-Checked 2026-10-17. Local copy: `.upstream/datasets/jocry__Pumpfun_Memecoin_Corpus/` (1.6 GB of 6.7 GB). Scripts are outside the repo.
+Checked 2026-10-17. Local copy: `.upstreamref/datasets/jocry__Pumpfun_Memecoin_Corpus/` (1.6 GB of 6.7 GB). Scripts are outside the repo.
 
 ## 1. What it is
 - Source: https://huggingface.co/datasets/jocry/Pumpfun_Memecoin_Corpus (author "Slink Dev", last edit 2026-09-27). Collected by websocket plus Solana RPC polling, 2026-06-05 to 2026-07-14 (39 days). Every launch in the window, not a pick.

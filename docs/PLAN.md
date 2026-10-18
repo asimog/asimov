@@ -1,6 +1,6 @@
 # Plan
 
-The work between the code today and the design in the other docs, in order. Each unit ends in a check. Security fixes are named here only in outline: the detailed audit notes stay in the gitignored `docs/archive/`, because the repo is public. Live trading is the last step and never blocks a unit.
+The work between the code today and the design in the other docs, in order. This is the one plan: it replaces the archived fix plan of 2026-10-18, and every open row of that plan is here (Phase 3 in A, Phase 4 in C, Phase 5 in D, Phase 6 and 1.16 in F, 1.17 in A13). Each unit ends in a check. Security fixes are named here only in outline: the detailed audit notes stay in the gitignored `docs/.archive/`, because the repo is public. Live trading is the last step and never blocks a unit.
 
 Checks per unit follow `OPS.md` section 9: typecheck, lint, `docs:check` and short replays. Full suites run only when the owner asks.
 
@@ -12,7 +12,7 @@ Checks per unit follow `OPS.md` section 9: typecheck, lint, `docs:check` and sho
 | Fix plan Phase 1: one position model for paper and live, except 1.16 and 1.17 | 897a50f |
 | Fix plan Phase 2: the owner owns the config (99 defaults moved to `.env.example`, `ctl limits`, `ctl lists`) | 76fb5b4 |
 | Phase 3 rows 3.1, 3.2, 3.4, 3.6, 3.10, 3.14, 3.17 (as-of reads, trade timing, tie breaks, history repeats, smart demotion, one trade key, timestamp checks) | c697309, 98d65c7 |
-| Slow-mind phases P0 to P9: both engines inside the repo, Slow Bridge, report exchange, rooms | docs/archive (24) |
+| Slow-mind phases P0 to P9: both engines inside the repo, Slow Bridge, report exchange, rooms | docs/.archive (24) |
 | Docs converged into this set; catalogs generated (`npm run docs:gen`) | this change |
 
 Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (stub model refused in live mode). Partly done: 3.7 (count dedupe; the cursor table is open) and 3.13 (one crash risk removed; the Scout wallet set still grows).

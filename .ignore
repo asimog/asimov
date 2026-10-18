@@ -1,4 +1,4 @@
 # ripgrep, fd and agent search tools: skip reference code by default.
-# To search prior art on purpose: rg --no-ignore --hidden <pattern> .upstream/
-/.upstream/
-/docs/archive/
+# To search prior art on purpose: rg --no-ignore --hidden <pattern> .upstreamref/
+/.upstreamref/
+/docs/.archive/

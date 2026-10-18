@@ -1,14 +1,14 @@
 # Prior art: caller intelligence, collection and datasets
 
-Inspected 2026-10-17. Clones live in `.upstream/repos/<owner>__<name>` (read-only, gitignored, never imported). Verdicts use the key in `SUCCESSOR.md` §8: RUN, DEP, SKILL, PATTERN, ASSESS, AVOID.
+Inspected 2026-10-17. Clones live in `.upstreamref/repos/<owner>__<name>` (read-only, gitignored, never imported). Verdicts use the key in `SUCCESSOR.md` §8: RUN, DEP, SKILL, PATTERN, ASSESS, AVOID.
 
 "Inspected" means the README, licence, file list, commit date and, for datasets, the stated schema were read. Source code was not audited line by line, and nothing here was run. No repo below is claimed to work.
 
 ## Removed
 
-`greengod63/PumpFun-Bonding_Curve` was deleted from `.upstream/` on 2026-10-17. Windows Defender flagged `.vscode/tasks.json` in it as a trojan (a VS Code task that runs when the folder opens, a known malware pattern in crypto repos), and Defender had already quarantined the file. Its only role was a graduation-alert pattern, which our curve analyzer covers. **Do not re-clone it.** The 69 other clones were checked for `.vscode/tasks.json` with `runOn: folderOpen` and for install hooks that fetch remote code; none were found. Two harmless `tasks.json` remain: an empty one in `nirholas/visualize-web3-realtime`, and `dotnet` build tasks in `QuantConnect/Lean`.
+`greengod63/PumpFun-Bonding_Curve` was deleted from `.upstreamref/` on 2026-10-17. Windows Defender flagged `.vscode/tasks.json` in it as a trojan (a VS Code task that runs when the folder opens, a known malware pattern in crypto repos), and Defender had already quarantined the file. Its only role was a graduation-alert pattern, which our curve analyzer covers. **Do not re-clone it.** The 69 other clones were checked for `.vscode/tasks.json` with `runOn: folderOpen` and for install hooks that fetch remote code; none were found. Two harmless `tasks.json` remain: an empty one in `nirholas/visualize-web3-realtime`, and `dotnet` build tasks in `QuantConnect/Lean`.
 
-Rule added to `.upstream/UPSTREAM.md`: never open an `.upstream` repo as a VS Code workspace with automatic tasks allowed.
+Rule added to `.upstreamref/UPSTREAM.md`: never open an `.upstreamref` repo as a VS Code workspace with automatic tasks allowed.
 
 ## Matrix
 

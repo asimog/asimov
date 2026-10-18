@@ -1,6 +1,6 @@
 # ian05012/solana-memecoin-dataset
 
-Checked 2026-10-17 by code on `.upstream/datasets/ian05012__solana-memecoin-dataset/` (shallow clone, nothing run from it; only parquet files were read with pandas, pyarrow and duckdb). Every number has its denominator.
+Checked 2026-10-17 by code on `.upstreamref/datasets/ian05012__solana-memecoin-dataset/` (shallow clone, nothing run from it; only parquet files were read with pandas, pyarrow and duckdb). Every number has its denominator.
 
 ## 1. What it is
 - Source: GitHub `ian05012/solana-memecoin-dataset`. A shelved "early buy" ML project. A collector watched freshly graduated Pump.fun tokens and the GMGN trending board every 10 minutes, took a feature snapshot, and later filled in forward-return labels. License: MIT. Clone is 578 MB (data files about 303 MB). Under 2 GB, so fully used.

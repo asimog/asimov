@@ -1,6 +1,6 @@
 # Pumpdotstudio/pump-fun-sentiment-100k
 
-Checked 2026-10-17. Local copy: `.upstream/datasets/Pumpdotstudio__pump-fun-sentiment-100k/` (203 MB, all of it). Scripts are outside the repo.
+Checked 2026-10-17. Local copy: `.upstreamref/datasets/Pumpdotstudio__pump-fun-sentiment-100k/` (203 MB, all of it). Scripts are outside the repo.
 
 ## 1. What it is
 - Source: https://huggingface.co/datasets/Pumpdotstudio/pump-fun-sentiment-100k (Pump Studio, last edit 2026-03-04). License: CC BY-NC-SA 4.0 (non-commercial, share-alike).

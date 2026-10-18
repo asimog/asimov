@@ -1,6 +1,6 @@
 # loopholetape/pumpfun-launches
 
-Checked 2026-10-17. Data kept at `.upstream/datasets/loopholetape__pumpfun-launches/` (not in git). Scripts: session scratchpad `datasets/lh1.py`, `lh2.py`, `lh3.py`.
+Checked 2026-10-17. Data kept at `.upstreamref/datasets/loopholetape__pumpfun-launches/` (not in git). Scripts: session scratchpad `datasets/lh1.py`, `lh2.py`, `lh3.py`.
 All numbers below were computed by code from the files. SOL price used: US$109.78 (see section 5).
 
 ## 1. What it is
