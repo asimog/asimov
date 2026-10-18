@@ -2,6 +2,18 @@
 
 Dated decisions with their reason. The newest are first. Open questions for the owner are at the end. A decision changes only by a new row here.
 
+## 2026-10-19 (owner, open decisions closed)
+
+| Decision | Why |
+|---|---|
+| Tape pruning: hot raw trades 4 h while testing, raw feed pages 1 h, Board history 48 h; callouts, decisions and books kept; archive every hour. The append-only rule now reads: no row is ever edited or deleted, and only the archiver drops whole hours after their archive file is checked | Keep Postgres small without losing replays; tune the window after measuring |
+| The Index builds only from its own summaries. Leaderboards update hourly, a light rebuild runs every 12 h, a full rebuild every 48 h, and a deeper refresh (backfill, seed lists, owner updates) weekly | Raw trades are not needed once summarized; top lists stay always available |
+| Filter before storing, and keep a 1% sample of rejected items | A bad filter must be visible |
+| The data tiers in `OPS.md` are accepted, with a 5 to 10 GB budget for hot storage; older data goes to archive targets (a bucket or a git repository updated on a schedule); the wiki exports to a bucket or a GitHub docs repository. Targets stay pluggable | Fast hot storage, cheap long storage, options kept open |
+| Default trading limits move from code to `config/limits.default.json` | Policy belongs where the owner can read it |
+| Replies under another caller's callout only when we bought that coin; our callouts are bull posts made after we buy; detected rugs and scams feed the rug feed room | Platform rules and honesty |
+| The agent runtime uses OpenRouter embedding models (`EMBEDDING_API_KEY` in `.env.local`), stored with pgvector in the same Postgres | Text similarity and retrieval without a new database |
+
 ## 2026-10-19 (owner, Blueprint pass)
 
 | Decision | Why |
@@ -14,7 +26,7 @@ Dated decisions with their reason. The newest are first. Open questions for the 
 | Far-off scope moves to `LATER.md` | Active docs describe only the firm being built |
 | A public wiki catalogs top traders, their styles, strategies and hold times; summaries of pruned data go there | A user feature and compact agent memory |
 | Filter at the door: read everything in memory, store only what passes owner filters | Most of the storage problem goes away before it is written |
-| We speak only under coins we hold; scraped comments feed a public rug feed instead of data replies | Pump.fun allows replies only from holders, and we never buy bad launches |
+| We speak only under coins we hold; scraped comments feed a public rug feed | Pump.fun allows replies only from holders, and we never buy bad launches |
 | Feeds and filters are configurable (sources hot, trending, follow, top traders; chain; minimum position 10 USD; mcap at call; launch filters) | The raw global feed is too much to ingest |
 | Backfill uses several RPC providers in parallel, after checking our own data | Faster history, fewer calls |
 | Models per agent type in config, with OpenRouter free models as the last fallback on a separate key | No hard-coded model; service keeps running |
@@ -62,4 +74,4 @@ Dated decisions with their reason. The newest are first. Open questions for the 
 
 ## Open for the owner
 
-See the Decisions tab of the Blueprint artifact and `PLAN.md`: tape windows, the Index without raw trades, filter before storing, data tiers, owner limit defaults in a file.
+None right now.

@@ -19,7 +19,7 @@ How Asimog is configured, where its data lives, how big it gets, where it runs, 
 
 **Models.** `config/models.json` names a default model, an override per agent type (synth, swarm, postmortem, researcher, ops, reporter, wiki) and a fallback chain that ends in OpenRouter's free models, called with a separate key `LLM_FALLBACK_KEY` from `.env.local`. `LLM_STUB=1` runs every lane on the offline stub and is refused in live mode.
 
-**Providers are config.** RPC (`RPC_URLS` through `RpcPool`), the send endpoint (`TX_SEND_URL`), Jev, the LLM base URL, search, embeddings (`EMBEDDING_*`: any OpenAI-compatible embeddings endpoint, or a local open-weight model), archive storage and alerts are all chosen by env. Code never names a provider, URL or model.
+**Providers are config.** RPC (`RPC_URLS` through `RpcPool`), the send endpoint (`TX_SEND_URL`), Jev, the LLM base URL, search, embeddings (`EMBEDDING_*`: OpenRouter embedding models through the OpenAI-compatible API, key `EMBEDDING_API_KEY` in `.env.local`), archive targets, wiki export targets and alerts are all chosen by env. Code never names a provider, URL or model.
 
 ## 2. Data
 
@@ -28,14 +28,14 @@ How Asimog is configured, where its data lives, how big it gets, where it runs, 
 | Tier | Data | Store | Kept |
 |---|---|---|---|
 | 0 Not stored | Trades of unwatched coins; feed items that fail filters | Memory only; folded into Index rollups; counted; 1% sampled | never |
-| 1 Hot | Watched-coin trades, holder snapshots, raw feed pages, `observation.raw` | `tape.events` hourly partitions | 6 h (raw feed pages 1 h), then archived and dropped |
+| 1 Hot | Watched-coin trades, holder snapshots, raw feed pages, `observation.raw` | `tape.events` hourly partitions | 4 h while testing (raw feed pages 1 h), then archived and dropped; tuned after measuring |
 | 2 Warm | Board signal history, bars, scraped replies | Postgres | Board 48 h, replies 14 d, then archived |
-| 3 Indexes | Hourly rollups; wallet, coin, creator, caller scores; leaderboards | `idx.*` | Rollups 48 h, then compacted to wallet x coin and wallet x day; scores 30 d; weekly leaderboard versions kept |
+| 3 Indexes | Hourly rollups; wallet, coin, creator, caller scores; leaderboards | `idx.*` | Rollups 48 h, then compacted to wallet x coin and wallet x day; scores over 30 d; leaderboards hourly; light rebuild every 12 h, full rebuild every 48 h, deeper refresh weekly; weekly versions kept |
 | 4 Record | Callouts that passed filters, decisions, orders, fills, books, kill, commits, outcomes, scores, lineage, Jev answers, slow reports | `tape.events` (kept partitions) and projections | Kept (callouts may move to archive after 90 d, owner's call) |
-| 5 Archive | Every dropped partition | gzipped NDJSON files with a checksum: a local folder in development, object storage in production | Kept |
-| 6 Knowledge | Wiki pages | Postgres, versioned; markdown export | Kept |
+| 5 Archive | Every dropped partition | gzipped NDJSON files with a checksum, sent to one or more archive targets: a local folder, an S3-compatible bucket, or a git repository updated on a schedule | Kept |
+| 6 Knowledge | Wiki pages | Postgres, versioned; markdown export to a wiki target (a bucket or a GitHub docs repository) | Kept |
 
-Every window is a setting in `config/retention.json`.
+Every window and target is a setting in `config/retention.json`. Budget for hot storage (tiers 1 to 4 and 6): 5 to 10 GB; everything older goes to the archive targets. The archive and wiki targets stay pluggable, so the owner can switch between a bucket and a git repository without code changes.
 
 ### How pruning stays safe
 
@@ -56,7 +56,7 @@ These are estimates from measured rates (all trades about 232 per second, 131 KB
 | Data | If we stored everything | With filters and windows |
 |---|---|---|
 | All trades | about 20M rows and 12 to 20 GB a day | 0: kept only as rollups |
-| Watched-coin trades (tier 1) | about 1 to 3 GB a day | 0.3 to 1 GB hot at any time |
+| Watched-coin trades (tier 1) | about 1 to 3 GB a day | 0.2 to 0.5 GB hot at any time (4 h window) |
 | Board history (tier 2) | 0.3 to 5 GB a day | 1 to 10 GB for 48 h |
 | Index (tier 3) | | 3 to 10 GB |
 | Callouts kept (tier 4) | | 10 to 100 MB a day |

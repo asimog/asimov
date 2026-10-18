@@ -46,8 +46,9 @@ Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (st
 | B3 | Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion | Filtered launches never reach the watched set |
 | B4 | `follow_wallets` list and the follow feed | A followed wallet's buy promotes its coin |
 | B5 | Backfill fans out across providers in parallel and checks our rollups first | Fewer RPC calls for a coin we already rolled up |
-| B6 | Tape partitions by hour and class; the archiver (export, verify, `tape.archived`, offset check, drop); row UPDATE and DELETE refused | A smoke archives and drops one partition; replay from the file matches |
-| B7 | Index rollup compaction (48 h hourly, then wallet x coin and wallet x day), hourly scores, weekly leaderboards kept | Leaderboards queryable after a raw partition is dropped |
+| B6 | Tape partitions by hour and class; the archiver (export, verify, `tape.archived`, offset check, drop) with a 4 h hot window while testing; row UPDATE and DELETE refused | A smoke archives and drops one partition; replay from the file matches |
+| B6b | Pluggable archive targets: local folder, S3-compatible bucket, git repository on a schedule | The same partition lands in two targets with matching checksums |
+| B7 | Index rollup compaction (48 h hourly, then wallet x coin and wallet x day); leaderboards hourly; light rebuild every 12 h, full rebuild every 48 h, deeper refresh weekly; weekly versions kept | Leaderboards queryable after a raw partition is dropped |
 | B8 | `ctl stats`: rows and bytes per tier, archive lag | Numbers in `ctl doctor` |
 
 ### C. Strategy layer (fix plan Phase 4)
@@ -65,7 +66,7 @@ Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (st
 | C9 | Index features: creator launches and rug rate, funder links, bundler and copier archetypes | Mass deployer refused with its reason |
 | C10 | Rebuilt `pre_call` score and caller record fields | Hand-checked records for three callers |
 | C11 | Jev guard pack, fenced symbols, `budget.exhausted` | Guard refuses a test injection |
-| C12 | `config/limits.default.json` replaces limit defaults in code (pending owner confirmation) | `ctl limits show` reads the file defaults |
+| C12 | `config/limits.default.json` replaces limit defaults in code | `ctl limits show` reads the file defaults |
 
 ### D. Slow mind behind a real gate (fix plan Phase 5)
 
@@ -83,9 +84,10 @@ Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (st
 
 | # | Work | Check |
 |---|---|---|
-| E1 | Publisher speaks only under held coins; data replies removed; bull post replies on held coins | A reply on an unheld coin is refused |
+| E1 | Publisher speaks only under held coins: callouts are bull posts after our buy, replies under other callouts only while we hold the coin, data replies removed | A reply on an unheld coin is refused |
 | E2 | Rug feed room from scraped comments and `risk.state`, evidence classes kept apart | `verify-asimog` screenshots and page text |
-| E3 | Wiki: pages from the Index and ledger, Wiki writer agent for prose, versioned rows, `/wiki` room | A page rebuilds byte-identical from the same data |
+| E3 | Wiki: pages from the Index and ledger, Wiki writer agent for prose, versioned rows, `/wiki` room, export to a pluggable wiki target (bucket or GitHub docs) | A page rebuilds byte-identical from the same data |
+| E5 | Embeddings in the agent runtime: OpenRouter embedding model, pgvector table with model and `seen_at`, as-of search; used for callout copies and narratives, reply rug reports, wiki and report retrieval | A replay search returns nothing seen after its time; spend metered |
 | E4 | `config/models.json` with per-agent models and the free fallback chain on `LLM_FALLBACK_KEY` | A failing primary falls back in a smoke |
 
 ### F. Hardening and truth (fix plan Phase 6)
@@ -116,4 +118,4 @@ Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (st
 
 ## Pending owner decisions
 
-Open in the Blueprint artifact: tape windows (6 h recommended, chosen but not marked decided), Index without raw trades, filter before storing, data tiers, owner limit defaults in a file.
+None. Recorded in `docs/DECISIONS.md` on 2026-10-19.

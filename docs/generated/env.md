@@ -64,6 +64,10 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `INDEX_HALF_LIFE_DAYS` | `7` | Index (docs/PIPELINE.md): a 30-day window with a 7-day half-life (fix plan 2.2; the 1-day slice of 2026-10-17 is retired) |
 | `INDEX_SEED_HOURS` | `24` | Index (docs/PIPELINE.md): a 30-day window with a 7-day half-life (fix plan 2.2; the 1-day slice of 2026-10-17 is retired) |
 | `LLM_STUB` | `0` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `EMBEDDING_PROVIDER` | `openai` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `EMBEDDING_BASE_URL` | `${LLM_BASE_URL}` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `EMBEDDING_MODEL` | ` ` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `EMBEDDING_API_KEY` | ` ` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_SYNTH` | `0.2` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_SWARM` | `0.5` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_EXTRACT` | `0.1` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
@@ -129,10 +133,6 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `SMART_MODEL_NAME` | `${LLM_MODEL_CHEAP}` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `WONDERWALL_MODEL_NAME` | `${LLM_MODEL_CHEAP}` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `NER_MODEL_NAME` | `${LLM_MODEL_CHEAP}` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
-| `EMBEDDING_PROVIDER` | `openai` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
-| `EMBEDDING_BASE_URL` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
-| `EMBEDDING_MODEL` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
-| `EMBEDDING_API_KEY` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `WEB_SEARCH_MODEL` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `SWARM_PLATFORMS` | `pumpfun,twitter` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `SWARM_TWITTER_RECSYS` | `random` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |

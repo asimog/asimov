@@ -73,7 +73,10 @@ Asimog's own dataset of who to trust: a rolling 30-day record with a 7-day half-
 | Rollups | wallet x coin x hour (buys, sells, SOL in and out, first buy time and market cap, first-slot flag) | Every minute, from the Scout |
 | Wallet scores | wallet | Hourly, versioned |
 | Coin and creator records | coin, creator | Hourly |
-| Leaderboards | top wallets, top traders, top callers, top callouts, top creators | Hourly incremental, full rebuild weekly; every weekly version kept |
+| Leaderboards | top wallets, top traders, top callers, top callouts, top creators | Hourly |
+| Light rebuild | scores and leaderboards recomputed from rollups | Every 12 h |
+| Full rebuild | every score from compacted rollups, archives if needed | Every 48 h |
+| Deeper refresh | 30-day callout backfill, leaderboard seed lists, owner lists and owner updates | Weekly; every weekly version kept |
 
 The Index reads only its rollups, never raw trades, so it survives Tape pruning. A full rebuild can replay archive files.
 
@@ -164,4 +167,16 @@ Probability signals are scored with Brier and skill against the base rate, in da
 
 ## 9. The wiki
 
-A public, cited page per caller, wallet, creator, coin and narrative: style, strategies, hold times, records, and summaries of pruned windows. Code writes every number from the Index and the ledger; the Wiki writer agent writes the prose, labelled AI judgment and passed through the public-text check. Pages are versioned rows in Postgres with a markdown export, read as of now. A page never feeds an order. Embeddings (pgvector in the same Postgres) come later, for text search by the slow mind and the site (`DECISIONS.md`).
+A public, cited page per caller, wallet, creator, coin and narrative: style, strategies, hold times, records, and summaries of pruned windows. Code writes every number from the Index and the ledger; the Wiki writer agent writes the prose, labelled AI judgment and passed through the public-text check. Pages are versioned rows in Postgres with a markdown export, read as of now. A page never feeds an order. Pages are exported to the configured wiki target (a bucket or a GitHub docs repository).
+
+## 10. Embeddings
+
+The agent runtime turns text into vectors with an OpenRouter embedding model (`EMBEDDING_MODEL`, key `EMBEDDING_API_KEY`), so agents can find similar text without reading everything. Vectors live in the same Postgres with the pgvector extension, each row tagged with its model and `seen_at`, and searched as of now.
+
+| Text | Used for |
+|---|---|
+| Callout text | Copies and echoes across callers; narrative clusters for the `coin` pack and BettaFish |
+| Scraped replies | Rug and dev-dump reports for the rug feed and the `exit` pack |
+| Wiki pages, slow reports | Retrieval for BettaFish, MiroShark and the thinking agents; search on the site |
+
+Numbers are never embedded; they stay in SQL. A similarity is evidence with a confidence, never an order. Embedding spend is metered per lane like any model call. Changing the model means re-embedding, so the model id is stored with every vector.

@@ -27,6 +27,5 @@ Growth unlocks by firm NAV, with one health condition: the books reconcile and n
 | Connectome Lab | The fruit-fly connectome as a fixed reservoir trading a 1% sleeve |
 | Regime model in Python | HMM regimes and change points nightly |
 | Question bank autoresearch | Weekly new Jev questions in shadow, promoted by measured lift |
-| Embeddings | pgvector in the same Postgres for text search over callouts, reports and wiki pages, for the slow mind and the site |
 | Frontends | cancerhawk.org rebuild, polymyths.com, hyperkaon.com |
 | Child units, studios, reserve domains | Not planned |
