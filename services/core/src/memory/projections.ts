@@ -67,6 +67,13 @@ async function onUpdate(tx: Tx, e: Envelope<BodyOf<"callout.updated">>) {
            values (${b.update_id}, ${b.callout_id}, ${b.text}, ${b.created_at}) on conflict do nothing`;
 }
 
+async function onReply(tx: Tx, e: Envelope<BodyOf<"callout.reply">>) {
+  const b = e.body;
+  await tx`insert into mem.callout_replies (reply_id, callout_id, wallet, handle, text, likes, created_at, seen_at)
+           values (${b.reply_id}, ${b.callout_id}, ${b.wallet}, ${b.handle}, ${b.text}, ${b.likes}, ${b.created_at}, ${e.seen_time})
+           on conflict (reply_id) do update set likes = excluded.likes`;
+}
+
 async function onCounts(tx: Tx, e: Envelope<BodyOf<"callout.counts">>) {
   const b = e.body;
   await tx`update mem.callouts set likes = ${b.likes}, replies = ${b.replies + b.comments}, reposts = ${b.reposts},
@@ -130,7 +137,7 @@ async function onWatched(tx: Tx, e: Envelope<BodyOf<"coin.watched">>) {
 
 export const memory: Consumer = {
   name: "memory",
-  topics: ["coin.seen", "coin.watched", "callout.created", "callout.updated", "callout.counts", "trade.curve", "trade.amm"],
+  topics: ["coin.seen", "coin.watched", "callout.created", "callout.updated", "callout.reply", "callout.counts", "trade.curve", "trade.amm"],
   batch: 1000,
   async handle(events, tx) {
     const trades: Envelope<BodyOf<"trade.curve">>[] = [];
@@ -140,6 +147,7 @@ export const memory: Consumer = {
         case "coin.watched": await onWatched(tx, e as never); break;
         case "callout.created": await onCallout(tx, e as never); break;
         case "callout.updated": await onUpdate(tx, e as never); break;
+        case "callout.reply": await onReply(tx, e as never); break;
         case "callout.counts": await onCounts(tx, e as never); break;
         default: trades.push(e as never);
       }

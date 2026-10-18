@@ -52,6 +52,10 @@ Both servers accept `CONNECT` with `user: subscriber` and a static password the 
 
 Observed: about 7 `followingFeed` messages per second (fan-out included), about 2 global processed trades per second on the global subject.
 
+## Callout replies (HTTP, found 2026-10-18 from the site's own requests)
+
+`GET https://frontend-api-v3.pump.fun/callout/{callout_id}/replies` returns `{replies: [{id, content, createdAt, likeCount, userId, walletAddress, userName, mediaUrl, parentMessageId, rootMessageId, directReplyCount, threadReplyCount, tombstone, repostCount, positionPnlUsd, ...}]}`. `GET /callout/{callout_id}` returns the callout. Note the singular `callout`. Read by the Reply Reader (`senses/reply-reader.ts`).
+
 ## Coins, traders, candles (HTTP)
 
 | Endpoint | Use |

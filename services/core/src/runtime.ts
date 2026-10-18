@@ -19,6 +19,8 @@ import { scorekeeper } from "./scorekeeper/scorekeeper.ts";
 import { Backfill } from "./senses/backfill.ts";
 import { ChainReader } from "./senses/chain-reader.ts";
 import { FeedReader } from "./senses/feed-reader.ts";
+import { MediaCache } from "./senses/media-cache.ts";
+import { ReplyReader } from "./senses/reply-reader.ts";
 import { Scout } from "./senses/scout.ts";
 import { startMcp } from "./mcp/server.ts";
 import { parseTokens, Toolbox } from "./mcp/toolbox.ts";
@@ -48,6 +50,8 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
   const treasury = treasuryWiring(sql, tape, clock); // null without keys: paper runs as before
   const consumers = [...buildConsumers(tape), ...(treasury?.consumers ?? [])];
   const feed = env.bool("SENSE_FEED", true) ? new FeedReader(tape) : null;
+  const replies = env.bool("SENSE_REPLIES", true) ? new ReplyReader(tape, sql) : null;
+  const media = env.bool("SENSE_MEDIA", true) ? new MediaCache(tape, sql) : null;
   const pool = new RpcPool();
   const backfill = env.bool("SENSE_BACKFILL", true) && pool.size ? new Backfill(tape, sql, pool) : null;
   const chain = env.bool("SENSE_CHAIN", true) ? new ChainReader(tape, sql, (mint) => backfill?.enqueue(mint)) : null;
@@ -85,6 +89,8 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
         mcp = await startMcp(new Toolbox({ sql, tape, clock, soulFile }, tokens), Number(env.str("MCP_PORT")));
         log.info("mcp", { url: mcp.url, lanes: tokens.size });
       }
+      replies?.start(); // before the feed: its start walks history and can take minutes
+      media?.start();
       await feed?.start();
       await chain?.start();
       await scout?.start();
@@ -101,6 +107,8 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
       treasury?.stop();
       await mcp?.close();
       await feed?.stop();
+      replies?.stop();
+      media?.stop();
       await scout?.stop();
       backfill?.stop();
       await chain?.stop();
@@ -108,7 +116,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     },
     stats() {
       const of = (name: string) => (consumers.find((c) => c.name === name) as { stats?: unknown } | undefined)?.stats;
-      return { tape: { written: tape.written, dropped: tape.dropped }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
+      return { tape: { written: tape.written, dropped: tape.dropped }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
     },
   };
   return rt;

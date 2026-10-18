@@ -478,9 +478,13 @@ create or replace view slow.pumpfun_trade_flow as
   from mem.bars_1m where minute < slow.as_of();
 
 create or replace view slow.media as
-  select 'callout:' || callout_id media_id, media_url url, 'callout' kind, mint, callout_id from mem.callouts where media_url is not null and seen_at <= slow.as_of()
-  union all
-  select 'coin:' || mint, image, 'coin', mint, null from mem.coins where image is not null and first_seen <= slow.as_of();
+  with m as (
+    select 'callout:' || callout_id media_id, media_url url, 'callout' kind, mint, callout_id from mem.callouts where media_url is not null and seen_at <= slow.as_of()
+    union all
+    select 'coin:' || mint, image, 'coin', mint, null from mem.coins where image is not null and first_seen <= slow.as_of()
+  )
+  select m.*, c.body->>'sha256' sha256, c.body->>'mime' mime
+  from m left join lateral (select body from tape.events e where e.topic = 'media.cached' and e.subject = m.media_id and e.seen_time <= slow.as_of() limit 1) c on true;
 
 create or replace view slow.report_feed as
   select report_id, producer, kind, subject, window_from, window_to, preset, sha256, summary, cites, parent_reports, ir, markdown, published_at

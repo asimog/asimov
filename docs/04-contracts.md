@@ -33,6 +33,8 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `observation.raw` | `kind` (http, ws, dom, frame, tx), `url`, `request_id`, `blob_ref` (object storage key), `sha256` |
 | `callout.created` | `callout_id` (pump id), `mint`, `author_wallet`, `author_handle`, `text`, `media[]`, `mcap_at_call_usd`, `price_sol_at_call`, `created_at`, `chain` |
 | `callout.updated` | `callout_id`, `update_id`, `text`, `media[]`, `created_at` |
+| `callout.reply` | `callout_id`, `mint`, `reply_id`, `parent_id?`, `wallet?`, `handle?`, `text`, `likes`, `media_url?`, `created_at` (Reply Reader, `GET /callout/{id}/replies`) |
+| `media.cached` | `media_id`, `kind` (callout, coin), `mint`, `callout_id?`, `url`, `sha256`, `bytes`, `mime` (Media cache; the file is in `tape.blobs`) |
 | `callout.reply` | `callout_id`, `reply_id`, `parent_id`, `author_wallet`, `text`, `created_at` |
 | `callout.repost` / `callout.quote` | `callout_id`, `by_wallet`, `quote_text?`, `created_at` |
 | `callout.counts` | `callout_id`, `likes`, `replies`, `reposts`, `quotes`, `observed_at` |

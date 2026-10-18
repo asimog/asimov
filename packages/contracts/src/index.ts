@@ -66,6 +66,14 @@ export const CalloutCreated = z.object({
 });
 export type CalloutCreated = z.infer<typeof CalloutCreated>;
 
+export const CalloutReply = z.object({
+  callout_id: z.string(), mint: z.string(), reply_id: z.string(), parent_id: z.string().nullable(), wallet: z.string().nullable(),
+  handle: z.string().nullable(), text: z.string(), likes: z.number(), media_url: z.string().nullable(), created_at: iso,
+});
+export const MediaCached = z.object({
+  media_id: z.string(), kind: z.enum(["callout", "coin"]), mint: z.string(), callout_id: z.string().nullable(), url: z.string(),
+  sha256: z.string(), bytes: z.number().int(), mime: z.string(),
+});
 export const CalloutUpdated = z.object({
   callout_id: z.string(),
   mint: z.string(),
@@ -462,6 +470,8 @@ export const TOPICS = {
   "coin.seen": CoinSeen,
   "callout.created": CalloutCreated,
   "callout.updated": CalloutUpdated,
+  "callout.reply": CalloutReply,
+  "media.cached": MediaCached,
   "callout.counts": CalloutCounts,
   "caller.position": CallerPosition,
   "trade.curve": Trade,
