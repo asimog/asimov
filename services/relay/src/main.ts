@@ -8,6 +8,7 @@ import postgres from "postgres";
 import { env } from "../../core/src/lib/env.ts";
 import { log } from "../../core/src/lib/log.ts";
 import { rooms } from "./rooms.ts";
+import { slowRooms } from "./slow-rooms.ts";
 
 const sql = postgres(env.str("DATABASE_URL"), { max: env.int("RELAY_DB_POOL", 3), idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } });
 const PORT = env.int("RELAY_PORT", 7401);
@@ -251,6 +252,9 @@ app.get("/v1/ledger", async (c) => c.json(await ledgerRoom()));
 app.get("/v1/integrity", async (c) => c.json(await integrity()));
 const r = rooms({ sql, cached, sym, line, mandate: MANDATE_SOL });
 app.get("/v1/treasury", async (c) => c.json(await r.treasury()));
+const slow = slowRooms({ sql, cached, sym });
+app.get("/v1/synthesis", async (c) => c.json(await slow.synthesis()));
+app.get("/v1/simulations", async (c) => c.json(await slow.simulations()));
 app.get("/v1/board", async (c) => c.json(await r.board(c.req.query("at") ? Number(c.req.query("at")) : null)));
 app.get("/v1/connectome", async (c) => c.json(await r.connectome()));
 app.get("/v1/cards", async (c) => c.json(await r.cardIds()));

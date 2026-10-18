@@ -21,6 +21,11 @@ const PRECALL = "precall.callout_p";
 const SWARM = "swarm.wave_p";
 const SWARM_H = env.int("SWARM_HORIZON_MIN", 120);
 const SWARM_WAVE = env.int("SWARM_WAVE_CALLERS", 5);
+// docs/24 P8: BettaFish's coin stance, read as P(price up at STANCE_H): bullish 1, bearish and avoid 0, neutral 0.5.
+// Hit: the last price seen at the horizon is above the last price seen at the stance. For a decisive stance the Brier
+// score is the miss rate, so 1 - brier is its accuracy. A coin with no trade on either side is not scored.
+const SYNTH = "synthesis.coin";
+const STANCE_H = env.int("STANCE_HORIZON_MIN", 60);
 
 type Prob = { kind: string; p: number; n: number; horizon_min: number };
 type Watch = { callout_id: string; event_id: string; mint: string; author: string | null; created_ms: number; t0_ms: number; probs: Prob[]; done: number[] };
@@ -147,8 +152,10 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
    * And for swarm.wave_p (docs/24 P8): hit = SWARM_WAVE distinct callers call the coin within SWARM_H after the run. */
   async function precallTick(tx: Tx, nowIso: string) {
     const now = Date.parse(nowIso);
-    const fresh = await tx`select id, kind, subject, produced_at, coalesce(value->>'p', value->>'wave_p')::float p, coalesce((value->>'horizon_min')::int, ${SWARM_H}) h from board.signals
-      where kind in (${PRECALL}, ${SWARM}) and (produced_at, id) > (${preCursor.at}, ${preCursor.id}) and produced_at <= ${nowIso} order by produced_at, id`;
+    const fresh = await tx`select id, kind, subject, produced_at,
+        case when kind = ${SYNTH} then (case value->>'stance' when 'bullish' then 1 when 'neutral' then 0.5 else 0 end) else coalesce(value->>'p', value->>'wave_p')::float end p,
+        case when kind = ${SYNTH} then ${STANCE_H} else coalesce((value->>'horizon_min')::int, ${SWARM_H}) end h from board.signals
+      where kind in (${PRECALL}, ${SWARM}, ${SYNTH}) and (produced_at, id) > (${preCursor.at}, ${preCursor.id}) and produced_at <= ${nowIso} order by produced_at, id`;
     for (const r of fresh) {
       const w: Pre = { signal_id: r.id as string, kind: r.kind as string, mint: r.subject as string, at_ms: (r.produced_at as Date).getTime(), p: r.p as number, horizon_min: r.h as number };
       await tx`insert into mind.precall_watch (signal_id, kind, mint, at, p, horizon_min) values (${w.signal_id}, ${w.kind}, ${w.mint}, ${iso(w.at_ms)}, ${w.p}, ${w.horizon_min}) on conflict do nothing`;
@@ -158,7 +165,18 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
     for (const w of pre.filter((x) => now >= x.at_ms + x.horizon_min * 60_000)) {
       const [c] = await tx`select count(*)::int n, count(distinct body->>'author_wallet')::int callers from tape.events where topic = 'callout.created' and body->>'mint' = ${w.mint}
         and seen_time > ${iso(w.at_ms)} and seen_time <= ${iso(w.at_ms + w.horizon_min * 60_000)}`;
-      const hit = w.kind === SWARM ? ((c!.callers as number) >= SWARM_WAVE ? 1 : 0) : (c!.n as number) > 0 ? 1 : 0;
+      let hit = w.kind === SWARM ? ((c!.callers as number) >= SWARM_WAVE ? 1 : 0) : (c!.n as number) > 0 ? 1 : 0;
+      if (w.kind === SYNTH) {
+        const px = async (t: number) => (await tx`select (body->>'price_sol')::float p from tape.events where subject = ${w.mint} and topic in ('trade.curve', 'trade.amm')
+          and seen_time <= ${iso(t)} and (body->>'price_sol')::float > 0 order by seen_time desc, id desc limit 1`)[0]?.p as number | undefined;
+        const [p0, p1] = [await px(w.at_ms), await px(w.at_ms + w.horizon_min * 60_000)];
+        if (p0 == null || p1 == null) {
+          await tx`update mind.precall_watch set done = true where signal_id = ${w.signal_id}`;
+          pre.splice(pre.indexOf(w), 1);
+          continue;
+        }
+        hit = p1 > p0 ? 1 : 0;
+      }
       await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${w.kind}, ${w.horizon_min}, 1, ${(w.p - hit) ** 2}, ${hit}, ${w.p})
         on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, brier_sum = mind.scores.brier_sum + excluded.brier_sum,
           hits = mind.scores.hits + excluded.hits, p_sum = mind.scores.p_sum + excluded.p_sum`;

@@ -15,6 +15,8 @@ Rule zero: **every motion is caused by a real event or a real number changing.**
 | `/treasury` | Treasury | Dark | Flow diagram of sweeps, balances, costs and reconciliation | Where the money goes, with proofs |
 | `/charter` | Charter | Dark | The constitution, the soul's version timeline, counsel decisions | Who it is and what binds it |
 | `/integrity` | Integrity | Dark | Caller graph with echo rings; case files (`/case/[id]`) in six evidence sections; the caller ledger with denominators | Patterns in the callout feed, with evidence, and what it cannot say |
+| `/synthesis` | Synthesis | Dark | Ruled tables and the forum as numbered lines; every `[cid:...]` links to its case file | What BettaFish read in the feed: forum, narratives, coin stances, reports, claim survival per engine, stance score (docs/24) |
+| `/simulations` | Simulations | Dark | Per run: KPIs, belief drift tables per branch, simulated posts; SIMULATED chip on the title, every run, every post and the report | What MiroShark simulated: wave probability, branch A vs B, belief drift, the Swarm Report, the swarm's Brier score (docs/24) |
 | `/connectome` | Connectome Lab | Dark | Fruit-fly brain point cloud | The 1% fly sleeve |
 | `/rewind` | Rewind | Dark | Any instrument at a past time | What it knew then |
 | `/calls/[id]`, `/callers/[id]` | Dossiers | Dark | Why-chain trail | One object, fully explained |

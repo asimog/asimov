@@ -9,6 +9,7 @@ import { RpcPool } from "../lib/rpc.ts";
 import { ensureGenesis, verifyChain, versions } from "../soul/soul.ts";
 import { why } from "../lib/why.ts";
 import { coverage, ledger } from "../scorekeeper/ledger.ts";
+import { slowScores } from "../scorekeeper/slow-scores.ts";
 import { liveClock } from "../lib/clock.ts";
 import { Tape } from "../tape/tape.ts";
 import { balances, nav, recordDeposit } from "../treasury/books.ts";
@@ -152,6 +153,22 @@ const commands: Record<string, () => Promise<unknown>> = {
     await recordDeposit(tape, opt("wallet")!, Number(opt("lamports")), opt("sig")!);
     await tape.close();
     return { ok: true };
+  },
+  // docs/24: the slow mind at a glance: jobs, spend per lane against its hourly cap, engine health, last reports, scores
+  slow: async () => {
+    const at = new Date().toISOString();
+    const jobs = await sql`select engine, kind, state, count(*)::int n from slow.jobs where slot > ${new Date(Date.now() - 86_400_000).toISOString()} group by 1, 2, 3 order by 1, 2, 3`;
+    const recent = await sql`select id, engine, kind, subject, state, started_at, finished_at, cost_usd, error from slow.jobs order by slot desc, id desc limit ${Number(opt("n") ?? 10)}`;
+    const spend = await sql`select engine, coalesce(sum(cost_usd), 0)::float last_hour from slow.jobs where finished_at > now() - interval '1 hour' group by 1`;
+    const cap = { bettafish: env.num("LLM_USD_HOUR_SYNTH", 0), miroshark: env.num("LLM_USD_HOUR_SWARM", 0) };
+    const health = Object.fromEntries(await Promise.all((["bettafish", "miroshark"] as const).map(async (e) => {
+      const url = env.opt(e === "bettafish" ? "BETTAFISH_URL" : "MIROSHARK_URL");
+      const ok = url ? await fetch(`${url}/asimog/health`, { signal: AbortSignal.timeout(2000) }).then((r) => r.ok, () => false) : false;
+      return [e, url ? (ok ? "up" : "down") : "unset"];
+    })));
+    const reports = await sql`select report_id, producer, kind, subject, published_at, left(summary, 160) summary from slow.reports order by published_at desc limit 5`;
+    const lanes = (["bettafish", "miroshark"] as const).map((e) => ({ engine: e, lane: e === "bettafish" ? "SYNTH" : "SWARM", usd_last_hour: spend.find((s) => s.engine === e)?.last_hour ?? 0, usd_cap_hour: cap[e] }));
+    return { health, lanes, jobs_24h: jobs, recent, reports, scores: await slowScores(sql, at) };
   },
   help: async () => ({ commands: Object.keys(commands) }),
 };

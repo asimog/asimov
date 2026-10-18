@@ -2,7 +2,7 @@
 import type { Suite } from "../../lib/suite.ts";
 import { Browser, VIEWPORTS, WEB, pageChecks, servers } from "../../lib/site.ts";
 
-const ROOMS = ["/", "/cortex", "/lab", "/ledger", "/integrity", "/treasury", "/rewind", "/connectome", "/charter"];
+const ROOMS = ["/", "/cortex", "/lab", "/ledger", "/integrity", "/synthesis", "/simulations", "/treasury", "/rewind", "/connectome", "/charter"];
 const LABELS = ["Field", "Cortex", "Lab", "Ledger", "Integrity", "Treasury", "Rewind", "Connectome", "Charter"];
 
 export const suite: Suite = {
