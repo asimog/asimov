@@ -1,9 +1,12 @@
 // Risk Gate (docs/08): a pure function. Same inputs, same answer, in ghost, paper and live.
+import type { KillState } from "@asimog/contracts";
 // Limits come from mind.limits (set by the owner through the admin path). DEFAULT_LIMITS is the documented
 // default for the 0.2 SOL start, used only while mind.limits is empty.
 
 export type Limits = {
   max_order_sol: number;
+  /** the one fixed size of a ghost or probe strategy's buy, until the kernel gives it a full share */
+  probe_order_sol: number;
   max_position_sol: number;
   max_open_coins: number;
   min_free_sol: number;
@@ -23,6 +26,7 @@ export type Limits = {
 
 export const DEFAULT_LIMITS: Limits = {
   max_order_sol: 0.02,
+  probe_order_sol: 0.01,
   max_position_sol: 0.04,
   max_open_coins: 5,
   min_free_sol: 0.1,
@@ -47,20 +51,32 @@ export type Book = {
   realized_today_sol: number;
 };
 
+/** One book shape for the ghost desk and the live gate, so both check the same caps. */
+export function bookFrom(equity_sol: number, lots: { mint: string; cost_sol: number; rent_sol: number }[], realized_today_sol: number): Book {
+  const b: Book = { equity_sol, open_cost_sol: 0, open_coins: new Set(), position_sol: new Map(), realized_today_sol };
+  for (const l of lots) {
+    b.open_cost_sol += l.cost_sol;
+    b.open_coins.add(l.mint);
+    b.position_sol.set(l.mint, (b.position_sol.get(l.mint) ?? 0) + l.cost_sol - l.rent_sol);
+  }
+  return b;
+}
+
 export type GateIntent = { id: string; mint: string; side: "buy" | "sell"; size_sol: number; duplicate: boolean };
 export type GateRisk = { bundle_share: number; top10_share: number | null; fresh_share: number; creator_sold: number };
 export type GateQuote = { at_ms: number; impact_bps: number; real_sol: number | null; graduated: boolean; risk?: GateRisk | null };
-export type GateFlags = { kill: boolean; mode_ok: boolean; strategy_live: boolean };
+export type GateFlags = { kill: KillState; mode_ok: boolean; strategy_live: boolean };
 
 export type GateResult = { ok: true } | { ok: false; reason_code: string; detail: string };
 
 const no = (reason_code: string, detail: string): GateResult => ({ ok: false, reason_code, detail });
 
 export function riskGate(i: GateIntent, book: Book, L: Limits, q: GateQuote | null, f: GateFlags, now_ms: number): GateResult {
+  if (f.kill === "halted") return no("kill_switch", "halted: nothing trades");
   if (!f.mode_ok) return no("mode_not_live", "mode does not allow this order");
   if (i.duplicate) return no("duplicate_intent", "an intent for this coin is already pending");
-  if (i.side === "sell") return { ok: true }; // exits reduce risk, so the kill switch never strands a position
-  if (f.kill) return no("kill_switch", "kill switch is on");
+  if (i.side === "sell") return { ok: true }; // exits reduce risk: exit_only still lets them run
+  if (f.kill !== "running") return no("kill_switch", `${f.kill}: no new buys`);
   if (!(i.size_sol > 0)) return no("order_cap", `buy size ${i.size_sol} SOL is not positive`);
   if (!f.strategy_live) return no("strategy_not_live", "strategy has no capital");
   if (L.own_mints.includes(i.mint)) return no("own_coin", "never trade our own coin");

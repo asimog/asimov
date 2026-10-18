@@ -63,6 +63,16 @@ export class Signer {
     return null;
   }
 
+  /** No file: running. "exit_only": sells only. Anything else, or a file we cannot read: halted. */
+  private killState(): "running" | "exit_only" | "halted" {
+    if (!fs.existsSync(this.o.killFile)) return "running";
+    try {
+      return fs.readFileSync(this.o.killFile, "utf8").trim() === "exit_only" ? "exit_only" : "halted";
+    } catch {
+      return "halted";
+    }
+  }
+
   private limited(endpoint: string) {
     const t = this.now();
     const recent = (this.hits.get(endpoint) ?? []).filter((x) => t - x < 60_000);
@@ -81,11 +91,13 @@ export class Signer {
     const cap = this.capOf(endpoint, token);
     if (!cap) return refuse(401, "bad_capability");
     if (endpoint === "/sign/login" || endpoint === "/sign/bounty" || endpoint === "/sign/x402") return refuse(501, "endpoint_not_enabled", "arrives with S8 and S9", cap);
+    const kill = this.killState();
+    if (kill === "halted") return refuse(403, "kill_switch", "halted", cap);
     if (!body || typeof body.tx !== "string") return refuse(400, "bad_request", "tx missing", cap);
     const tx = parse(body.tx);
     if (!tx) return refuse(400, "bad_transaction", "cannot read transaction", cap);
     const sha = crypto.createHash("sha256").update(body.tx).digest("hex");
-    const ctx = { ...(body.ctx ?? {}), killed: fs.existsSync(this.o.killFile) }; // never trusted from the caller
+    const ctx = { ...(body.ctx ?? {}), killed: kill === "exit_only" }; // read here, never trusted from the caller
     const { rules, keys, wallets } = { rules: this.o.rules, keys: this.o.keys, wallets: this.wallets };
     let v: Verdict;
     let key: Keypair | undefined;

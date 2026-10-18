@@ -26,7 +26,8 @@ export function treasuryWiring(sql: Sql, tape: Tape, clock: Clock): Treasury | n
   const swapSigner = new HttpSigner(env.str("SIGNER_CLIENT_TOKEN_SWAP"));
   const treasurySigner = new HttpSigner(env.str("SIGNER_CLIENT_TOKEN_TREASURY"));
   const bk = books(tape, { trade });
-  const consumers = [bk, { ...kill(tape, path.join(env.root, "artifacts", "KILL")), startAtHead: true }, orderGate(tape, clock, { trade }), trader({ tape, clock, chain, builder: new FunBlock(), swapSigner, wallet: trade })];
+  const tr = trader({ sql, tape, clock, chain, builder: new FunBlock(), swapSigner, wallet: trade });
+  const consumers = [bk, { ...kill(tape, path.join(env.root, "artifacts", "KILL")), startAtHead: true }, orderGate(tape, clock, { trade }), tr];
   const timers: NodeJS.Timeout[] = [];
   const guard = (name: string, fn: () => Promise<unknown>) => () => void fn().catch((err) => {
     log.warn("treasury", { job: name, err: String(err).slice(0, 160) });
@@ -41,6 +42,7 @@ export function treasuryWiring(sql: Sql, tape: Tape, clock: Clock): Treasury | n
   return {
     consumers,
     start() {
+      timers.push(setInterval(guard("trader.retry", () => tr.retry()), env.int("TRADER_RETRY_EVERY_MS", 2_000)));
       timers.push(setInterval(guard("reconcile", () => reconcile(sql, tape, chain, bk, wallets, hourOf(clock.iso()))), env.num("RECONCILE_EVERY_MIN", 60) * 60_000));
       if (creator && agent && operator && mint && env.opt("SIGNER_CLIENT_TOKEN_TREASURY")) {
         const deps = { tape, clock, chain, builder: new FunBlock(), signer: treasurySigner, wallets: { trade, creator, agent, operator }, mint, runwayLamports: () => Math.round(env.num("AGENT_RUNWAY_SOL", 0) * 1e9) };

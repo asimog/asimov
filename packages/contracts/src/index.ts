@@ -422,8 +422,8 @@ export const OrderCreated = z.object({
   mint: z.string(),
   side: z.enum(["buy", "sell"]),
   size_sol: num.nullable(),
-  fraction: num.nullable(),
-  max_slippage_bps: num,
+  fraction: num.min(0).max(1).nullable(),
+  max_slippage_bps: num.min(0).max(2000),
   limits_version: num,
 });
 export const OrderSubmitted = z.object({ order_id: z.string(), tx_sig: z.string(), route: z.enum(["curve", "amm"]), submitted_at: iso });
@@ -473,8 +473,11 @@ export const BooksReconciled = z.object({
   degraded: z.boolean().optional(),
   wallets: z.array(z.object({ wallet: z.string(), ledger_lamports: z.number().int(), chain_lamports: z.number().int() })),
 });
-export const KILL_CAUSES = ["owner", "daily_loss", "signer_refusals", "fill_drift", "feed_gap", "books"] as const;
-export const KillChanged = z.object({ on: z.boolean(), reason: z.string(), by: z.enum([...KILL_CAUSES, "admin"]) });
+export const KILL_CAUSES = ["owner", "daily_loss", "signer_refusals", "fill_drift", "feed_gap", "books", "ops_stop"] as const;
+/** running: buys and sells; exit_only: sells only; halted: nothing signs (docs/25 5.4) */
+export const KILL_STATES = ["running", "exit_only", "halted"] as const;
+export type KillState = (typeof KILL_STATES)[number];
+export const KillChanged = z.object({ state: z.enum(KILL_STATES), reason: z.string(), by: z.enum([...KILL_CAUSES, "admin"]) });
 export const ProofPublished = z.object({ n: z.number().int(), hour: z.string(), sha256: z.string(), prev_sha256: z.string(), memo_sig: z.string().nullable() });
 
 export const TOPICS = {

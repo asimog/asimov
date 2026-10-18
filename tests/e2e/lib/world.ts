@@ -46,7 +46,7 @@ export async function world(tag: string, o: { live?: boolean; strategies?: strin
   const swapSigner = new LocalSigner(signer, "swap-secret");
   const treasurySigner = new LocalSigner(signer, "treasury-secret");
   const gate = orderGate(tape, clock, wallets, { live: () => o.live ?? true, strategies: () => new Set(o.strategies ?? ["sr_live"]) });
-  const tr = trader({ tape, clock, chain, builder, swapSigner, wallet: wallets.trade, confirmMs: o.confirmMs ?? 50 });
+  const tr = trader({ sql: db.sql, tape, clock, chain, builder, swapSigner, wallet: wallets.trade, confirmMs: o.confirmMs ?? 50 });
   const bk = books(tape, wallets);
   const kl = kill(tape, killFile);
   const consumers: Consumer[] = [bk, kl, gate, tr];
@@ -65,6 +65,7 @@ export async function world(tag: string, o: { live?: boolean; strategies?: strin
           errors.push(`${c.name}: ${String(err).slice(0, 120)}`);
         }
       }
+      moved += await tr.retry();
       if (!moved) break;
     }
     return errors;
@@ -76,13 +77,16 @@ export async function world(tag: string, o: { live?: boolean; strategies?: strin
   }
 
   /** a trade on the coin (so the gate has a fresh quote) then an intent from the live strategy */
-  async function intent(side: "buy" | "sell", o2: { size_sol?: number; fraction?: number; strategy?: string; mint?: string } = {}) {
+  async function intent(side: "buy" | "sell", o2: { size_sol?: number; fraction?: number; strategy?: string; mint?: string; ghost?: boolean } = {}) {
     const mint = o2.mint ?? keys.mint;
     const price = chain.prices.get(mint)!;
     tape.emit("trade.curve", { mint, tx: `t${chain.next()}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: keys.stranger.publicKey.toBase58(), sol: 1, usd: null, tokens: 1e6, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null }, { source: "nats", subject: mint });
     await tape.flush();
     const id = clock.id("intent");
-    tape.emit("intent.created", { strategy_id: o2.strategy ?? "sr_live", mint, side, size_sol: side === "buy" ? (o2.size_sol ?? 0.01) : null, fraction: side === "sell" ? (o2.fraction ?? 1) : null, reason: ["test"], score: 1, board: {} }, { source: "strategies", subject: id });
+    const strategy_id = o2.strategy ?? "sr_live";
+    tape.emit("intent.created", { strategy_id, mint, side, size_sol: side === "buy" ? (o2.size_sol ?? 0.01) : null, fraction: side === "sell" ? (o2.fraction ?? 1) : null, reason: ["test"], score: 1, board: {} }, { source: "strategies", subject: id });
+    if (o2.ghost !== false) // the live gate acts only on a paper fill (docs/25 5.2)
+      tape.emit("intent.ghost_filled", { intent_id: id, strategy_id, mint, side, sol: o2.size_sol ?? 0.01, tokens: 1, price_sol: price, fee_sol: 0, rent_sol: 0, slippage_bps: 0 }, { source: "strategies", subject: id });
     return id;
   }
 

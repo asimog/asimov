@@ -371,7 +371,18 @@ create table if not exists hands.orders (
   mint text,
   strategy_id text,
   close_pending boolean not null default false,
+  attempts int not null default 0,
+  next_at timestamptz,
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+alter table hands.orders add column if not exists attempts int not null default 0, add column if not exists next_at timestamptz, add column if not exists created_at timestamptz not null default now();
+-- an event the Trader cannot process is parked here instead of blocking every later order
+create table if not exists hands.dead_letters (
+  event_id text primary key,
+  consumer text not null,
+  error text not null,
+  at timestamptz not null default now()
 );
 create table if not exists books.entries (
   entry_id text primary key,
@@ -400,12 +411,19 @@ create table if not exists books.proofs (
 );
 create table if not exists ops.kill (
   id int primary key default 1 check (id = 1),
-  on_ boolean not null default false,
+  state text not null default 'running' check (state in ('running', 'exit_only', 'halted')),
   reason text,
   by text,
   at timestamptz
 );
+alter table ops.kill add column if not exists state text not null default 'running' check (state in ('running', 'exit_only', 'halted'));
 insert into ops.kill (id) values (1) on conflict do nothing;
+-- automatic kill trigger counts survive a restart (docs/25 5.4)
+create table if not exists ops.kill_counts (
+  cause text not null,
+  at timestamptz not null,
+  event_id text primary key
+);
 
 -- ===== slow mind read surface (docs/24 section 4). Read-only views for BettaFish and MiroShark; the role slow_reader
 -- can SELECT here and nowhere else. `SET slow.as_of = '<iso>'` pins a replay's now; nothing seen after it is shown.

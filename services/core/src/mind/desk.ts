@@ -14,7 +14,7 @@ import { type BoardValues, evaluateEntry, type Spec, validate, whenHolds } from 
 import { evolve, type Member } from "./evolve.ts";
 import { F, fillBuy, fillSell, type Market, quoteFor, sampleLatencyMs } from "./fill.ts";
 import { allocate, lcb, type Stats } from "./kernel.ts";
-import { type Book, DEFAULT_LIMITS, type GateRisk, type Limits, riskGate } from "./risk.ts";
+import { type Book, bookFrom, DEFAULT_LIMITS, type GateRisk, type Limits, riskGate } from "./risk.ts";
 import { seedSpecs } from "./seeds.ts";
 
 const D = {
@@ -136,17 +136,8 @@ export function desk(tape: Tape, clock: Clock): Desk {
 
   // ---------- books ----------
   function book(sid: string, now: number): Book {
-    const b: Book = { equity_sol: D.bookSol + (realized.get(sid) ?? 0), open_cost_sol: 0, open_coins: new Set(), position_sol: new Map(), realized_today_sol: 0 };
-    for (const [mint, ps] of open)
-      for (const p of ps)
-        if (p.strategy_id === sid) {
-          b.open_cost_sol += p.cost_sol;
-          b.open_coins.add(mint);
-          b.position_sol.set(mint, (b.position_sol.get(mint) ?? 0) + p.cost_sol - p.rent_sol);
-        }
     const t = closedToday.get(sid);
-    if (t && t.day === day(now)) b.realized_today_sol = t.net;
-    return b;
+    return bookFrom(D.bookSol + (realized.get(sid) ?? 0), [...open.values()].flat().filter((p) => p.strategy_id === sid), t && t.day === day(now) ? t.net : 0);
   }
 
   async function saveStats(tx: Tx, sid: string) {
@@ -414,7 +405,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     if (!sell) return;
     await newIntent(tx, { strategy_id: p.strategy_id, mint: p.mint, side: "sell", size_sol: null, tokens: sell.tokens, position_id: p.id, reason: sell.reason, created_ms: now, score: null },
       [sell.reason, `mult ${ctx.mult.toFixed(3)}`, `held ${ctx.heldMin.toFixed(1)} min`], { mult: ctx.mult },
-      e, () => riskGate({ id: "", mint: p.mint, side: "sell", size_sol: 0, duplicate: false }, book(p.strategy_id, now), limits, null, { kill: false, mode_ok: true, strategy_live: true }, now));
+      e, () => riskGate({ id: "", mint: p.mint, side: "sell", size_sol: 0, duplicate: false }, book(p.strategy_id, now), limits, null, { kill: "running", mode_ok: true, strategy_live: true }, now));
   }
 
   /** The caller the Board is about: the latest callout's author, or a known caller who bought since (pre-call). */
@@ -453,7 +444,8 @@ export function desk(tape: Tape, clock: Clock): Desk {
     for (const { spec } of strategies.values()) {
       if (busy.has(spec.id) || now - (lastExit.get(`${spec.id}:${mint}`) ?? -Infinity) < D.reentryMs) continue;
       bump("evaluations");
-      const d = evaluateEntry(spec, board, quote, D.bookSol);
+      const s = st.get(spec.id);
+      const d = evaluateEntry(spec, board, quote, s?.stage === "full" ? { budget_sol: s.share * D.bookSol } : { fixed_sol: limits.probe_order_sol });
       if (!d.enter) continue;
       const size = Math.min(d.size_sol, limits.max_order_sol); // sizes are clamped to limits; the gate checks anyway
       const q = quote(size);
@@ -461,7 +453,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
         [`score ${d.score.toFixed(3)} >= ${spec.enter_if.score_gte.toFixed(3)}`, `edge ${d.edge_bps.toFixed(0)} bps > cost ${d.cost_bps.toFixed(0)} bps`],
         { terms: d.terms, edge_bps: d.edge_bps, cost_bps: d.cost_bps, callout_id: cc?.callout_id ?? null, caller: callerOf(mint) },
         e, () => riskGate({ id: "", mint, side: "buy", size_sol: size, duplicate: false }, book(spec.id, now), limits,
-          { at_ms: m.at_ms, impact_bps: q.impact_bps, real_sol: m.real_sol, graduated: m.graduated, risk: (board["risk.state"] as GateRisk | undefined) ?? null }, { kill: false, mode_ok: true, strategy_live: true }, now));
+          { at_ms: m.at_ms, impact_bps: q.impact_bps, real_sol: m.real_sol, graduated: m.graduated, risk: (board["risk.state"] as GateRisk | undefined) ?? null }, { kill: "running", mode_ok: true, strategy_live: true }, now));
     }
   }
 

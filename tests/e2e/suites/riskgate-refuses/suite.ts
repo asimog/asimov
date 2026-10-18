@@ -5,15 +5,16 @@ import type { Suite } from "../../lib/suite.ts";
 const NOW = 1_800_000_000_000;
 const book = (o: Partial<Book> = {}): Book => ({ equity_sol: 0.2, open_cost_sol: 0, open_coins: new Set(), position_sol: new Map(), realized_today_sol: 0, ...o });
 const quote = (o: Partial<GateQuote> = {}): GateQuote => ({ at_ms: NOW - 500, impact_bps: 40, real_sol: 8, graduated: false, ...o });
-const flags = (o: Partial<GateFlags> = {}): GateFlags => ({ kill: false, mode_ok: true, strategy_live: true, ...o });
+const flags = (o: Partial<GateFlags> = {}): GateFlags => ({ kill: "running", mode_ok: true, strategy_live: true, ...o });
 const buy = (o: Partial<GateIntent> = {}): GateIntent => ({ id: "in_x", mint: "MintA", side: "buy", size_sol: 0.02, duplicate: false, ...o });
 const five = new Set(["a", "b", "c", "d", "e"]);
 
 const CASES: { name: string; expect: string | "ok"; run: () => ReturnType<typeof riskGate> }[] = [
   { name: "clean buy passes", expect: "ok", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote(), flags(), NOW) },
   { name: "sell passes with no quote", expect: "ok", run: () => riskGate(buy({ side: "sell" }), book(), DEFAULT_LIMITS, null, flags(), NOW) },
-  { name: "kill switch stops buys", expect: "kill_switch", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote(), flags({ kill: true }), NOW) },
-  { name: "kill switch lets sells through", expect: "ok", run: () => riskGate(buy({ side: "sell" }), book(), DEFAULT_LIMITS, quote(), flags({ kill: true }), NOW) },
+  { name: "exit_only stops buys", expect: "kill_switch", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote(), flags({ kill: "exit_only" }), NOW) },
+  { name: "halted stops sells", expect: "kill_switch", run: () => riskGate(buy({ side: "sell" }), book(), DEFAULT_LIMITS, quote(), flags({ kill: "halted" }), NOW) },
+  { name: "exit_only lets sells through", expect: "ok", run: () => riskGate(buy({ side: "sell" }), book(), DEFAULT_LIMITS, quote(), flags({ kill: "exit_only" }), NOW) },
   { name: "zero-size buy", expect: "order_cap", run: () => riskGate(buy({ size_sol: 0 }), book(), DEFAULT_LIMITS, quote(), flags(), NOW) },
   { name: "mode does not allow", expect: "mode_not_live", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote(), flags({ mode_ok: false }), NOW) },
   { name: "duplicate intent", expect: "duplicate_intent", run: () => riskGate(buy({ duplicate: true }), book(), DEFAULT_LIMITS, quote(), flags(), NOW) },

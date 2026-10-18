@@ -3,7 +3,7 @@
 // must rebuild identically from the Tape, and the proof chain must verify (docs/10, docs/14).
 import crypto from "node:crypto";
 import { balances, hourOf, nav, reconcile } from "../../../../services/core/src/treasury/books.ts";
-import { killed } from "../../../../services/core/src/treasury/kill.ts";
+import { killState } from "../../../../services/core/src/treasury/kill.ts";
 import { publishProof, verifyProofs } from "../../../../services/core/src/treasury/proofs.ts";
 import { drain } from "../../../../services/core/src/tape/consumer.ts";
 import type { Check } from "../../lib/checks.ts";
@@ -127,7 +127,7 @@ export const suite: Suite = {
       const bad = await reconcile(w.sql, w.tape, w.chain, w.books, [w.wallets.trade], `${h1.slice(0, 11)}23:00:00Z`);
       check("1 lamport of drift fails reconciliation", bad?.ok === false && bad.wallets[0]!.chain_lamports - bad.wallets[0]!.ledger_lamports === 1, JSON.stringify(bad?.wallets));
       await w.settle();
-      check("failed reconciliation trips the kill switch", await killed(w.sql), "ops.kill on");
+      check("failed reconciliation trips the kill switch", (await killState(w.sql)) === "exit_only", "ops.kill exit_only");
       await w.intent("buy");
       await w.settle();
       const rej = (await w.topic("order.rejected")).filter((e) => e.body.reason_code === "kill_switch");

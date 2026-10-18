@@ -16,6 +16,10 @@ export interface Consumer {
   startAtHead?: boolean;
   /** reads the Tape and writes only mem.* or board.signals: `ctl rebuild` clears its output and re-runs it */
   projection?: true;
+  /** runs in its own live loop, so a slow consumer (the Trader waiting on a confirm) never delays it or is delayed */
+  ownLoop?: true;
+  /** called once the batch's transaction has committed: side effects outside the database go here */
+  afterCommit?(): void;
   handle(events: Envelope[], tx: Tx): Promise<void>;
 }
 
@@ -28,7 +32,7 @@ function normalize(r: Row): Envelope {
 
 /** Process at most one batch. Returns how many events were handled. */
 export async function step(sql: Sql, c: Consumer, untilIso?: string): Promise<number> {
-  return sql.begin(async (tx) => {
+  const n = await sql.begin(async (tx) => {
     const [off] = await tx`
       insert into tape.consumer_offsets (consumer) values (${c.name})
       on conflict (consumer) do update set consumer = excluded.consumer
@@ -49,6 +53,8 @@ export async function step(sql: Sql, c: Consumer, untilIso?: string): Promise<nu
              where consumer = ${c.name}`;
     return events.length;
   });
+  if (n) c.afterCommit?.();
+  return n;
 }
 
 /** Drain a consumer to the head (or to untilIso). Used by replay and by live loops. */
@@ -67,20 +73,25 @@ export async function runLive(sql: Sql, consumers: Consumer[], _clock: Clock, po
     await sql`insert into tape.consumer_offsets (consumer, last_seen_time, last_id)
       select ${c.name}, seen_time, id from tape.events order by seen_time desc, id desc limit 1
       on conflict (consumer) do nothing`;
-  let wake: (() => void) | null = null;
-  await sql.listen("tape", () => wake?.());
-  for (;;) {
-    for (const c of consumers) {
-      try {
-        await drain(sql, c);
-      } catch (err) {
-        log.error("consumer", { consumer: c.name, err: String(err) });
+  const loops = [consumers.filter((c) => !c.ownLoop), ...consumers.filter((c) => c.ownLoop).map((c) => [c])];
+  const wakes = new Set<() => void>();
+  await sql.listen("tape", () => {
+    for (const w of wakes) w();
+  });
+  await Promise.all(loops.map(async (group) => {
+    for (;;) {
+      for (const c of group) {
+        try {
+          await drain(sql, c);
+        } catch (err) {
+          log.error("consumer", { consumer: c.name, err: String(err) });
+        }
       }
+      await new Promise<void>((r) => {
+        const done = () => (wakes.delete(done), r());
+        wakes.add(done);
+        setTimeout(done, pollMs);
+      });
     }
-    await new Promise<void>((r) => {
-      wake = r;
-      setTimeout(r, pollMs);
-    });
-    wake = null;
-  }
+  }));
 }

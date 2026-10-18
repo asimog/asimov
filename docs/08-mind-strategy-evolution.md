@@ -109,7 +109,7 @@ Every fill records markouts at 1 s, 10 s, 60 s and 5 min (mid price move in our 
 - Every round: draw one sample per strategy (Thompson sampling). Capital share is proportional to positive samples. Strategies with a negative sample get zero for this round.
 - Caps: 25% of the war chest per strategy; 5% for strategies in probe.
 - **Promotion gates**
-  - Ghost → probe: 30 or more ghost trades after birth, LCB(net per trade) > 0 in **two separate time windows** (first half and second half of its trades), the strategy risk gate passed. Probe trades are 0.05 SOL and silent (no callout).
+  - Ghost → probe: 30 or more ghost trades after birth, LCB(net per trade) > 0 in **two separate time windows** (first half and second half of its trades), the strategy risk gate passed. Ghost and probe trades are one fixed size, the owner limit `probe_order_sol` (0.01 SOL by default), and probe trades are silent (no callout). Only a `full` strategy sizes by Kelly on its kernel share of the book.
   - Probe → full: 20 or more live trades, live-vs-ghost slippage gap within 30%.
 - The Fly strategy has a fixed 1% sleeve and skips the allocator.
 

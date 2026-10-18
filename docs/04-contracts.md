@@ -60,7 +60,7 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `intent.created` | `strategy_id`, `mint`, `side` (buy, sell), `size_sol` (buys) or `fraction` (share of the tokens still held, 0 to 1, so the live leg can apply it to its own balance), `reason[]` (score vs threshold, edge vs cost floor, or the exit rule), `score`, `board` (the score terms, edge and cost in bps, callout id) |
 | `intent.ghost_filled` | `intent_id`, `strategy_id`, `mint`, `side`, `sol` (spent on buys incl. priority fee, received on sells), `tokens`, `price_sol` (average), `fee_sol` (pump fee + priority fee), `rent_sol` (token account, buys), `slippage_bps` |
 | `position.closed` | `position_id`, `strategy_id`, `mint`, `cost_sol` (incl. rent), `proceeds_sol`, `rent_refund_sol`, `net_sol`, `held_ms`, `exit_reason` |
-| `order.created` | `order_id` (subject), `intent_id`, `strategy_id`, `mint`, `side`, `size_sol` (buys) or `fraction` (sells), `max_slippage_bps`, `limits_version`. Written only by the live gate (`hands/order-gate.ts`), after the Risk Gate said yes. |
+| `order.created` | `order_id` (subject), `intent_id`, `strategy_id`, `mint`, `side`, `size_sol` (buys) or `fraction` (sells), `max_slippage_bps`, `limits_version`. Written only by the live gate (`hands/order-gate.ts`), for a strategy in `LIVE_STRATEGIES`, after its paper intent filled (`intent.ghost_filled`) and the Risk Gate said yes. `fraction` is 0 to 1; `max_slippage_bps` is at most 2000, and the Trader clamps both size and slippage to the owner limits again. |
 | `order.rejected` | `intent_id`, `reason_code` (Risk Gate codes in docs/08, plus `fill_failed` for a modeled landing failure), `detail` |
 | `strategy.born` | `strategy_id`, `family`, `horizon`, `origin` (seed, mutation, crossover, proposal), `parents[]`, `spec` |
 | `strategy.retired` | `strategy_id`, `reason` (lcb_below_zero, drawdown, markout_60s_negative, idle, pool_cap), `trades`, `lcb` |
@@ -76,7 +76,7 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `position.changed` | `order_id`, `strategy_id`, `mint`, `tokens` (held after), `closed` (fully exited), `account_closed` (token account closed, rent back), `rent_back_sol` |
 | `ledger.entry` | `entry_id`, `kind` (deposit, close_account, sweep_collect, sweep_split, memo, fee; fills are journaled by Books itself from `order.filled`), `tx_sig?`, `legs[{account, lamports}]` (debits positive, credits negative, sum 0). Accounts: `sol:<wallet>` (the chain balance), `pos:<mint>` (cost of tokens held), `rent:<wallet>`, `exp:fees`, `inc:creator_fees`, `ext:world`. |
 | `books.reconciled` | `hour`, `ok`, `wallets[{wallet, ledger_lamports, chain_lamports}]`, `degraded?` |
-| `kill.changed` | `on`, `reason`, `by` (owner, daily_loss, signer_refusals, fill_drift, feed_gap, books) |
+| `kill.changed` | `state` (running, exit_only, halted), `reason`, `by` (owner, admin, daily_loss, signer_refusals, fill_drift, feed_gap, books, ops_stop) |
 | `proof.published` | `n`, `hour`, `sha256`, `prev_sha256`, `memo_sig?` |
 | `thesis.formed` | `thesis_id`, `mint`, `strategy_id`, `position_id`, `kind` (`pre_call`, `post_call`), `claims[{class, text}]`, `prediction{p, horizon_min, what}`, `plan{entry_price_sol, size_sol, ladder[{mult, sell}], stop, max_hold_min}`, `invalidation[]`, `commit_id` |
 | `post.queued` | `post_id`, `kind` (callout, update, reply), `mint`, `house_id` (our callout on the coin), `thesis_id` (null on updates), `text`, `checks[]` (rules passed), `because[]` (fill or position event ids), `paper` |

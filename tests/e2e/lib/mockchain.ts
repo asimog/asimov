@@ -179,7 +179,10 @@ export class MockChain implements Chain {
     };
   }
   async findByMemo(wallet: string, memo: string) {
-    return [...this.landed].reverse().find((l) => l.applied.payer === wallet && l.applied.memos.some((m) => m.includes(memo)))?.sig ?? null;
+    return [...this.landed].reverse().find((l) => l.applied.payer === wallet && l.applied.memos.some((m) => m === memo))?.sig ?? null;
+  }
+  async tokenBalance(wallet: string, mint: string) {
+    return this.raw.get(`${wallet}|${mint}`) ?? 0;
   }
   memosOf(sig: string) {
     return this.landed.find((l) => l.sig === sig)?.applied.memos ?? [];

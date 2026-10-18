@@ -1,6 +1,7 @@
 // The Strategy Pool on the fixture tape: seeds load, strategies evaluate, the gate decides, ghosts fill and close.
 import { everyReplayChecks } from "../../lib/checks.ts";
 import type { Suite } from "../../lib/suite.ts";
+import { seedSpecs } from "../../../../services/core/src/mind/seeds.ts";
 
 export const suite: Suite = {
   name: "strategies-replay",
@@ -28,7 +29,7 @@ export const suite: Suite = {
     const gated = (counts["order.rejected"] ?? 0) + (counts["intent.ghost_filled"] ?? 0) + (await sql`select count(*)::int n from mind.intents`)[0]!.n;
     const checks = [
       ...(await everyReplayChecks(sql, r.netCalls)),
-      { name: "30 seeds load", pass: pool!.seeds === 30, detail: `${pool!.seeds} seeds, ${pool!.alive} alive, ${pool!.total} total` },
+      { name: "every seed loads", pass: pool!.seeds === seedSpecs().length, detail: `${pool!.seeds} seeds, ${pool!.alive} alive, ${pool!.total} total` },
       { name: "intents created", pass: (counts["intent.created"] ?? 0) > 0, detail: `${counts["intent.created"] ?? 0} intents` },
       { name: "every intent gated, filled or pending", pass: gated >= (counts["intent.created"] ?? 0), detail: `${gated} decided of ${counts["intent.created"] ?? 0}` },
       { name: "ghost positions closed", pass: (counts["position.closed"] ?? 0) > 0, detail: `${counts["position.closed"] ?? 0} closed, ${open!.n} open at the end` },

@@ -98,7 +98,7 @@ born (ghost) ──30 trades, LCB > hurdle in both halves, drawdown ok──► 
 
 ### 5.2 Decision and its legs
 
-Target design (PLANNED, fix plan Phase 1):
+SHIPPED on a mocked chain (fix plan Phase 1):
 
 ```
 intent ──paper gate──► rejected
@@ -111,10 +111,10 @@ intent ──paper gate──► rejected
 
 Rules:
 
-1. A live leg exists only if its ghost leg filled. Today the live gate reads `intent.created`, which is written before the paper gate, so a paper-rejected buy can become a live order with no paper twin to exit it. Target: the live gate reads `intent.ghost_filled`.
-2. Exits are decided once per decision and applied to every open leg. The live leg sizes its own sell from its own holding. Today a live sell copies the paper token count as a fraction, which is wrong.
-3. A live leg in `exiting` retries a failed sell until it is closed or the owner halts the firm. Today nothing retries.
-4. A full exit sells the on-chain balance, then closes the token account. A failed close is retried.
+1. A live leg exists only if its ghost leg filled: the live gate reads `intent.ghost_filled`.
+2. Exits are decided once per decision, by the desk on the ghost leg, and reach the live leg as a sell intent. `fraction` is the share of the tokens still held, so the live leg sizes its own sell from its own holding.
+3. A failed sell is retried with backoff (`TRADER_SELL_ATTEMPTS`, `TRADER_RETRY_BASE_MS`) until it closes or runs out of attempts. `halted` holds it.
+4. A full exit (fraction 0.999 or more) sells the on-chain balance, then closes the token account. A failed close keeps `close_pending` and the Trader's retry pass closes it.
 5. One decision per strategy per coin at a time. SHIPPED (`desk.ts:452`).
 6. Several strategies can hold one coin. The wallet holds one combined position, and Publisher posts one callout per coin with updates (docs/08 "One coin, one callout"). SHIPPED for paper.
 
@@ -126,13 +126,14 @@ created ──signed, sent──► submitted (signature stored, committed) ─�
                                 └──not confirmed in time──► look up the stored signature, never rebuild ──► filled | failed
 ```
 
-- Idempotency key: the order id. A retry never builds a second transaction when a signature is stored. PARTIAL: the `submitted` row and its signature roll back when confirm times out, and the retry rebuilds and sends again (double-send risk).
+- Idempotency key: the order id and attempt, both in the memo (`asimog:<order>` then `asimog:<order>:r<n>`), matched exactly. The `submitted` row and its signature commit on their own before the confirm wait, and an order with a stored signature is only confirmed again, never rebuilt. Past `TRADER_GIVE_UP_MS` the signature has expired and the order counts as failed. SHIPPED.
+- One bad `order.created` goes to `hands.dead_letters` instead of blocking every later order. SHIPPED.
 - Every order passes the live gate. No other path writes `order.created`. SHIPPED.
 - The Signer caps every swap at `SIGNER_MAX_ORDER_SOL` whatever the request says. SHIPPED.
 
 ### 5.4 Kill state
 
-Target (PLANNED). One field in `ops.kill`:
+SHIPPED (fix plan Phase 1). One field in `ops.kill`, `state`:
 
 | State | Buys | Sells | Entered by |
 |---|---|---|---|
@@ -142,10 +143,10 @@ Target (PLANNED). One field in `ops.kill`:
 
 Rules:
 
-1. Only live events move the state. A paper rejection never does. Today a paper strategy's daily loss stop trips the firm-wide switch.
-2. The kill file that the Signer reads is written by `ctl`, so it works when the core is dead. Today only the core writes it.
-3. The Signer refuses every endpoint in `halted`, and only buys in `exit_only`. Today it checks the file only for swaps.
-4. Trip counters live in a table, not in process memory.
+1. Only live events move the state. A paper rejection never does.
+2. The kill file that the Signer reads is written by `ctl`, so it works when the core is dead. The core rewrites it after each state change commits. It holds the state name; any other content reads as `halted`.
+3. The Signer refuses every endpoint in `halted`, and only buys in `exit_only`.
+4. Trip counters live in `ops.kill_counts`, not in process memory. `ctl kill` needs no token (stopping must be easy); `ctl resume` needs the admin token.
 
 ### 5.5 Callout
 
@@ -207,16 +208,16 @@ Rules that must always hold. "Enforced by" names the check that makes them true 
 |---|---|---|---|
 | I1 | The Tape is append-only. | Convention only. No trigger or role refuses `UPDATE` or `DELETE`. | PARTIAL |
 | I2 | Every order passes the live gate. | Only `hands/order-gate.ts` writes `order.created`; no MCP tool can. | SHIPPED |
-| I3 | A live leg exists only after its ghost leg filled. | None. | PLANNED |
-| I4 | A paper event never changes live state. | None; the kill consumer reacts to paper rejections. | PLANNED |
+| I3 | A live leg exists only after its ghost leg filled. | The live gate reads `intent.ghost_filled`, not `intent.created` (`kill` suite). | SHIPPED |
+| I4 | A paper event never changes live state. | The paper desk writes source `riskgate.paper`; the kill consumer trips on `riskgate.live` only (`kill` suite). | SHIPPED |
 | I5 | Limits and lists come from the owner's admin path, never from code. | None; no writer exists, so `DEFAULT_LIMITS` is the live set. | PLANNED |
 | I6 | Nothing reads a row seen after the Clock's now. | Partly; see section 4. | PARTIAL |
 | I7 | Thinking agents never trade, sign, post or change limits. | MCP capability check on every call; no tool writes `order.*`. | SHIPPED |
 | I8 | Every public text passes one deterministic check. | Per tool; several fields skip it. | PARTIAL |
-| I9 | Every malformed config value stops boot. | None; `env.num` returns NaN. | PLANNED |
+| I9 | Every malformed config value stops boot. | `env.num` and `env.int` throw on a value that is not a finite number; the Signer does the same. One zod config module is fix plan Phase 2. | PARTIAL |
 | I10 | A strategy pool is never empty. | None. | PLANNED |
 | I11 | Every slow run has a USD cap that stops it. | None in code. | PLANNED |
-| I12 | Keys never share a process with untrusted text or an LLM. | Broken by the default compose file, which passes the whole `.env.local` to the engine container. | PLANNED |
+| I12 | Keys never share a process with untrusted text or an LLM. | `docker-compose.yml` gives the engine container `.env.example` and a named list of the secrets it needs. | SHIPPED |
 
 ## 8. Planned topics
 

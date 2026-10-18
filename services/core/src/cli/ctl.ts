@@ -14,7 +14,7 @@ import { liveClock } from "../lib/clock.ts";
 import { Tape } from "../tape/tape.ts";
 import { buildConsumers } from "../runtime.ts";
 import { balances, nav, recordDeposit } from "../treasury/books.ts";
-import { killed, ownerKill, resume } from "../treasury/kill.ts";
+import { killState, ownerKill, resume } from "../treasury/kill.ts";
 import { verifyProofs } from "../treasury/proofs.ts";
 
 const [cmd = "help", ...args] = process.argv.slice(2);
@@ -137,18 +137,18 @@ const commands: Record<string, () => Promise<unknown>> = {
   // S6.7: the owner's switch (docs/15). kill writes the Tape; the kill consumer and the Signer do the rest.
   kill: async () => {
     const tape = new Tape(sql, liveClock("live"));
-    ownerKill(tape, args.filter((a) => !a.startsWith("--")).join(" ") || "owner");
+    ownerKill(tape, args.filter((a) => !a.startsWith("--")).join(" ") || "owner", path.join(env.root, "artifacts", "KILL"));
     await tape.close();
-    return { ok: true, note: "kill.changed written; core projects it and writes artifacts/KILL" };
+    return { ok: true, note: "halted: artifacts/KILL written, so the Signer refuses every request even if core is down; kill.changed is on the Tape" };
   },
   resume: async () => {
     const tape = new Tape(sql, liveClock("live"));
-    resume(tape, opt("token"));
+    resume(tape, opt("token"), undefined, path.join(env.root, "artifacts", "KILL"));
     await tape.close();
     return { ok: true };
   },
   // S6.4: the books (docs/10)
-  books: async () => ({ killed: await killed(sql), balances: await balances(sql), nav: await nav(sql, {}), proofs: await verifyProofs(sql) }),
+  books: async () => ({ kill: await killState(sql), balances: await balances(sql), nav: await nav(sql, {}), proofs: await verifyProofs(sql) }),
   deposit: async () => {
     const tape = new Tape(sql, liveClock("live"));
     await recordDeposit(tape, opt("wallet")!, Number(opt("lamports")), opt("sig")!);

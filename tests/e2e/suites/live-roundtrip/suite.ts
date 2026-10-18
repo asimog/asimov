@@ -38,12 +38,14 @@ export const suite: Suite = {
       const chain = new RpcChain();
       const builder = new FunBlock();
       const bk = books(tape, { trade });
-      const consumers = [bk, kill(tape, null), orderGate(tape, clock, { trade }, { live: () => true, strategies: () => new Set(["sr_live"]) }), trader({ tape, clock, chain, builder, swapSigner: new HttpSigner(env.str("SIGNER_CLIENT_TOKEN_SWAP")), wallet: trade, confirmMs: 45_000 })];
+      const tr = trader({ sql: db.sql, tape, clock, chain, builder, swapSigner: new HttpSigner(env.str("SIGNER_CLIENT_TOKEN_SWAP")), wallet: trade, confirmMs: 45_000 });
+      const consumers = [bk, kill(tape, null), orderGate(tape, clock, { trade }, { live: () => true, strategies: () => new Set(["sr_live"]) }), tr];
       const settle = async () => {
         await tape.flush();
         for (let i = 0; i < 6; i++) {
           let moved = 0;
           for (const c of consumers) moved += await drain(db.sql, c);
+          moved += await tr.retry();
           if (!moved) break;
         }
       };
@@ -61,7 +63,9 @@ export const suite: Suite = {
       check("fun-block quoted the coin", out > 0, `${out} tokens for 0.01 SOL`);
       const send = (side: "buy" | "sell") => {
         tape.emit("trade.curve", { mint, tx: `live-quote-${side}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: trade, sol: 0.01, usd: null, tokens: out, price_sol: 0.01 / out, price_usd: null, mcap_usd: null, on_curve: !probe.pumpMintInfo?.hasGraduated, program: null }, { source: "nats", subject: mint });
-        tape.emit("intent.created", { strategy_id: "sr_live", mint, side, size_sol: side === "buy" ? 0.01 : null, fraction: side === "sell" ? 1 : null, reason: ["live test"], score: 1, board: {} }, { source: "strategies", subject: clock.id("intent") });
+        const id = clock.id("intent");
+        tape.emit("intent.created", { strategy_id: "sr_live", mint, side, size_sol: side === "buy" ? 0.01 : null, fraction: side === "sell" ? 1 : null, reason: ["live test"], score: 1, board: {} }, { source: "strategies", subject: id });
+        tape.emit("intent.ghost_filled", { intent_id: id, strategy_id: "sr_live", mint, side, sol: 0.01, tokens: out, price_sol: 0.01 / out, fee_sol: 0, rent_sol: 0, slippage_bps: 0 }, { source: "strategies", subject: id });
       };
 
       send("buy");

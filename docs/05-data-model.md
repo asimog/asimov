@@ -66,11 +66,13 @@ Roles: `core_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` the
 | `positions` | `ps_` id, coin, tokens, cost_basis_sol, realized_pnl_sol, opened_at, closed_at, callout (our post id) |
 | `posts` | id, kind, coin, pump_id, text, media_ref, because text[], state (queued, published, refused), published_at |
 | `fee_sweeps` | `sp_` id, at, tx_sig, sol, to_war_chest_sol, to_ops_sol |
-| `hands.orders` | order_id pk, intent_id, state (created, submitted, filled, failed), tx_sig, memo. The Trader's own idempotency record. |
+| `hands.orders` | order_id pk, intent_id, state (submitted, retry, filled, failed), tx_sig, memo, attempts, next_at, close_pending, created_at, updated_at. The Trader's own idempotency record; `submitted` commits before the confirm wait. |
+| `hands.dead_letters` | event_id pk, consumer, error, at. An event the Trader could not process. |
 | `books.entries` | entry_id pk, seen_time, kind, tx_sig, legs jsonb. Projection of `ledger.entry`. |
 | `books.balances` | account pk, lamports. Sum of legs. |
 | `books.lots` | seq, strategy_id, mint, tokens, cost_sol. FIFO cost basis; `books.realized` holds realized SOL per strategy and day. |
-| `ops.kill` | singleton: on_, reason, by, at. Projection of `kill.changed`; read by the Risk Gate flags and the Trader. |
+| `ops.kill` | singleton: state (running, exit_only, halted), reason, by, at. Projection of `kill.changed`; read by the Risk Gate flags and the Trader. |
+| `ops.kill_counts` | cause, at, event_id pk. Occurrences counted towards the automatic triggers (signer refusals, fill drift); cleared on resume. |
 | `books.proofs` | n pk, hour, sha256, prev_sha256, body jsonb, memo_sig |
 | `profit_hours` | hour pk, realized_pnl_sol, cumulative_pnl_sol, high_water_mark_sol, distributable_sol, holder_pool_sol |
 | `holder_samples` | hour, sample_n (1..4), taken_at, owner, amount | Four random samples per hour. |

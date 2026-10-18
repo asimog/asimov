@@ -149,15 +149,18 @@ export type EntryDecision =
  * Universe, score, threshold, then the cost floor: the score read as a win chance must clear
  * round-trip costs (fees both ways plus slippage both ways) given the take-profit and stop geometry.
  */
-export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: number) => { slippage_bps: number; impact_bps: number }, bookSol: number): EntryDecision {
+/** `fixed_sol`: ghost and probe strategies trade one owner-set size; `budget_sol`: a full strategy's kernel share of the book. */
+export type Sizing = { fixed_sol: number } | { budget_sol: number };
+export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: number) => { slippage_bps: number; impact_bps: number }, sizing: Sizing): EntryDecision {
   for (const c of spec.universe.all) if (!cond(board, c)) return { enter: false, reason: `universe:${c.sig}`, score: null, terms: [] };
   const { score, terms } = scoreOf(spec, board);
   if (score === null) return { enter: false, reason: "no_score", score, terms };
   if (score < spec.enter_if.score_gte) return { enter: false, reason: "below_threshold", score, terms };
   const g = geometry(spec);
   const kelly = Math.max(0, (score * g.b - (1 - score)) / g.b);
-  const size = Math.min(spec.size.max_sol, spec.size.kelly_fraction * kelly * bookSol);
-  if (size <= 0) return { enter: false, reason: "no_edge", score, terms };
+  if (kelly <= 0) return { enter: false, reason: "no_edge", score, terms };
+  const size = Math.min(spec.size.max_sol, "fixed_sol" in sizing ? sizing.fixed_sol : spec.size.kelly_fraction * kelly * sizing.budget_sol);
+  if (size <= 0) return { enter: false, reason: "no_budget", score, terms };
   const q = quote(size);
   if (q.impact_bps > spec.size.max_impact_bps) return { enter: false, reason: "impact_over_spec", score, terms };
   const cost_bps = 2 * FEE * 10_000 + 2 * q.slippage_bps;

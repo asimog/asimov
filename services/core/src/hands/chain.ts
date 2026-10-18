@@ -21,8 +21,10 @@ export interface Chain {
   send(b64: string): Promise<string>;
   /** the transaction once it is confirmed, or null at timeout */
   confirm(sig: string, timeoutMs: number): Promise<Parsed | null>;
-  /** the signature of a recent transaction of `wallet` whose memo contains `memo` */
+  /** the signature of a recent transaction of `wallet` with exactly this memo (`asimog:<id>` never matches `asimog:<id>:close`) */
   findByMemo(wallet: string, memo: string): Promise<string | null>;
+  /** raw token units `wallet` holds of `mint` right now */
+  tokenBalance(wallet: string, mint: string): Promise<number>;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -68,7 +70,12 @@ export class RpcChain implements Chain {
   }
   async findByMemo(wallet: string, memo: string) {
     const rows = await this.rpc<{ signature: string; memo: string | null; err: unknown }[]>("getSignaturesForAddress", [wallet, { limit: 50, commitment: "confirmed" }]);
-    return rows.find((r) => r.memo?.includes(memo))?.signature ?? null;
+    // the RPC joins memos with "; " and prefixes each with its byte length, as in "[19] asimog:or_1"
+    return rows.find((r) => r.memo?.split("; ").some((m) => m.replace(/^\[\d+\] /, "") === memo))?.signature ?? null;
+  }
+  async tokenBalance(wallet: string, mint: string) {
+    const r = await this.rpc<{ value: { account: { data: { parsed: { info: { tokenAmount: { amount: string } } } } } }[] }>("getTokenAccountsByOwner", [wallet, { mint }, { encoding: "jsonParsed", commitment: "confirmed" }]);
+    return r.value.reduce((s, a) => s + Number(a.account.data.parsed.info.tokenAmount.amount), 0);
   }
 }
 

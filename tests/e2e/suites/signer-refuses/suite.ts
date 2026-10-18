@@ -108,10 +108,12 @@ export const suite: Suite = {
     const back = VersionedTransaction.deserialize(Buffer.from(good.body.signed!, "base64"));
     const signedByTrade = back.signatures[0]!.some((b) => b !== 0);
 
-    // kill file stops swaps only
-    fs.writeFileSync(killFile, "1");
+    // kill file: exit_only refuses buys and keeps close-account open; anything else is halted and refuses every endpoint
+    fs.writeFileSync(killFile, "exit_only");
     const killed = await signer.handle("/sign/swap", SWAP, { tx: build(T, goodBuy).b64, ctx });
     const closeWhileKilled = await signer.handle("/sign/close-account", SWAP, { tx: build(T, [closeAccount(k.mint, T, T)]).b64 });
+    fs.writeFileSync(killFile, "1");
+    const closeWhileHalted = await signer.handle("/sign/close-account", SWAP, { tx: build(T, [closeAccount(k.mint, T, T)]).b64 });
     fs.rmSync(killFile);
 
     // rate limit
@@ -139,7 +141,8 @@ export const suite: Suite = {
       checks: [
         ...rows.map((r) => ({ name: r.case, pass: r.pass, detail: `expected ${r.expect}, got ${r.got}` })),
         { name: "allowed shapes signed with the right key", pass: signedByTrade && good.body.ok === true, detail: `${signedOk} allowed cases; swap signature present: ${signedByTrade}` },
-        { name: "kill file stops swaps, not close-account", pass: killed.body.reason === "kill_switch" && closeWhileKilled.body.ok === true, detail: `swap ${killed.body.reason}, close ${closeWhileKilled.body.ok}` },
+        { name: "exit_only kill file stops buys, not close-account", pass: killed.body.reason === "kill_switch" && closeWhileKilled.body.ok === true, detail: `swap ${killed.body.reason}, close ${closeWhileKilled.body.ok}` },
+        { name: "any other kill file content halts every endpoint", pass: closeWhileHalted.body.reason === "kill_switch", detail: `close ${closeWhileHalted.body.reason ?? "signed"}` },
         { name: "rate limit per endpoint", pass: rl.slice(0, 3).every((x) => x === "bad_capability") && rl.slice(3).every((x) => x === "rate_limited"), detail: rl.join(",") },
         { name: "every request has an audit line", pass: lines.length >= cases.length, detail: `${lines.length} lines for ${cases.length} cases` },
         { name: "audit chain verifies", pass: audit.ok, detail: `${audit.lines} lines` },
