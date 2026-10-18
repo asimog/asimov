@@ -1,4 +1,4 @@
-// Rooms added in S5 (docs/19): Treasury, Rewind (Board at T), Connectome, share cards, case files. Read-only queries.
+// Rooms added in S5 (docs/UI.md): Treasury, Rewind (Board at T), Connectome, share cards, case files. Read-only queries.
 import crypto from "node:crypto";
 import type postgres from "postgres";
 import { boardAt } from "../../core/src/board/board.ts";
@@ -17,7 +17,7 @@ const HOUR = 3_600_000;
 const sha = (x: string) => crypto.createHash("sha256").update(x).digest("hex");
 
 export function rooms<L>({ sql, cached, sym, line, mandate }: Deps<L>) {
-  /** Treasury (docs/10, 11): the hourly proof segments from books.proofs (S6.6, recomputed in the browser), sweeps, balances, costs.
+  /** Treasury (docs/EXECUTION.md, 11): the hourly proof segments from books.proofs (S6.6, recomputed in the browser), sweeps, balances, costs.
    * Also, for paper mode: the PAPER balance, the reconciliation of two independent sums, and the Tape proof chain.
    * Chain link = sha256(prev | hour | count | ids_hash); ids_hash = sha256 of every event id of that hour in tape order, joined by commas.
    * The chain starts at the first hour on the Tape (prev = 64 zeros), so a closed hour's hash never changes. */
@@ -58,7 +58,7 @@ export function rooms<L>({ sql, cached, sym, line, mandate }: Deps<L>) {
         mandate_sol: mandate,
         paper: { equity_sol: mandate + net, net_sol: net, closed: pos!.closed as number, open_cost_sol: opn!.cost as number },
         reconciliation: { positions_net: net, tape_net: tp!.net as number, diff, ok: diff < 1e-9 },
-        // live books (docs/10): empty in paper mode, filled once the Treasurer runs
+        // live books (docs/EXECUTION.md): empty in paper mode, filled once the Treasurer runs
         proofs: (await sql`select n, hour, sha256, prev_sha256, memo_sig, body from books.proofs order by n desc limit 24`).reverse(),
         sweeps: (await sql`select seen_time, body from tape.events where topic = 'fees.swept' order by seen_time desc, id desc limit 20`).map((x) => ({ at: (x.seen_time as Date).getTime(), ...(x.body as object) })),
         balances: await sql`select account, lamports::text lamports from books.balances order by account`,
@@ -67,7 +67,7 @@ export function rooms<L>({ sql, cached, sym, line, mandate }: Deps<L>) {
       };
     });
 
-  /** Rewind (S11.4): the Board at time T is the latest signal per (kind, subject) with produced_at <= T < valid_until (docs/03). */
+  /** Rewind (S11.4): the Board at time T is the latest signal per (kind, subject) with produced_at <= T < valid_until (docs/SYSTEM.md). */
   const board = async (atMs: number | null) => {
     const [r] = await sql`select min(seen_time) f, max(seen_time) t from tape.events`;
     const from = (r?.f as Date | null)?.getTime() ?? 0;

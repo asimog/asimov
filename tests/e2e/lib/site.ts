@@ -1,4 +1,4 @@
-// Site driver (docs/14, docs/19): headless Chrome over the DevTools protocol, no dependency. agent-browser hung on the
+// Site driver (docs/OPS.md, docs/UI.md): headless Chrome over the DevTools protocol, no dependency. agent-browser hung on the
 // owner's machine, so the suites drive Chrome directly. Reads the working relay and web app; writes only artifacts.
 import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";

@@ -1,4 +1,4 @@
-// Contracts: the one source of truth for events, signals and IDs (docs/04).
+// Contracts: the one source of truth for events, signals and IDs (docs/generated/topics.md).
 // zod schemas here; JSON Schema for Python is emitted from them (see emit.ts).
 import { z } from "zod";
 
@@ -239,7 +239,7 @@ export const KernelAllocation = z.object({
   shares: z.array(z.object({ strategy_id: z.string(), n: num, mean: num.nullable(), lcb: num.nullable(), sample: num, share: num, stage: z.string() })),
 });
 
-/** Callout outcome, methodology ov2 (docs/07 scorekeeper). A correction is a new event with `supersedes`. */
+/** Callout outcome, methodology ov2 (docs/PIPELINE.md scorekeeper). A correction is a new event with `supersedes`. */
 export const OutcomeMeasured = z.object({
   method: z.literal("ov2"),
   callout_id: z.string(),
@@ -267,7 +267,7 @@ export const OutcomeMeasured = z.object({
   supersedes: z.string().nullable(),
 });
 
-/** A sense knows it missed data (docs/07 coverage). `to: null` means still missing. */
+/** A sense knows it missed data (docs/PIPELINE.md coverage). `to: null` means still missing. */
 export const SystemGap = z.object({
   source: z.enum(["feed", "feed.push", "trades", "rpc"]),
   scope: z.string().nullable(),
@@ -278,7 +278,7 @@ export const SystemGap = z.object({
 
 export const BudgetSpent = z.object({ analyzer: z.string(), units: z.string(), amount: num, job_event_id: z.string().nullable() });
 
-/** Launch features the Scout measured before promoting a coin (docs/23 section 3). All seen at promotion time. */
+/** Launch features the Scout measured before promoting a coin (docs/PIPELINE.md section 3). All seen at promotion time. */
 export const CoinFeatures = z.object({
   from_birth: z.boolean(), // seen from its first trade: only then are bundle features measured
   fresh_known: z.boolean(), // the Index is old enough (INDEX_FRESH_WARMUP_H) to call a wallet new
@@ -299,7 +299,7 @@ export const CoinFeatures = z.object({
   smart_buyers: num,
 });
 
-/** The Scout promotes a coin into the watched set (docs/06, docs/23). */
+/** The Scout promotes a coin into the watched set (docs/PIPELINE.md, docs/PIPELINE.md). */
 export const CoinWatched = z.object({
   mint: z.string(),
   reason: z.enum(["caller_buy", "smart_buy", "heat", "metrics"]),
@@ -310,7 +310,7 @@ export const CoinWatched = z.object({
   features: CoinFeatures,
 });
 
-/** Largest token accounts of a coin, the bonding curve's own account excluded (docs/23). */
+/** Largest token accounts of a coin, the bonding curve's own account excluded (docs/PIPELINE.md). */
 export const HoldersSnapshot = z.object({
   mint: z.string(),
   supply: num,
@@ -319,7 +319,7 @@ export const HoldersSnapshot = z.object({
   top10_share: num,
 });
 
-/** A new version of Index scores (docs/23 2.4). `smart` carries the wallets strategies may follow. */
+/** A new version of Index scores (docs/PIPELINE.md 2.4). `smart` carries the wallets strategies may follow. */
 export const IndexRefreshed = z.object({
   version: num,
   window_days: num,
@@ -328,7 +328,7 @@ export const IndexRefreshed = z.object({
   smart: z.array(z.object({ wallet: z.string(), copy_net: num, copy_win_lcb: num, n: num, lead_s: num.nullable(), archetype: z.string() })),
 });
 
-/** Why the house calls a coin (docs/09 thesis). Committed before the callout is queued. */
+/** Why the house calls a coin (docs/EXECUTION.md thesis). Committed before the callout is queued. */
 export const ThesisFormed = z.object({
   thesis_id: z.string(),
   mint: z.string(),
@@ -342,7 +342,7 @@ export const ThesisFormed = z.object({
   commit_id: z.string(),
 });
 
-/** A post for Publisher. `paper: true` is never posted (docs/09). */
+/** A post for Publisher. `paper: true` is never posted (docs/EXECUTION.md). */
 export const PostQueued = z.object({
   post_id: z.string(),
   kind: z.enum(["callout", "update", "reply"]),
@@ -364,7 +364,7 @@ export const ScoreUpdated = z.object({
   skill: num.nullable(),
 });
 
-// ---------- slow mind (docs/04: synthesis, swarm, agents, soul) ----------
+// ---------- slow mind (docs/generated/topics.md: synthesis, swarm, agents, soul) ----------
 const Cites = z.array(z.string()).min(1);
 export const SynthesisFeed = z.object({
   synthesis_id: z.string(),
@@ -390,7 +390,7 @@ export const SynthesisCoin = z.object({
 export const ForumLine = z.object({ synthesis_id: z.string(), round: num, agent: z.enum(["insight", "query", "media", "host"]), text: z.string(), cites: z.array(z.string()) });
 export const SwarmWaveP = z.object({ swarm_id: z.string(), mint: z.string(), wave_p: num.min(0).max(1), samples: num, preset: z.string(), usd: num, truncated: z.boolean() });
 export const SwarmImpact = z.object({ swarm_id: z.string(), mint: z.string(), d_callers: num, d_net_sol: num, samples: num, truncated: z.boolean() });
-/** Where a simulated post was made: the Pump.fun world or the Twitter stand-in beside it (docs/24 M1). */
+/** Where a simulated post was made: the Pump.fun world or the Twitter stand-in beside it (docs/SLOW-MIND.md M1). */
 export const SwarmPlatform = z.enum(["pumpfun", "twitter"]);
 export const SwarmPost = z.object({ swarm_id: z.string(), mint: z.string(), branch: z.enum(["A", "B"]), platform: SwarmPlatform, round: num, agent: z.string(), archetype: z.string(), text: z.string(), simulated: z.literal(true) });
 export const ProposalStrategy = z.object({ proposal_id: z.string(), by: z.string(), spec: z.record(z.string(), z.unknown()), why: z.array(z.string()), because: z.array(z.string()) });
@@ -414,7 +414,7 @@ export const SoulUpdated = z.object({ version: num, sha256: z.string(), prev_sha
 export const JobEvent = z.object({ job_id: z.string(), agent: z.string(), trigger_event: z.string().nullable(), cost_usd: num.optional(), result_ref: z.string().optional(), error: z.string().optional() });
 
 
-// ---------- hands, books, kill (docs/09, 10, 15) ----------
+// ---------- hands, books, kill (docs/EXECUTION.md, 10, 15) ----------
 export const OrderCreated = z.object({
   order_id: z.string(),
   intent_id: z.string(),
@@ -474,11 +474,11 @@ export const BooksReconciled = z.object({
   wallets: z.array(z.object({ wallet: z.string(), ledger_lamports: z.number().int(), chain_lamports: z.number().int() })),
 });
 export const KILL_CAUSES = ["owner", "daily_loss", "signer_refusals", "fill_drift", "feed_gap", "books", "ops_stop"] as const;
-/** running: buys and sells; exit_only: sells only; halted: nothing signs (docs/25 5.4) */
+/** running: buys and sells; exit_only: sells only; halted: nothing signs (docs/SYSTEM.md 5.4) */
 export const KILL_STATES = ["running", "exit_only", "halted"] as const;
 export type KillState = (typeof KILL_STATES)[number];
 export const KillChanged = z.object({ state: z.enum(KILL_STATES), reason: z.string(), by: z.enum([...KILL_CAUSES, "admin"]) });
-/** Owner lists (docs/25 section 6), loaded with `ctl lists load`; the Risk Gate reads the blocked and own ones. */
+/** Owner lists (docs/SYSTEM.md section 6), loaded with `ctl lists load`; the Risk Gate reads the blocked and own ones. */
 export const LIST_KINDS = ["smart_wallets", "caller_wallets", "blocked_creators", "blocked_wallets", "blocked_mints", "own_mints"] as const;
 export type ListKind = (typeof LIST_KINDS)[number];
 export const LimitsChanged = z.object({ version: z.number().int(), key: z.string(), value: z.unknown(), by: z.literal("admin") });
@@ -587,7 +587,7 @@ export const Signal = z.object({
 });
 export type Signal = z.infer<typeof Signal>;
 
-/** Body versions; bump on any change (docs/04). */
+/** Body versions; bump on any change (docs/generated/topics.md). */
 export const SCHEMA_VERSION: Record<Topic, number> = {
   ...(Object.fromEntries(Object.keys(TOPICS).map((t) => [t, 1])) as Record<Topic, number>),
   "outcome.measured": 2,

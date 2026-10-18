@@ -1,5 +1,5 @@
 """
-Asimog: swarm graph memory (docs/24 patch M5). A fixed Pump.fun ontology, so no LLM ontology or NER call per run.
+Asimog: swarm graph memory (docs/SLOW-MIND.md patch M5). A fixed Pump.fun ontology, so no LLM ontology or NER call per run.
 
 SWARM_GRAPH_FEATURES picks the store behind upstream's GraphStorage interface:
   off      in-memory graph (no Neo4j), enough for the report agent's quick tools (nano)

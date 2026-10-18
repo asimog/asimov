@@ -1,4 +1,4 @@
-// The job queue (docs/05 agents.jobs). Triggers are deterministic: a cron slot or a Tape event, each with a dedupe key,
+// The job queue (docs/generated/tables.md agents.jobs). Triggers are deterministic: a cron slot or a Tape event, each with a dedupe key,
 // so a restart or a double tick never queues the same work twice. No agent decides which agent runs.
 import crypto from "node:crypto";
 import type { Sql } from "./db.ts";

@@ -1,4 +1,4 @@
-// Live wiring of hands and treasury (docs/09, 10, 15). Returns null unless the owner has set the trade wallet and a send
+// Live wiring of hands and treasury (docs/EXECUTION.md, 10, 15). Returns null unless the owner has set the trade wallet and a send
 // endpoint, so a machine without keys runs exactly as before. Nothing here holds a key: signing is the Signer's job.
 import path from "node:path";
 import type { Clock } from "../lib/clock.ts";
@@ -31,7 +31,7 @@ export function treasuryWiring(sql: Sql, tape: Tape, clock: Clock): Treasury | n
   const timers: NodeJS.Timeout[] = [];
   const guard = (name: string, fn: () => Promise<unknown>) => () => void fn().catch((err) => {
     log.warn("treasury", { job: name, err: String(err).slice(0, 160) });
-    if (String(err).includes("signer_refused")) // a refusal counts towards the kill trigger (docs/15)
+    if (String(err).includes("signer_refused")) // a refusal counts towards the kill trigger (docs/OPS.md)
       tape.emit("signer.refused", { job: name, reason: String(err).slice(0, 120).replace(/^Error: /, "") }, { source: "treasurer" });
   });
   const wallets = ["WALLET_TRADE", "WALLET_CREATOR", "WALLET_AGENT"].map((k) => env.opt(k)).filter((x): x is string => !!x);

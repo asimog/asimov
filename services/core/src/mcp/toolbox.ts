@@ -1,4 +1,4 @@
-// The core's tools for thinking agents (docs/18). Each tool names the capabilities that may call it; a token maps to
+// The core's tools for thinking agents (docs/SYSTEM.md). Each tool names the capabilities that may call it; a token maps to
 // exactly one capability. This file is the only door thinking agents have: reads of the Tape, Board and mind tables,
 // and writes of proposal, synthesis, swarm and report events. Nothing here trades, signs, posts or changes limits.
 import crypto from "node:crypto";
@@ -23,8 +23,8 @@ export const CAP = {
   report: "cap:report",
   integrity: "cap:integrity.write",
   soul: "cap:soul.update",
-  exchange: "cap:report.exchange", // the Slow Bridge (docs/24): escalation triggers in, reports out
-  swarmRead: "cap:swarm.read", // the MiroShark worker (docs/24 M7, M10): its report agent and caller personas, reads only
+  exchange: "cap:report.exchange", // the Slow Bridge (docs/SLOW-MIND.md): escalation triggers in, reports out
+  swarmRead: "cap:swarm.read", // the MiroShark worker (docs/SLOW-MIND.md M7, M10): its report agent and caller personas, reads only
 } as const;
 export const ALL_CAPS: string[] = Object.values(CAP);
 
@@ -344,7 +344,7 @@ export const TOOLS: Tool[] = [
     return { ok: true };
   }),
 
-  // ----- report exchange (docs/24 section 6): one envelope on the Tape, the body in slow.reports -----
+  // ----- report exchange (docs/SLOW-MIND.md section 6): one envelope on the Tape, the body in slow.reports -----
   tool("report_publish", [CAP.exchange], "Publish a finished BettaFish or MiroShark report. Cites must be callouts or events seen already; the summary passes the prose Guard.", {
     report_id: z.string().min(4).max(80), producer: z.enum(["bettafish.insight", "bettafish.query", "bettafish.media", "bettafish.report", "miroshark.report", "miroshark.signal"]),
     kind: z.enum(["feed", "coin", "swarm"]), subject: z.string().min(1).max(64), window_from: iso.nullable().default(null), window_to: iso.nullable().default(null), preset: z.string().max(20),

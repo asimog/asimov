@@ -1,4 +1,4 @@
-// relay (docs/02): the public fan-out. One read-only Postgres connection follows the Tape and serves every viewer
+// relay (docs/SYSTEM.md): the public fan-out. One read-only Postgres connection follows the Tape and serves every viewer
 // over SSE, plus cached snapshot reads. Viewers never reach core. No input from visitors is accepted.
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
@@ -150,7 +150,7 @@ async function snapshot() {
   return body;
 }
 
-// ---------- rooms (docs/11): small read-only queries, cached a few seconds ----------
+// ---------- rooms (docs/UI.md): small read-only queries, cached a few seconds ----------
 const cache = new Map<string, { at: number; body: unknown }>();
 const cached = async (key: string, ms: number, fn: () => Promise<unknown>) => {
   const c = cache.get(key);

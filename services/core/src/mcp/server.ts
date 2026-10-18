@@ -1,4 +1,4 @@
-// The core MCP server (docs/18): streamable HTTP, stateless. The bearer token picks one capability; the tool list and
+// The core MCP server (docs/SYSTEM.md): streamable HTTP, stateless. The bearer token picks one capability; the tool list and
 // every call are filtered by it. A call outside the lane comes back as an error with code `out_of_lane`.
 import http from "node:http";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";

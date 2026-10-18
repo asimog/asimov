@@ -1,4 +1,4 @@
-// Kill state (docs/15, docs/25 5.2 to 5.4) and the live leg, on a mocked chain: a live order exists only for a paper fill;
+// Kill state (docs/OPS.md, docs/SYSTEM.md 5.2 to 5.4) and the live leg, on a mocked chain: a live order exists only for a paper fill;
 // halted stops everything, exit_only stops buys and lets exits run; the Signer reads the kill file on its own; a failed
 // sell is retried until it closes; a confirm timeout never sends twice; resume needs the admin token.
 import fs from "node:fs";

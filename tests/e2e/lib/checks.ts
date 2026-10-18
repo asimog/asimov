@@ -1,4 +1,4 @@
-// Checks that run on every replay (docs/14), plus metric readers shared by suites. All read the replay database.
+// Checks that run on every replay (docs/OPS.md), plus metric readers shared by suites. All read the replay database.
 import crypto from "node:crypto";
 import type { Sql } from "../../../services/core/src/lib/db.ts";
 import { DEFAULT_LIMITS } from "../../../services/core/src/mind/risk.ts";

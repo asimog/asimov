@@ -1,5 +1,5 @@
 "use client";
-// The Ledger (docs/11): every paper position, open and closed, and every post the house queued. Losses stay in.
+// The Ledger (docs/UI.md): every paper position, open and closed, and every post the house queued. Losses stay in.
 import { fmt, useRoom } from "@/lib/live";
 
 type Pos = { id: string; sym: string; family: string; opened_at: number; closed_at: number | null; cost_sol: number; proceeds_sol: number; net_sol: number | null; exit_reason: string | null };

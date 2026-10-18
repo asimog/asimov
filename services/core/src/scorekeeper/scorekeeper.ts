@@ -1,4 +1,4 @@
-// Scorekeeper (docs/07): what happened after each callout, at compressed horizons, by methodology ov2, and how well
+// Scorekeeper (docs/PIPELINE.md): what happened after each callout, at compressed horizons, by methodology ov2, and how well
 // the probability signals predicted it (Brier). Every number is computed from the Tape alone, bounded by seen_time,
 // only after the horizon has passed on the Clock: no lookahead. A late system.gap supersedes outcomes; it never edits them.
 import type { BodyOf, Envelope } from "@asimog/contracts";
@@ -16,12 +16,12 @@ const GRACE_MS = env.int("OUTCOME_GRACE_S") * 1000;
 export const REF_SOL = env.num("OUTCOME_REF_SOL");
 const PROB_KINDS = ["hawkes.wave_p", "callers.wave_p"];
 const PRECALL = "precall.callout_p";
-// docs/24 P8: the swarm's wave probability is scored too. Hit: SWARM_WAVE_CALLERS or more distinct callers call the coin
+// docs/SLOW-MIND.md P8: the swarm's wave probability is scored too. Hit: SWARM_WAVE_CALLERS or more distinct callers call the coin
 // within SWARM_HORIZON_MIN after the run (the same wave the swarm counted, measured on the real feed).
 const SWARM = "swarm.wave_p";
 const SWARM_H = env.int("SWARM_HORIZON_MIN");
 const SWARM_WAVE = env.int("SWARM_WAVE_CALLERS");
-// docs/24 P8: BettaFish's coin stance, read as P(price up at STANCE_H): bullish 1, bearish and avoid 0, neutral 0.5.
+// docs/SLOW-MIND.md P8: BettaFish's coin stance, read as P(price up at STANCE_H): bullish 1, bearish and avoid 0, neutral 0.5.
 // Hit: the last price seen at the horizon is above the last price seen at the stance. For a decisive stance the Brier
 // score is the miss rate, so 1 - brier is its accuracy. A coin with no trade on either side is not scored.
 const SYNTH = "synthesis.coin";
@@ -50,7 +50,7 @@ async function gapsFor(tx: Tx, mint: string, fromMs: number, toMs: number, nowIs
   return rows.map((r) => r.id as string);
 }
 
-/** Methodology ov2 (docs/07 scorekeeper). */
+/** Methodology ov2 (docs/PIPELINE.md scorekeeper). */
 async function measure(tx: Tx, w: Watch, h: number, nowIso: string): Promise<Outcome> {
   const end = w.t0_ms + h * 60_000;
   // a backfilled (rpc) trade sits at its event_time; it counts once it was seen, which is before this resolution
@@ -150,8 +150,8 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
     }
   }
 
-  /** Brier for precall.callout_p (docs/07 precall): hit = any callout on the coin within the horizon after the signal.
-   * And for swarm.wave_p (docs/24 P8): hit = SWARM_WAVE distinct callers call the coin within SWARM_H after the run. */
+  /** Brier for precall.callout_p (docs/PIPELINE.md precall): hit = any callout on the coin within the horizon after the signal.
+   * And for swarm.wave_p (docs/SLOW-MIND.md P8): hit = SWARM_WAVE distinct callers call the coin within SWARM_H after the run. */
   async function precallTick(tx: Tx, nowIso: string) {
     const now = Date.parse(nowIso);
     const fresh = await tx`select id, kind, subject, produced_at,
@@ -228,7 +228,7 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
           const due = [...watches.values()].flat().filter((w) => HORIZONS.some((h) => !w.done.includes(h) && now >= w.t0_ms + h * 60_000 + GRACE_MS));
           for (const w of due.sort((a, b) => a.t0_ms - b.t0_ms || (a.event_id < b.event_id ? -1 : 1))) await resolve(tx, w, now, e);
           if (e.topic === "post.queued") {
-            // a house callout (docs/09) is scored like any caller's, as the author `house`
+            // a house callout (docs/EXECUTION.md) is scored like any caller's, as the author `house`
             const b = e.body as BodyOf<"post.queued">;
             if (b.kind === "update") continue;
             // our callouts as `house`; our data replies as `house:reply` (a reply was right when the coin fell)

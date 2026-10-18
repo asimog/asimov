@@ -1,4 +1,4 @@
-// Fan-out and independence (docs/24 section 3, rule 1; P7). One coin escalation starts BettaFish and MiroShark on the
+// Fan-out and independence (docs/SLOW-MIND.md section 3, rule 1; P7). One coin escalation starts BettaFish and MiroShark on the
 // same coin at once, both reading the same feed; meanwhile a sense writes the Tape at a fixed rate. Proves ingestion
 // keeps its rate and write latency while both engines run, and again after both are killed mid-run; the Bridge records
 // the killed runs as failed with a reason and never blocks the writer.

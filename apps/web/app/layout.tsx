@@ -7,7 +7,7 @@ import "./globals.css";
 import "./instruments.css";
 import "./rooms.css";
 
-// docs/12: Plex Mono for labels and data, Plex Sans Condensed for KPI numerals, Plex Sans for body. Self-hosted by next/font.
+// docs/UI.md: Plex Mono for labels and data, Plex Sans Condensed for KPI numerals, Plex Sans for body. Self-hosted by next/font.
 const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-mono", display: "swap" });
 const sans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-sans", display: "swap" });
 const cond = IBM_Plex_Sans_Condensed({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-cond", display: "swap" });

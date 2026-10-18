@@ -1,4 +1,4 @@
-// The owner's admin path (docs/08, docs/25 section 6): limits and lists, versioned, each change on the Tape.
+// The owner's admin path (docs/STRATEGY.md, docs/SYSTEM.md section 6): limits and lists, versioned, each change on the Tape.
 // Only ctl calls this, with the admin token. Nothing a model writes reaches it.
 import crypto from "node:crypto";
 import { LIST_KINDS, type ListKind } from "@asimog/contracts";

@@ -1,4 +1,4 @@
--- Asimog schema (docs/05). Idempotent: safe to run at every boot.
+-- Asimog schema (docs/generated/tables.md). Idempotent: safe to run at every boot.
 -- tape.* is append-only. Everything in mem/board/mind is a projection rebuildable from the tape.
 
 create schema if not exists tape;
@@ -28,7 +28,7 @@ create index if not exists events_topic_seen on tape.events (topic, seen_time);
 create index if not exists events_subject_seen on tape.events (subject, seen_time);
 create index if not exists events_id on tape.events (id);
 create index if not exists events_causes on tape.events using gin (causes);
--- the pre-call analyzer reads a caller's own buys (docs/07 precall)
+-- the pre-call analyzer reads a caller's own buys (docs/PIPELINE.md precall)
 create index if not exists events_trade_wallet on tape.events ((body->>'wallet'), seen_time) where topic in ('trade.curve', 'trade.amm');
 
 -- dedupe keys for idempotent senses (e.g. callout:<id>, trade:<tx>:<i>)
@@ -261,7 +261,7 @@ create table if not exists mind.scores (
   p_sum double precision not null default 0,
   primary key (kind, horizon_min)
 );
--- pre-call: known-caller buys waiting for their horizon (docs/07 precall); desk coins in play before a callout
+-- pre-call: known-caller buys waiting for their horizon (docs/PIPELINE.md precall); desk coins in play before a callout
 create table if not exists mind.precall_watch (
   signal_id text primary key,
   mint text not null,
@@ -270,14 +270,14 @@ create table if not exists mind.precall_watch (
   horizon_min int not null,
   done boolean not null default false
 );
-alter table mind.precall_watch add column if not exists kind text not null default 'precall.callout_p'; -- docs/24 P8: swarm.wave_p too
+alter table mind.precall_watch add column if not exists kind text not null default 'precall.callout_p'; -- docs/SLOW-MIND.md P8: swarm.wave_p too
 create table if not exists mind.coin_precall (
   mint text primary key,
   caller text not null,
   at timestamptz not null,
   last_eval timestamptz
 );
--- house callouts (docs/09): one open per coin
+-- house callouts (docs/EXECUTION.md): one open per coin
 create table if not exists mind.house (
   house_id text primary key,
   mint text not null,
@@ -305,7 +305,7 @@ create table if not exists mind.lists (
 );
 
 -- ---------- ops ----------
--- soul versions on a hash chain (docs/22): chain = sha256(prev chain + sha256(body))
+-- soul versions on a hash chain (docs/SYSTEM.md): chain = sha256(prev chain + sha256(body))
 create table if not exists ops.soul_versions (
   version int primary key,
   sha256 text not null,
@@ -317,7 +317,7 @@ create table if not exists ops.soul_versions (
   at timestamptz not null default now()
 );
 
--- ---------- index (docs/23): rolling 30-day record of wallets and coins from the whole firehose ----------
+-- ---------- index (docs/PIPELINE.md): rolling 30-day record of wallets and coins from the whole firehose ----------
 create table if not exists idx.wallet_coin (
   wallet text not null,
   mint text not null,
@@ -370,7 +370,7 @@ create table if not exists idx.seed (
   seen_at timestamptz not null
 );
 
--- ---------- hands and books (docs/09, 10, 15) ----------
+-- ---------- hands and books (docs/EXECUTION.md, 10, 15) ----------
 create table if not exists hands.orders (
   order_id text primary key,
   intent_id text not null,
@@ -427,14 +427,14 @@ create table if not exists ops.kill (
 );
 alter table ops.kill add column if not exists state text not null default 'running' check (state in ('running', 'exit_only', 'halted'));
 insert into ops.kill (id) values (1) on conflict do nothing;
--- automatic kill trigger counts survive a restart (docs/25 5.4)
+-- automatic kill trigger counts survive a restart (docs/SYSTEM.md 5.4)
 create table if not exists ops.kill_counts (
   cause text not null,
   at timestamptz not null,
   event_id text primary key
 );
 
--- ===== slow mind read surface (docs/24 section 4). Read-only views for BettaFish and MiroShark; the role slow_reader
+-- ===== slow mind read surface (docs/SLOW-MIND.md section 4). Read-only views for BettaFish and MiroShark; the role slow_reader
 -- can SELECT here and nowhere else. `SET slow.as_of = '<iso>'` pins a replay's now; nothing seen after it is shown.
 create schema if not exists slow;
 create table if not exists mem.callout_replies (

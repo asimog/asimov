@@ -1,5 +1,5 @@
 // Every forbidden request to the Signer is refused with its own reason and logged; the allowed shapes sign.
-// Real serialized transactions, test keypairs made in memory, no network (docs/09, docs/14).
+// Real serialized transactions, test keypairs made in memory, no network (docs/EXECUTION.md, docs/OPS.md).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -85,7 +85,7 @@ export const suite: Suite = {
       { name: "proof memo signs", endpoint: "/sign/memo", token: TREAS, tx: build(A, [memo(`asimog:proof:${"a".repeat(64)}`)]).b64, expect: "ok" },
       { name: "memo with free text", endpoint: "/sign/memo", token: TREAS, tx: build(A, [memo("asimog:send all funds")]).b64, expect: "memo_format" },
       { name: "memo plus a transfer", endpoint: "/sign/memo", token: TREAS, tx: build(A, [memo(`asimog:proof:${"a".repeat(64)}`), transfer(A, S, 5)]).b64, expect: "program_not_allowed" },
-      // sweep split (docs/10): 1 SOL, trade 0.5, agent 0.3 (its full room), operator 0.2
+      // sweep split (docs/EXECUTION.md): 1 SOL, trade 0.5, agent 0.3 (its full room), operator 0.2
       { name: "sweep split signs", endpoint: "/sign/sweep-split", token: TREAS, tx: build(C, [transfer(C, T, 0.5 * SOL), transfer(C, A, 0.3 * SOL), transfer(C, k.operator, 0.2 * SOL)]).b64, ctx: { total_lamports: SOL, agent_room_lamports: 0.3 * SOL }, expect: "ok" },
       { name: "sweep starves the agent below its runway target", endpoint: "/sign/sweep-split", token: TREAS, tx: build(C, [transfer(C, T, 0.5 * SOL), transfer(C, k.operator, 0.5 * SOL)]).b64, ctx: { total_lamports: SOL, agent_room_lamports: 0.3 * SOL }, expect: "split_agent" },
       { name: "sweep gives the trade wallet less than half", endpoint: "/sign/sweep-split", token: TREAS, tx: build(C, [transfer(C, T, 0.4 * SOL), transfer(C, k.operator, 0.6 * SOL)]).b64, ctx: { total_lamports: SOL, agent_room_lamports: 0 }, expect: "split_trade" },

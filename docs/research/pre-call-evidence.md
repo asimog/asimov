@@ -20,13 +20,13 @@ So the author buys first, then posts. When the coin is already watched, the buy 
 | Peak within 3 min after the callout / price at the author's buy (median) | 1.30 |
 | Callouts whose 3-minute peak is more than 5% above the author's buy price | 36 of 54 (67%) |
 
-Reading: the callout itself is the pump, and it fades within minutes (the base rate in docs/07: 54 of 61 fully measured callouts lost money at 5 min after costs). Buying **after** the callout buys the top of the pump. Buying **at the author's buy**, a median 57 s earlier, buys before it, and selling into the callout spike is the trade.
+Reading: the callout itself is the pump, and it fades within minutes (the base rate in docs/PIPELINE.md: 54 of 61 fully measured callouts lost money at 5 min after costs). Buying **after** the callout buys the top of the pump. Buying **at the author's buy**, a median 57 s earlier, buys before it, and selling into the callout spike is the trade.
 
 Limits, stated plainly:
 
 - 54 callouts on one 10-minute tape. Small sample, one time of day.
-- Selection: these coins were already watched because of an earlier callout, so most are second or later callouts on a coin. First callouts on unwatched coins are not in the sample. The Scout (docs/06) removes this bias by watching every caller's buys on every coin.
-- The peak is a ceiling, not a payout (docs/07). Strategies are judged on net results through the fill model, never on peaks.
+- Selection: these coins were already watched because of an earlier callout, so most are second or later callouts on a coin. First callouts on unwatched coins are not in the sample. The Scout (docs/PIPELINE.md) removes this bias by watching every caller's buys on every coin.
+- The peak is a ceiling, not a payout (docs/PIPELINE.md). Strategies are judged on net results through the fill model, never on peaks.
 - The author must be a caller we already know (a wallet with a past callout in `mem.callers`). On a 10-minute tape most callers are new; with the Feed Reader's 48 h backfill live, the known set is large.
 
 ```sql
@@ -63,13 +63,13 @@ A 15 s probe of `unifiedTradeEvent.lite.>` (every pump.fun trade, 2026-10-17 10:
 | Bandwidth | 131 KB/s |
 | Distinct coins traded in 15 s | 314 |
 
-That is cheap for one process to scan in memory on a small VM, as long as it writes to the Tape only for coins it decides to watch. This is the Scout (docs/06).
+That is cheap for one process to scan in memory on a small VM, as long as it writes to the Tape only for coins it decides to watch. This is the Scout (docs/PIPELINE.md).
 
 ## 3. What this changes
 
 | Before | After |
 |---|---|
 | The watch starts at a coin's first callout | The Scout watches every caller wallet on every coin, and promotes a coin when a known caller buys it or its flow heats up |
-| Strategies enter only after a callout | `pre_call` strategies enter on a known caller's buy and sell into the callout (docs/08) |
-| Our callout is a template line after a ghost fill | A thesis is formed, committed and posted as a PAPER house callout; the house is scored in the caller ledger like any caller (docs/09) |
+| Strategies enter only after a callout | `pre_call` strategies enter on a known caller's buy and sell into the callout (docs/STRATEGY.md) |
+| Our callout is a template line after a ghost fill | A thesis is formed, committed and posted as a PAPER house callout; the house is scored in the caller ledger like any caller (docs/EXECUTION.md) |
 | Pre-call flow is invisible | The RPC backfill (S2.7) reads the coin's history when it enters the watched set |

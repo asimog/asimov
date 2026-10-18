@@ -1,5 +1,5 @@
 "use client";
-// Synthesis (docs/11, docs/24 P8): BettaFish reading our callout feed. The forum debate line by line, the feed and coin
+// Synthesis (docs/UI.md, docs/SLOW-MIND.md P8): BettaFish reading our callout feed. The forum debate line by line, the feed and coin
 // syntheses with the claims core kept, and the reports with every cited callout linked to its case file. Data only:
 // a claim without a cite never reaches this page (core drops it), and the drop counts are shown.
 import Link from "next/link";

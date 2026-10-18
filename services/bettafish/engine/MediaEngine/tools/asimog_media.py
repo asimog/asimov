@@ -1,5 +1,5 @@
 """
-Asimog patch B3 (docs/24 section 7): the Media engine's multimodal tools over our own media (SEARCH_TOOL_TYPE=AsimogMedia).
+Asimog patch B3 (docs/SLOW-MIND.md section 7): the Media engine's multimodal tools over our own media (SEARCH_TOOL_TYPE=AsimogMedia).
 
 AsimogMediaSearch keeps every BochaMultimodalSearch tool name and returns BochaResponse. Webpages are callouts that
 carry media (their text, cited as [cid:<id>]); images are callout media and coin images from slow.media, which the

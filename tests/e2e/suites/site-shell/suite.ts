@@ -1,4 +1,4 @@
-// The shell (docs/19): every room loads on desktop and phone, dark, no sideways scroll, nav lists every room, footer says PAPER.
+// The shell (docs/UI.md): every room loads on desktop and phone, dark, no sideways scroll, nav lists every room, footer says PAPER.
 import type { Suite } from "../../lib/suite.ts";
 import { Browser, VIEWPORTS, WEB, pageChecks, servers } from "../../lib/site.ts";
 

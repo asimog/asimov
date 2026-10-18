@@ -1,6 +1,6 @@
 # Pump.fun callouts: what the web client shows
 
-Source: pump.fun web JS chunks fetched 2026-10-16 (`.upstream/sites/pumpfun-web-bundles/`) and the callout terms page. These are facts read from shipped client code. API hosts and payload shapes are not confirmed yet. Phase 0 confirms them with HAR capture (docs/06).
+Source: pump.fun web JS chunks fetched 2026-10-16 (`.upstream/sites/pumpfun-web-bundles/`) and the callout terms page. These are facts read from shipped client code. API hosts and payload shapes are not confirmed yet. Phase 0 confirms them with HAR capture (docs/PIPELINE.md).
 
 ## Routes
 
@@ -21,7 +21,7 @@ Source: pump.fun web JS chunks fetched 2026-10-16 (`.upstream/sites/pumpfun-web-
 | Feature | Evidence (key) | What it means for Asimog |
 |---|---|---|
 | Holding required to post | `holding_requirement`, `holding_below_threshold`, `no_holding`, `create_no_eligible_wallet` | Buy first, confirm the holding, then post. The platform enforces "buy then call". |
-| Wallet session required | `connect_wallet_to_post`, `create_session_expired` | Posting needs a wallet-authenticated session. Publisher needs a signer-backed login (docs/09). |
+| Wallet session required | `connect_wallet_to_post`, `create_session_expired` | Posting needs a wallet-authenticated session. Publisher needs a signer-backed login (docs/EXECUTION.md). |
 | Market cap at call | `calling_at_mc`, `called_at` | Every callout stores entry context. Opportunity age is computable for every caller. |
 | Author trades shown on the callout | `author_trades_a11y`, `trade_buy`, `trade_sell`, `view_transactions`, `include_transfers`, `last_trade_label`, `exit_label` | The platform shows the caller's buys and sells, including an exit marker. Our exits are visible natively. |
 | Updates (threaded) | `update_your_callout`, `update_placeholder`, `update_cooldown`, `update_label`, `updated` | Exit callouts are native updates on the original callout. Update cooldown limits how often we can post them. |

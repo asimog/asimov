@@ -85,7 +85,7 @@ export async function world(tag: string, o: { live?: boolean; strategies?: strin
     const id = clock.id("intent");
     const strategy_id = o2.strategy ?? "sr_live";
     tape.emit("intent.created", { strategy_id, mint, side, size_sol: side === "buy" ? (o2.size_sol ?? 0.01) : null, fraction: side === "sell" ? (o2.fraction ?? 1) : null, reason: ["test"], score: 1, board: {} }, { source: "strategies", subject: id });
-    if (o2.ghost !== false) // the live gate acts only on a paper fill (docs/25 5.2)
+    if (o2.ghost !== false) // the live gate acts only on a paper fill (docs/SYSTEM.md 5.2)
       tape.emit("intent.ghost_filled", { intent_id: id, strategy_id, mint, side, sol: o2.size_sol ?? 0.01, tokens: 1, price_sol: price, fee_sol: 0, rent_sol: 0, slippage_bps: 0 }, { source: "strategies", subject: id });
     return id;
   }

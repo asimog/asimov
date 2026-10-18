@@ -1,4 +1,4 @@
-// All three BettaFish research engines in parallel (docs/24 P4): Insight over slow.*, Query over our callouts (Tavily
+// All three BettaFish research engines in parallel (docs/SLOW-MIND.md P4): Insight over slow.*, Query over our callouts (Tavily
 // and X are off without keys), Media over slow.media, with the forum (upstream LogMonitor and ForumHost) debating
 // between them. Offline with a stub model. Proves each engine ran its loop on our data, the host spoke and the engines
 // read the host back, forum lines reach the Tape, and each engine's report reaches the exchange. With BETTAFISH_REPORT=full,

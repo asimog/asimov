@@ -1,4 +1,4 @@
-// Books (docs/10): double-entry ledger as a projection of Tape events, hourly reconciliation against the chain, NAV.
+// Books (docs/EXECUTION.md): double-entry ledger as a projection of Tape events, hourly reconciliation against the chain, NAV.
 // Every entry's legs sum to zero (debits positive, credits negative, in lamports). The account `sol:<wallet>` is the
 // wallet's chain balance, so reconciliation compares one number per wallet. Rebuildable from the Tape at any time.
 import type { Envelope } from "@asimog/contracts";

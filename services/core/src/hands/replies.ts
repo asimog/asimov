@@ -1,4 +1,4 @@
-// Data replies on paper (docs/23 5, docs/09): when a callout lands on a coin whose rug or bundle features break the
+// Data replies on paper (docs/PIPELINE.md 5, docs/EXECUTION.md): when a callout lands on a coin whose rug or bundle features break the
 // owner's floor, draft a reply that states the data and nothing else: no names, no wallets, no verdict words.
 // Scored like a caller (`house:reply`): a reply was right if the coin fell. Reads only the Feed Reader's topic.
 import type { BodyOf, Envelope } from "@asimog/contracts";

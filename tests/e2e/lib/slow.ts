@@ -1,4 +1,4 @@
-// Shared setup for the slow-mind suites (docs/14): a fresh database, a core Toolbox with one token per capability, an
+// Shared setup for the slow-mind suites (docs/OPS.md): a fresh database, a core Toolbox with one token per capability, an
 // optional MCP server, and a small fixed world (two coins, six callouts, three callers, one losing position).
 import fs from "node:fs";
 import os from "node:os";

@@ -1,4 +1,4 @@
-// Scout (docs/06, docs/23): every pump.fun trade, in memory. It feeds the Index rollup and promotes a coin into the
+// Scout (docs/PIPELINE.md, docs/PIPELINE.md): every pump.fun trade, in memory. It feeds the Index rollup and promotes a coin into the
 // watched set when a known caller or a smart wallet buys it, when its flow heats, or when its metrics clear the scan
 // floor. Promotion writes the triggering trade and `coin.watched` with the coin's launch features as seen right then.
 import { tradeKey } from "./chain-reader.ts";

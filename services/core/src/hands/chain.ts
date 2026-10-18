@@ -1,4 +1,4 @@
-// The Chain seam (docs/09): everything the Trader and Treasurer need from Solana. One real implementation on ONE
+// The Chain seam (docs/EXECUTION.md): everything the Trader and Treasurer need from Solana. One real implementation on ONE
 // endpoint (TX_SEND_URL), because sends never go through RpcPool (it refuses send*). Tests use an in-memory chain.
 import { env } from "../lib/env.ts";
 
@@ -49,7 +49,7 @@ export class RpcChain implements Chain {
   async mintProgram(mint: string) {
     const r = await this.rpc<{ value: { owner: string } | null }>("getAccountInfo", [mint, { encoding: "base64", commitment: "confirmed" }]);
     if (!r.value) throw new Error("mint account not found");
-    return r.value.owner; // never trust the API's token_program (docs/09)
+    return r.value.owner; // never trust the API's token_program (docs/EXECUTION.md)
   }
   async simulate(b64: string, wallet: string): Promise<Sim> {
     const before = await this.balance(wallet);
@@ -86,7 +86,7 @@ export type RawTx = {
   meta: { err: unknown; fee: number; preBalances: number[]; postBalances: number[]; preTokenBalances?: Bal[]; postTokenBalances?: Bal[]; loadedAddresses?: { writable: string[]; readonly: string[] } };
 };
 
-/** Real fills come from the transaction, never from the quote (docs/09). */
+/** Real fills come from the transaction, never from the quote (docs/EXECUTION.md). */
 export function parseRaw(sig: string, t: RawTx): Parsed {
   const keys = [...t.transaction.message.accountKeys, ...(t.meta.loadedAddresses?.writable ?? []), ...(t.meta.loadedAddresses?.readonly ?? [])];
   const lamports: Record<string, number> = {};

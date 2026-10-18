@@ -1,4 +1,4 @@
-// core: boots the tape, senses, memory, analyzers, reflex and mind. Every part is switchable by env (docs/15).
+// core: boots the tape, senses, memory, analyzers, reflex and mind. Every part is switchable by env (docs/OPS.md).
 import { liveClock } from "./lib/clock.ts";
 import { connect, migrate } from "./lib/db.ts";
 import { env, redact } from "./lib/env.ts";

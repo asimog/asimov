@@ -1,4 +1,4 @@
-// The slow-mind rooms' data (docs/24 P8): what /v1/synthesis and /v1/simulations serve, from events written through
+// The slow-mind rooms' data (docs/SLOW-MIND.md P8): what /v1/synthesis and /v1/simulations serve, from events written through
 // the real core tools. Proves the forum, coin stance, reports with cites and claim survival reach /synthesis; and that
 // every swarm run on /simulations carries simulated: true, its branches, belief drift, posts per platform and its report.
 // Ways it fails: a report's body leaks into the Board instead of slow.reports (the room reads slow.reports); a swarm run

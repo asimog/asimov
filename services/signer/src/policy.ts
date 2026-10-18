@@ -1,4 +1,4 @@
-// Signer policy (docs/09): pure checks over a transaction. A request is signed only if the whole transaction fits
+// Signer policy (docs/EXECUTION.md): pure checks over a transaction. A request is signed only if the whole transaction fits
 // the endpoint's shape. Everything unknown is refused with a reason code. No network, no keys, no clock here.
 import crypto from "node:crypto";
 import { PublicKey, VersionedTransaction } from "@solana/web3.js";
@@ -178,7 +178,7 @@ export function checkMemo(tx: VersionedTransaction, w: Wallets, rules: Rules): V
   return memos === 1 ? v : no("memo_count", "exactly one memo");
 }
 
-/** Sweep (docs/10): 50% (rounded down) to the trade wallet; the rest to the agent wallet up to its room, exactly; the remainder to the operator. */
+/** Sweep (docs/EXECUTION.md): 50% (rounded down) to the trade wallet; the rest to the agent wallet up to its room, exactly; the remainder to the operator. */
 export function checkSweepSplit(tx: VersionedTransaction, w: Wallets, ctx: Ctx, rules: Rules): Verdict {
   if (!w.creator || !w.trade || !w.agent || !w.operator) return no("endpoint_not_enabled", "wallets are not all set");
   const total = ctx.total_lamports ?? 0;

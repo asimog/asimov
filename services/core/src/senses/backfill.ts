@@ -1,4 +1,4 @@
-// Backfill (S2.7, docs/06): when a coin enters the watched set, read its recent trades from RPC and write the ones
+// Backfill (S2.7, docs/PIPELINE.md): when a coin enters the watched set, read its recent trades from RPC and write the ones
 // the Tape lacks as `trade.curve` with source `rpc`. Pump `TradeEvent`s come from `Program data:` log lines.
 // `event_time` is when the trade happened; `seen_time` is when we learned it, so nothing leaks back.
 import { tradeKey } from "./chain-reader.ts";
@@ -73,7 +73,7 @@ export class Backfill {
     perHour: env.int("RPC_BACKFILL_TX_PER_HOUR"),
   };
   stats = { coins: 0, calls: 0, trades: 0, overlap: 0, skipped_null: 0, decode_errors: 0, queued: 0 };
-  /** The pool paces each endpoint and falls back between them (docs/15); this class only counts its hourly budget. */
+  /** The pool paces each endpoint and falls back between them (docs/OPS.md); this class only counts its hourly budget. */
   constructor(private tape: Tape, private sql: Sql, private pool: RpcPool) {}
 
   private rpc<T>(method: string, params: unknown[]) {

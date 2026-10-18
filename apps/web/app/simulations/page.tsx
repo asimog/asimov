@@ -1,5 +1,5 @@
 "use client";
-// Simulations (docs/11, docs/24 P8): MiroShark swarms on escalated coins. SIMULATED, all of it: measured callers and
+// Simulations (docs/UI.md, docs/SLOW-MIND.md P8): MiroShark swarms on escalated coins. SIMULATED, all of it: measured callers and
 // follower archetypes act on a copy of the coin's curve, with a Twitter stand-in beside it. Branch A runs as is, branch
 // B with our disclosed callout; the difference is the impact. The swarm's wave probability is scored against the real feed.
 import { fmt, useRoom } from "@/lib/live";

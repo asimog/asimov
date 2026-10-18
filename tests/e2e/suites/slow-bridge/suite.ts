@@ -1,4 +1,4 @@
-// The Slow Bridge (docs/24 section 5) against two fake engines speaking the /asimog/runs contract: a feed run and one
+// The Slow Bridge (docs/SLOW-MIND.md section 5) against two fake engines speaking the /asimog/runs contract: a feed run and one
 // escalation that feeds both engines at once, outputs mapped through core's validators, reports passed between the
 // engines as parents, idempotent slots, and a dead engine that fails its job without touching anything else.
 import http from "node:http";

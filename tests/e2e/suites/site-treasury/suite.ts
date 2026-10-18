@@ -1,4 +1,4 @@
-// Treasury (docs/11, S5.7): the numbers on screen are the API's numbers; the proof chain recomputes from the Tape.
+// Treasury (docs/UI.md, S5.7): the numbers on screen are the API's numbers; the proof chain recomputes from the Tape.
 import crypto from "node:crypto";
 import { canonical } from "../../../../packages/contracts/src/index.ts";
 import { connect } from "../../../../services/core/src/lib/db.ts";

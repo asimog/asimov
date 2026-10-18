@@ -1,4 +1,4 @@
-// ctl: one command surface for humans and agents (docs/03). Every command prints JSON with --json.
+// ctl: one command surface for humans and agents (docs/SYSTEM.md). Every command prints JSON with --json.
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
@@ -113,7 +113,7 @@ const commands: Record<string, () => Promise<unknown>> = {
   },
   callers: () => ledger(sql, { horizon: Number(opt("h") ?? 5) }),
   coverage: () => coverage(sql),
-  // the Index (docs/23): size, latest version, archetypes, the strongest copyable wallets, recent promotions
+  // the Index (docs/PIPELINE.md): size, latest version, archetypes, the strongest copyable wallets, recent promotions
   index: async () => {
     const [size] = await sql`select (select count(*)::int from idx.wallet_coin) wallet_coins, (select count(*)::int from idx.coin) coins,
       (select count(*)::int from idx.seed) seeds, (select max(version) from idx.wallet) version`;
@@ -123,19 +123,19 @@ const commands: Record<string, () => Promise<unknown>> = {
     const promotions = await sql`select body->>'reason' reason, count(*)::int n from tape.events where topic = 'coin.watched' group by 1 order by 2 desc`;
     return { ...size, archetypes, smart_top: top, promotions };
   },
-  // the house as a caller (docs/09): its ledger row next to the crowd baseline, and its latest paper posts
+  // the house as a caller (docs/EXECUTION.md): its ledger row next to the crowd baseline, and its latest paper posts
   house: async () => {
     const L = await ledger(sql, { horizon: Number(opt("h") ?? 5) });
     const posts = await sql`select seen_time, body->>'kind' kind, body->>'house_id' house_id, body->>'text' text from tape.events
       where topic = 'post.queued' order by seen_time desc, id desc limit ${Number(opt("n") ?? 20)}`;
     return { method: L.method, horizon_min: L.horizon_min, house: L.rows.find((r) => r.wallet === "house") ?? null, crowd: L.all, posts };
   },
-  // soul versions on their hash chain (docs/22); `soul` lists them and recomputes the chain
+  // soul versions on their hash chain (docs/SYSTEM.md); `soul` lists them and recomputes the chain
   soul: async () => {
     await ensureGenesis(sql, path.join(env.root, "SOUL.md"));
     return { chain: await verifyChain(sql), versions: await versions(sql) };
   },
-  // S6.7: the owner's switch (docs/15). kill writes the Tape; the kill consumer and the Signer do the rest.
+  // S6.7: the owner's switch (docs/OPS.md). kill writes the Tape; the kill consumer and the Signer do the rest.
   kill: async () => {
     const tape = new Tape(sql, liveClock("live"));
     ownerKill(tape, args.filter((a) => !a.startsWith("--")).join(" ") || "owner", path.join(env.root, "artifacts", "KILL"));
@@ -148,7 +148,7 @@ const commands: Record<string, () => Promise<unknown>> = {
     await tape.close();
     return { ok: true };
   },
-  // S6.4: the books (docs/10)
+  // S6.4: the books (docs/EXECUTION.md)
   // fix plan 2.3 and 2.4: the owner's limits and lists. `ctl limits set max_order_sol 0.01 --token T`,
   // `ctl limits show`, `ctl lists load blocked_creators file.txt --token T` (one base58 address per line)
   limits: async () => {
@@ -179,7 +179,7 @@ const commands: Record<string, () => Promise<unknown>> = {
     await tape.close();
     return { ok: true };
   },
-  // docs/24: the slow mind at a glance: jobs, spend per lane against its hourly cap, engine health, last reports, scores
+  // docs/SLOW-MIND.md: the slow mind at a glance: jobs, spend per lane against its hourly cap, engine health, last reports, scores
   slow: async () => {
     const at = new Date().toISOString();
     const jobs = await sql`select engine, kind, state, count(*)::int n from slow.jobs where slot > ${new Date(Date.now() - 86_400_000).toISOString()} group by 1, 2, 3 order by 1, 2, 3`;

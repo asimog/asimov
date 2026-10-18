@@ -1,5 +1,5 @@
 // Pump bonding-curve math for standard (depth 0) SOL curves: constant product on virtual reserves.
-// Initial reserves read from chain on 2026-10-17 (docs/21): 30 SOL virtual, 1,073,000,000 tokens virtual,
+// Initial reserves read from chain on 2026-10-17 (docs/DECISIONS.md): 30 SOL virtual, 1,073,000,000 tokens virtual,
 // 793,100,000 real tokens. Fees: protocol 95 bps + creator 30 bps per side (FEE_BPS overrides).
 import { env } from "../lib/env.ts";
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Legal pages are written by counsel (docs/11). Until then each page states only what is true of the site today. */
+/** Legal pages are written by counsel (docs/UI.md). Until then each page states only what is true of the site today. */
 export function Legal({ title, children }: { title: string; children: ReactNode }) {
   return (
     <main className="room">

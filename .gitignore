@@ -31,8 +31,8 @@ uxinsipirevideos/
 .venv-asimog/
 *.tsbuildinfo
 
-# Audits and fix plans: they name attack paths in unfixed code, and the repo is public
-docs/audits/
+# Old docs and audit notes: agents do not read them, and the audits name attack paths (the repo is public)
+docs/archive/
 
 # Local tool state and OS files
 .claude/settings.local.json

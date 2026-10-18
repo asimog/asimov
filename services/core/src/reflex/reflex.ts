@@ -1,4 +1,4 @@
-// Reflex (docs/17): Jev packs as System One. Live: trigger consumer calls Jev and writes jev.answer to the Tape.
+// Reflex (docs/PIPELINE.md): Jev packs as System One. Live: trigger consumer calls Jev and writes jev.answer to the Tape.
 // Always: the signals consumer turns jev.answer events into Board signals. Replays read recorded answers only.
 import crypto from "node:crypto";
 import type { BodyOf, Envelope } from "@asimog/contracts";

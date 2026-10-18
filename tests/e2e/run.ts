@@ -1,4 +1,4 @@
-// E2E runner (docs/14): `npm run e2e [suite ...]`. Replay suites share one replay of the tape per run.
+// E2E runner (docs/OPS.md): `npm run e2e [suite ...]`. Replay suites share one replay of the tape per run.
 // Each suite writes artifacts/e2e/<suite>/<run-id>/{report.json,report.html,sha256.txt}.
 import { write, inputs } from "./lib/artifact.ts";
 import { replay, type ReplayResult } from "./lib/replay.ts";

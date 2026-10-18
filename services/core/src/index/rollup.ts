@@ -1,4 +1,4 @@
-// Index rollup (docs/23 2.1): every firehose trade folded, in memory, into per-wallet-per-coin and per-coin records,
+// Index rollup (docs/PIPELINE.md 2.1): every firehose trade folded, in memory, into per-wallet-per-coin and per-coin records,
 // flushed to idx.* once a minute. Raw trades of unwatched coins are never stored. Pure except `flush`.
 import type { BodyOf, Trade } from "@asimog/contracts";
 import type { Sql } from "../lib/db.ts";
@@ -126,7 +126,7 @@ export class Rollup {
     return this.coins.get(mint)?.curve_account ?? null;
   }
 
-  /** Launch features as seen now (docs/23 section 3). Shares are of SOL bought on the coin so far. */
+  /** Launch features as seen now (docs/PIPELINE.md section 3). Shares are of SOL bought on the coin so far. */
   features(mint: string, now: number): Features | null {
     const c = this.coins.get(mint);
     if (!c) return null;

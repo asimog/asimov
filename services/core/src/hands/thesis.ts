@@ -1,5 +1,5 @@
-// Thesis and post texts (docs/09). Pure functions: the same Board, spec and fill give the same thesis and words.
-// Claims carry their evidence class (docs/03). Numbers are computed here, never by a model.
+// Thesis and post texts (docs/EXECUTION.md). Pure functions: the same Board, spec and fill give the same thesis and words.
+// Claims carry their evidence class (docs/SYSTEM.md). Numbers are computed here, never by a model.
 import type { BodyOf } from "@asimog/contracts";
 import type { BoardValues, Spec } from "../mind/dsl.ts";
 

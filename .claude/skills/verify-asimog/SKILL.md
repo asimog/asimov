@@ -5,7 +5,7 @@ description: Drive the Asimog website (Next.js rooms in apps/web, fed by the rea
 
 # Verify Asimog
 
-The primary surface is the website: rooms at `http://localhost:7402` (web, `apps/web`) reading `http://localhost:7401` (relay, `services/relay`), which reads Postgres with a read-only connection. Visitors give no input except moving controls such as the Rewind slider. Secondary surface: `npm run ctl -- <cmd> --json` (docs/03). The full regression suites are `npm run e2e site-*` (docs/14); this skill is for one-off proof, and the owner runs full suites only at milestones.
+The primary surface is the website: rooms at `http://localhost:7402` (web, `apps/web`) reading `http://localhost:7401` (relay, `services/relay`), which reads Postgres with a read-only connection. Visitors give no input except moving controls such as the Rewind slider. Secondary surface: `npm run ctl -- <cmd> --json` (docs/SYSTEM.md). The full regression suites are `npm run e2e site-*` (docs/OPS.md); this skill is for one-off proof, and the owner runs full suites only at milestones.
 
 All commands run from the repo root in Git Bash. The helper is `npx tsx .claude/skills/verify-asimog/drive.ts`, below `drive`.
 

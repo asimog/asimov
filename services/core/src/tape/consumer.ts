@@ -1,5 +1,5 @@
 // Consumers read the Tape in (seen_time, id) order from their own offset. The handler and the offset
-// update share one transaction, so a crash never applies a batch twice (docs/03).
+// update share one transaction, so a crash never applies a batch twice (docs/SYSTEM.md).
 import type { Envelope } from "@asimog/contracts";
 import type postgres from "postgres";
 import type { Clock } from "../lib/clock.ts";

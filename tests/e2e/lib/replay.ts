@@ -1,4 +1,4 @@
-// Replay driver (docs/14): a recorded tape through the full runtime, in a fresh database, on the replay Clock.
+// Replay driver (docs/OPS.md): a recorded tape through the full runtime, in a fresh database, on the replay Clock.
 // Inputs (what the world told us, including recorded Jev answers) are loaded; everything else is re-derived.
 // The network is cut: any fetch during a replay is counted and fails the run.
 import fs from "node:fs";

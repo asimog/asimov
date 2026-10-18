@@ -1,5 +1,5 @@
 // Three fee sweeps (one empty) on the mocked chain: the split matches chain amounts to the lamport, base capital is not
-// profit, the ledger still reconciles, and a sweep that crashed half way is finished without paying twice (docs/10).
+// profit, the ledger still reconciles, and a sweep that crashed half way is finished without paying twice (docs/EXECUTION.md).
 import { SOL, world } from "../../lib/world.ts";
 import { reconcile, balances, hourOf } from "../../../../services/core/src/treasury/books.ts";
 import { sweep, type SweepDeps } from "../../../../services/core/src/treasury/sweep.ts";

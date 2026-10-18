@@ -126,7 +126,7 @@ class SentimentSnapshot:
 
 @dataclass
 class PumpfunSnapshot:
-    """Asimog (docs/24 M2): the Pump.fun world as social agents see it. SIMULATED numbers from the swarm's own curve."""
+    """Asimog (docs/SLOW-MIND.md M2): the Pump.fun world as social agents see it. SIMULATED numbers from the swarm's own curve."""
     round_num: int = 0
     coins: List[Dict[str, Any]] = field(default_factory=list)
     # Each coin: {symbol, price_sol, price_delta_pct, progress_pct, buyers, top_holder_share, callouts}
@@ -226,7 +226,7 @@ class MarketMediaBridge:
             return ""
         return self.latest_prices.to_social_media_prompt()
 
-    # ── Pump.fun → Social Media (Asimog, docs/24 M2) ──────────
+    # ── Pump.fun → Social Media (Asimog, docs/SLOW-MIND.md M2) ──────────
 
     latest_pumpfun: Optional[PumpfunSnapshot] = None
 
@@ -370,7 +370,7 @@ _PUMPFUN_MARKER = "\n\n# PUMP.FUN MARKET"
 
 
 def inject_pumpfun_context(agent, pumpfun_text: str):
-    """Inject the Pump.fun snapshot into a social media agent's system message (Asimog, docs/24 M2)."""
+    """Inject the Pump.fun snapshot into a social media agent's system message (Asimog, docs/SLOW-MIND.md M2)."""
     if not pumpfun_text:
         return
     content = agent.system_message.content

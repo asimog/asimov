@@ -1,4 +1,4 @@
-// Artifacts (docs/14): report.json, report.html, sha256.txt per suite run under artifacts/e2e/<suite>/<run-id>/.
+// Artifacts (docs/OPS.md): report.json, report.html, sha256.txt per suite run under artifacts/e2e/<suite>/<run-id>/.
 // sha256.txt hashes report.json without volatile fields, so the same tape + commit + config gives the same hash.
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";

@@ -1,6 +1,6 @@
 # Design
 
-The visual world is **Instrument**, defined in `docs/12-design-guidelines.md` (tokens, one dark world, bans) and `docs/11-ui-spec.md` (instruments, event-to-motion map). This file records how the built site applies it; when they disagree, docs/12 wins and this file is fixed.
+The visual world is **Instrument**, defined in `docs/UI.md` (tokens, one dark world, bans) and `docs/UI.md` (instruments, event-to-motion map). This file records how the built site applies it; when they disagree, docs/UI.md wins and this file is fixed.
 
 ## One dark world
 
@@ -14,7 +14,7 @@ Every room is dark and uniform (owner, 2026-10-17): warm black ground, bone text
 
 ## Type
 
-IBM Plex Mono (labels, data, tape), IBM Plex Sans Condensed (numerals, headings), IBM Plex Sans (body), self-hosted by `next/font`. Brief-pinned by docs/12.
+IBM Plex Mono (labels, data, tape), IBM Plex Sans Condensed (numerals, headings), IBM Plex Sans (body), self-hosted by `next/font`. Brief-pinned by docs/UI.md.
 
 ## Motion
 

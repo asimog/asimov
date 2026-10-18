@@ -1,4 +1,4 @@
-// The paper desk (docs/08): every strategy in the Strategy Pool trades its own ghost book on every relevant event.
+// The paper desk (docs/STRATEGY.md): every strategy in the Strategy Pool trades its own ghost book on every relevant event.
 // Order of work per event: periodic rounds (allocation, evolution, sweeps), then fills, markouts, exits, entries.
 // All state lives in mind.* and is cached in memory; a failed batch drops the cache so it reloads from Postgres.
 // Every decision is a Tape event written in the same transaction as the consumer offset (Tape.emitIn).
@@ -61,7 +61,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   const market = new Map<string, Market & { real_sol: number | null }>();
   const coinCallout = new Map<string, { callout_id: string; author: string | null; at_ms: number }>();
   const calloutMint = new Map<string, string>();
-  const coinPrecall = new Map<string, { caller: string; at_ms: number }>(); // a known caller bought, before their callout (docs/08)
+  const coinPrecall = new Map<string, { caller: string; at_ms: number }>(); // a known caller bought, before their callout (docs/STRATEGY.md)
   const lastEval = new Map<string, number>();
   const lastExit = new Map<string, number>(); // `${strategy}:${mint}` -> ms
   const clockRow = { next_alloc: 0, next_evolve: 0, sweep_bucket: -1, round: 0 };
@@ -414,7 +414,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     return pc && (!cc || pc.at_ms > cc.at_ms) ? pc.caller : (cc?.author ?? null);
   }
 
-  /** In play (docs/08): called within the entry window, or bought by a known caller within it. */
+  /** In play (docs/STRATEGY.md): called within the entry window, or bought by a known caller within it. */
   function inPlay(mint: string, now: number) {
     const cc = coinCallout.get(mint);
     const pc = coinPrecall.get(mint);

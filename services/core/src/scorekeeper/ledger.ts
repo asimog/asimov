@@ -1,5 +1,5 @@
-// Caller ledger, methodology cl1 (docs/07): every callout counted once, exclusions by reason, never by result.
-// Coverage report (docs/07 coverage). Both read only the Tape, so any replay gives the same numbers.
+// Caller ledger, methodology cl1 (docs/PIPELINE.md): every callout counted once, exclusions by reason, never by result.
+// Coverage report (docs/PIPELINE.md coverage). Both read only the Tape, so any replay gives the same numbers.
 import type { Sql } from "../lib/db.ts";
 
 export const LEDGER_METHOD = "cl1";
@@ -71,7 +71,7 @@ export async function ledger(sql: Sql, o: { horizon?: number } = {}) {
         e.body->>'quoted_callout_id' quoted, e.body->>'via' via, e.seen_time, e.id ev,
         row_number() over (partition by e.body->>'author_wallet', e.body->>'mint', coalesce(e.body->>'via', '') = 'history' order by e.seen_time, e.id) nth -- a history row never makes a live call a repeat
       from tape.events e where e.topic = 'callout.created'
-      union all -- our own paper callouts (docs/09): the house is one more caller
+      union all -- our own paper callouts (docs/EXECUTION.md): the house is one more caller
       select e.body->>'house_id', w, w, e.body->>'mint', null, 'house', e.seen_time, e.id, 1
       from tape.events e, lateral (select case e.body->>'kind' when 'callout' then 'house' else 'house:reply' end w) k
       where e.topic = 'post.queued' and e.body->>'kind' in ('callout', 'reply')
@@ -107,7 +107,7 @@ export async function coverage(sql: Sql) {
     traded as (select subject mint, min(seen_time) first_trade from tape.events where topic in ('trade.curve', 'trade.amm') group by 1)
     select count(*)::int called, count(t.mint)::int with_trades, count(*) filter (where t.first_trade > c.first_call)::int first_trade_after_call
     from called c left join traded t using (mint)`;
-  // collectors (docs/06): trades per source, and signatures both NATS and the RPC backfill saw
+  // collectors (docs/PIPELINE.md): trades per source, and signatures both NATS and the RPC backfill saw
   const sources = await sql`select source, count(*)::int trades, count(distinct body->>'tx')::int txs from tape.events
     where topic in ('trade.curve', 'trade.amm') group by 1 order by 1`;
   const [both] = await sql`select count(*)::int n from (select body->>'tx' from tape.events where topic in ('trade.curve', 'trade.amm')

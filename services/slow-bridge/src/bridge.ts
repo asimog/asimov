@@ -1,4 +1,4 @@
-// The Slow Bridge (docs/24 section 5): the one adapter between core and both slow engines. It schedules runs (feed timer,
+// The Slow Bridge (docs/SLOW-MIND.md section 5): the one adapter between core and both slow engines. It schedules runs (feed timer,
 // escalations), feeds both engines at once (fan-out), maps their outputs to core MCP write tools, and passes reports
 // between them (each run gets the newest reports of the other engine as parents). It owns no business rule.
 // Ways it fails: an engine is down (the job fails with the reason, the next slot tries again; ingestion never waits);
@@ -69,7 +69,7 @@ export class Bridge {
     }
   }
 
-  /** Parents for a run: the newest reports of the other engine on this subject (docs/24 section 6), published before now. */
+  /** Parents for a run: the newest reports of the other engine on this subject (docs/SLOW-MIND.md section 6), published before now. */
   private async parents(job: Job): Promise<string[]> {
     const other = job.engine === "bettafish" ? "miroshark." : "bettafish.";
     const { reports } = await this.d.cores.exchange.call<{ reports: { report_id: string }[] }>("reports_for", { subject: job.subject, producer_prefix: other, limit: 3 });

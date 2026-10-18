@@ -1,4 +1,4 @@
-// The one contract both engines speak to the Bridge (docs/24 section 5): POST /asimog/runs starts a run, GET /asimog/runs/:id
+// The one contract both engines speak to the Bridge (docs/SLOW-MIND.md section 5): POST /asimog/runs starts a run, GET /asimog/runs/:id
 // reports it. BettaFish's asimog_worker.py and MiroShark's asimog blueprint both implement it.
 export type Engine = "bettafish" | "miroshark";
 export type Kind = "feed" | "coin" | "swarm";

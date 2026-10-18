@@ -1,4 +1,4 @@
-// How the core asks the Signer (docs/09). One client per capability token; the tests use an in-process implementation.
+// How the core asks the Signer (docs/EXECUTION.md). One client per capability token; the tests use an in-process implementation.
 import { env } from "../lib/env.ts";
 
 export type SignCtx = { max_lamports?: number; order_id?: string; total_lamports?: number; agent_room_lamports?: number; mint?: string };

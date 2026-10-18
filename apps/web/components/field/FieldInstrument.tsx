@@ -5,7 +5,7 @@ import { Hud } from "@/components/hud/Hud";
 import { graduatedLive, useLive } from "@/lib/live";
 import type { Overlay } from "./FieldScene";
 
-// The WebGL chunk loads after first paint (docs/19 budget); the HUD and strip are real data from the first frame.
+// The WebGL chunk loads after first paint (docs/UI.md budget); the HUD and strip are real data from the first frame.
 const FieldScene = dynamic(() => import("./FieldScene"), { ssr: false });
 const LABELS = 14;
 const BOXES = 3;

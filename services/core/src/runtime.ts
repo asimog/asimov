@@ -65,11 +65,11 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
       })
     : null;
   const timers: NodeJS.Timeout[] = [];
-  // the door for thinking agents (docs/18): off unless MCP_TOKENS names at least one lane
+  // the door for thinking agents (docs/SYSTEM.md): off unless MCP_TOKENS names at least one lane
   const tokens = parseTokens(env.opt("MCP_TOKENS"));
   const soulFile = `${env.root}/SOUL.md`;
   let mcp: Awaited<ReturnType<typeof startMcp>> | null = null;
-  // the Index (docs/23): seed lists every INDEX_SEED_HOURS, a new score version every INDEX_REFRESH_MIN
+  // the Index (docs/PIPELINE.md): seed lists every INDEX_SEED_HOURS, a new score version every INDEX_REFRESH_MIN
   const indexJobs = async (seedToo: boolean) => {
     try {
       if (seedToo) await seed(sql, clock.iso());

@@ -1,5 +1,5 @@
 """
-Asimog: a headless MiroShark worker for the Slow Bridge (docs/24 sections 5 and 8). SIMULATED output only.
+Asimog: a headless MiroShark worker for the Slow Bridge (docs/SLOW-MIND.md sections 5 and 8). SIMULATED output only.
 
 POST /asimog/runs   {job_id, kind: swarm, subject: mint, preset, started_at, dossier, parent_texts}
 GET  /asimog/runs/<id>  -> {state, output?, error?}

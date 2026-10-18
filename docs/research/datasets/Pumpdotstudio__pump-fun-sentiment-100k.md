@@ -47,5 +47,5 @@ Also descriptive: hype words (moon, gem, 100x, lfg, ape...) appear in 0.36% of s
 
 ## 6. Verdict: PATTERN ONLY
 Weak and confounded: no outcomes, one AI's opinions, mixed coin types, only 4.3% bullish. Do not use as labels.
-Plug-in: borrow the risk-factor vocabulary (README list, for example `creator_holds_majority`, `wash_trading`) as named-bucket ideas for a Jev pack in docs/17, and use a few hundred non-duplicate summaries as a tone smoke test for Jev. Not for strategy tests. The licence is non-commercial, so keep it out of anything we ship.
+Plug-in: borrow the risk-factor vocabulary (README list, for example `creator_holds_majority`, `wash_trading`) as named-bucket ideas for a Jev pack in docs/PIPELINE.md, and use a few hundred non-duplicate summaries as a tone smoke test for Jev. Not for strategy tests. The licence is non-commercial, so keep it out of anything we ship.
 Prompt-injection check: no text aimed at an AI agent in the summaries (regex for "ignore previous", "system prompt", "as an ai", "instruction": 0 hits).

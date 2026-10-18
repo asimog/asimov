@@ -1,5 +1,5 @@
 "use client";
-// The instrument strip (docs/11): equal-height dense panels, each with a caps micro-title and a live number.
+// The instrument strip (docs/UI.md): equal-height dense panels, each with a caps micro-title and a live number.
 // Every panel has its loading, empty and stale states; nothing here moves unless a number changed.
 import type { ReactNode } from "react";
 import { fmt, type Line, useLive } from "@/lib/live";

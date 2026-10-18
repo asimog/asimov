@@ -1,4 +1,4 @@
-// soul.update (docs/22): the agent edits SOUL.md only through here. Every version is validated, stored in
+// soul.update (docs/SYSTEM.md): the agent edits SOUL.md only through here. Every version is validated, stored in
 // ops.soul_versions on a hash chain, announced as `soul.updated`, and then written to the file.
 import crypto from "node:crypto";
 import fs from "node:fs";

@@ -1,5 +1,5 @@
 """
-Asimog patch B8 (docs/24 section 7): a headless worker that runs the real BettaFish engines for the Slow Bridge.
+Asimog patch B8 (docs/SLOW-MIND.md section 7): a headless worker that runs the real BettaFish engines for the Slow Bridge.
 
 POST /asimog/runs   {job_id, kind (feed|coin), subject (global|mint), preset, window_min, parent_reports}
 GET  /asimog/runs/<id>  -> {state: running|done|failed, output?, error?}

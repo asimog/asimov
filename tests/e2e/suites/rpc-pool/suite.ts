@@ -1,4 +1,4 @@
-// The RPC pool (docs/15) against local fake providers: limits, budgets, refusals and secrecy hold. No network, no keys.
+// The RPC pool (docs/OPS.md) against local fake providers: limits, budgets, refusals and secrecy hold. No network, no keys.
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";

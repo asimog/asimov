@@ -1,5 +1,5 @@
 "use client";
-// The Field (docs/11, docs/19, docs/inspiration "Survival Field"). Every watched coin is a cloud of fibre in one of two
+// The Field (docs/UI.md, docs/UI.md, docs/inspiration "Survival Field"). Every watched coin is a cloud of fibre in one of two
 // regions: still on the bonding curve, or graduated to PumpSwap. Coins that share a caller are joined by strands; the
 // firm (the Core) is joined to every coin it holds. Packets are real events: a buy flows into a cloud, a sell flows out,
 // a caller moving from one coin to the next runs along their strand, a paper fill runs from the Core. Idle, it breathes.

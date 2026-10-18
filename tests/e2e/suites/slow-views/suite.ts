@@ -1,4 +1,4 @@
-// The slow-mind read surface (docs/24 section 4): BettaFish-shaped views exist with upstream's column names, the
+// The slow-mind read surface (docs/SLOW-MIND.md section 4): BettaFish-shaped views exist with upstream's column names, the
 // slow_reader role can read them and nothing else, and slow.as_of hides everything seen after it.
 import { connect, migrate } from "../../../../services/core/src/lib/db.ts";
 import { env } from "../../../../services/core/src/lib/env.ts";

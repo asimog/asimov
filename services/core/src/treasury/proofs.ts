@@ -1,4 +1,4 @@
-// Hourly proofs (docs/10): one JSON segment per hour (sweeps, fills, ledger entries, balances, the reconciliation result,
+// Hourly proofs (docs/EXECUTION.md): one JSON segment per hour (sweeps, fills, ledger entries, balances, the reconciliation result,
 // the commit hashes), chained by the sha256 of the previous segment. The latest hash goes on chain as a memo from W_agent.
 // Anyone can recompute a segment's hash from its body and walk the chain (verifyProofs).
 import crypto from "node:crypto";

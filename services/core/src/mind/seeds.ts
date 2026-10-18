@@ -1,4 +1,4 @@
-// Seed Strategy Pool (docs/08, docs/23): 8 families x 6 variants (3 horizons x tight/loose). Ids are stable so every
+// Seed Strategy Pool (docs/STRATEGY.md, docs/PIPELINE.md): 8 families x 6 variants (3 horizons x tight/loose). Ids are stable so every
 // replay seeds the same pool. Families are niche labels, not code paths.
 import { HORIZON_MAX_MIN, type Horizon, type Spec } from "./dsl.ts";
 
@@ -87,7 +87,7 @@ const FAMILIES: Family[] = [
     call: { policy: "after_fill", template: "thesis" },
   },
   {
-    // a known caller bought and has not called yet: buy before the callout, sell into it (docs/08 pre-call)
+    // a known caller bought and has not called yet: buy before the callout, sell into it (docs/STRATEGY.md pre-call)
     family: "pre_call",
     universe: {
       all: [
@@ -113,7 +113,7 @@ const FAMILIES: Family[] = [
     hold: { fast: 3, medium: 6, slow: 10 },
   },
   {
-    // copyable wallets from the Index are buying: follow them before the callout wave (docs/23 4)
+    // copyable wallets from the Index are buying: follow them before the callout wave (docs/PIPELINE.md 4)
     family: "smart_early",
     universe: {
       all: [
@@ -138,7 +138,7 @@ const FAMILIES: Family[] = [
     hold: { fast: 3, medium: 8, slow: 20 },
   },
   {
-    // coin metrics alone, no callers: 6K is only where this family starts; evolution moves it (docs/23 4)
+    // coin metrics alone, no callers: 6K is only where this family starts; evolution moves it (docs/PIPELINE.md 4)
     family: "launch_scan",
     universe: {
       all: [

@@ -1,5 +1,5 @@
 """
-Asimog patch B1 (docs/24 section 7): the Insight engine's five database tools over our Pump.fun read surface.
+Asimog patch B1 (docs/SLOW-MIND.md section 7): the Insight engine's five database tools over our Pump.fun read surface.
 
 PumpfunDB subclasses MediaCrawlerDB and keeps every tool's name, signature and return type, so the DeepSearchAgent,
 its nodes and prompts run unchanged. The data comes from the read-only `slow` schema (role slow_reader): callouts are

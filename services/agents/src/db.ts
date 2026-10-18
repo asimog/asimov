@@ -1,4 +1,4 @@
-// The agents schema (docs/05): jobs, trigger cursors and per-lane spend. Own schema, own role in production.
+// The agents schema (docs/generated/tables.md): jobs, trigger cursors and per-lane spend. Own schema, own role in production.
 import type { SpendStore } from "@asimog/lane";
 import postgres from "postgres";
 

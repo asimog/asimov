@@ -1,5 +1,5 @@
 """
-Asimog patch B4 (docs/24 section 7): the Query engine's news tools over sources chosen by env (QUERY_SEARCH).
+Asimog patch B4 (docs/SLOW-MIND.md section 7): the Query engine's news tools over sources chosen by env (QUERY_SEARCH).
 
 AsimogNewsAgency keeps every TavilyNewsAgency tool name and returns TavilyResponse, so the engine runs unchanged:
 - `tavily`: the upstream Tavily client (a search API, not scraping), when TAVILY_API_KEY is set;

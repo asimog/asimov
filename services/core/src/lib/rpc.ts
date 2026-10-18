@@ -1,4 +1,4 @@
-// RPC pool (docs/15): several free Solana RPC endpoints used as one, each held to its own plan: requests per second,
+// RPC pool (docs/OPS.md): several free Solana RPC endpoints used as one, each held to its own plan: requests per second,
 // monthly budget, refused methods. RPC_URLS = "name|rps|url,name|rps|url" in order of preference; falls back to RPC_URL.
 // Per provider NAME (upper case): RPC_DENY_NAME, RPC_BUDGET_NAME (units a month, 0 = no cap), RPC_COST_NAME (units a call).
 // URLs hold API keys: we log names only.

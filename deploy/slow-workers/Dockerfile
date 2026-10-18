@@ -1,4 +1,4 @@
-# One persistent container for both Python engines (docs/24 3.1): BettaFish worker on 7410, MiroShark backend on 7411.
+# One persistent container for both Python engines (docs/SLOW-MIND.md 3.1): BettaFish worker on 7410, MiroShark backend on 7411.
 FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential curl && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv

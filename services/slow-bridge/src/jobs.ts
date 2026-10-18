@@ -1,4 +1,4 @@
-// slow.jobs (docs/24 section 5): a job runs once, is idempotent by (engine, kind, subject, slot), and records cost and errors.
+// slow.jobs (docs/SLOW-MIND.md section 5): a job runs once, is idempotent by (engine, kind, subject, slot), and records cost and errors.
 import type { Engine, Job, Kind } from "./types.ts";
 
 type Sql = import("postgres").Sql<Record<string, unknown>>;

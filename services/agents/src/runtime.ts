@@ -1,5 +1,5 @@
 // The agents runtime: deterministic triggers fill the job table, a worker claims jobs and runs each agent's graph with
-// its own belt of core tools, its own model lane and a Postgres checkpoint thread per job (docs/18).
+// its own belt of core tools, its own model lane and a Postgres checkpoint thread per job (docs/SYSTEM.md).
 import { BudgetExceeded, Lane, type LaneName } from "@asimog/lane";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Sql } from "./db.ts";
@@ -10,7 +10,7 @@ import { type Belt, loadBelt } from "./tools.ts";
 
 const MIN = 60_000;
 const DAY = 24 * 60 * MIN;
-/** period and offset of each cron slot, in UTC (docs/18: Reporter daily 00:05, Ops every 15 min, Researcher weekly). */
+/** period and offset of each cron slot, in UTC (docs/SYSTEM.md: Reporter daily 00:05, Ops every 15 min, Researcher weekly). */
 export const SCHEDULES: Partial<Record<AgentName, { period: number; offset: number }>> = {
   noop: { period: MIN, offset: 0 },
   ops: { period: 15 * MIN, offset: 0 },
@@ -65,7 +65,7 @@ export class AgentsRuntime {
         if (Number(e.body.net_sol) < 0 && (await enqueue(this.o.sql, "postmortem", { type: "event", event: e }, `postmortem:${e.id}`))) queued.push("postmortem");
         await setCursor(this.o.sql, "postmortem", new Date(e.seen_time).toISOString(), e.id);
       }
-      // ...and each missed wave: a callout that ran on a coin no strategy traded (docs/18)
+      // ...and each missed wave: a callout that ran on a coin no strategy traded (docs/SYSTEM.md)
       const mc = await getCursor(this.o.sql, "postmortem.missed");
       const missed = await belt.call<{ events: { id: string; seen_time: string; subject: string | null; body: Record<string, unknown> }[] }>("missed_waves", { after_seen_time: mc.seen_time ?? undefined, after_id: mc.id ?? undefined });
       for (const e of missed.events) {

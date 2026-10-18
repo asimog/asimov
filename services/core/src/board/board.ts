@@ -1,4 +1,4 @@
-// The Board (docs/03): latest live signal per (kind, subject). Signals are written inside the producing
+// The Board (docs/SYSTEM.md): latest live signal per (kind, subject). Signals are written inside the producing
 // consumer's transaction, so a replay writes exactly the same signals. A signal past valid_until is absent.
 import type { Clock } from "../lib/clock.ts";
 import type { Sql } from "../lib/db.ts";
@@ -38,7 +38,7 @@ export async function liveFor(sql: Sql | Tx, subject: string, at: string): Promi
   return Object.fromEntries(rows.map((r) => [r.kind, r]));
 }
 
-/** The whole Board at time `at`: the latest signal per (kind, subject) live at `at` (docs/03 time travel, Rewind). */
+/** The whole Board at time `at`: the latest signal per (kind, subject) live at `at` (docs/SYSTEM.md time travel, Rewind). */
 export async function boardAt(sql: Sql | Tx, at: string): Promise<SignalRow[]> {
   return (await sql`
     select distinct on (kind, subject) id, kind, subject, value, confidence, produced_at, valid_until, analyzer

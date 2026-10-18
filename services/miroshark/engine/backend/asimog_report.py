@@ -1,5 +1,5 @@
 """
-Asimog: the swarm report (docs/24 patch M7) on upstream's ReportAgent. SIMULATED.
+Asimog: the swarm report (docs/SLOW-MIND.md patch M7) on upstream's ReportAgent. SIMULATED.
 
 The template "Swarm Report (SIMULATED)" has fixed sections, so there is no outline call. Each section opens with
 numbers computed by code (never by the model), then upstream's ReAct loop writes the prose with its graph tools plus two

@@ -1,5 +1,5 @@
-// The live gate (docs/09): the only writer of order.created. A live leg exists only for a paper decision that filled
-// (intent.ghost_filled), so every live position has a ghost twin whose exit rules sell it (docs/25 5.2). Then: only for
+// The live gate (docs/EXECUTION.md): the only writer of order.created. A live leg exists only for a paper decision that filled
+// (intent.ghost_filled), so every live position has a ghost twin whose exit rules sell it (docs/SYSTEM.md 5.2). Then: only for
 // a strategy in LIVE_STRATEGIES, only in live mode, only after the Risk Gate says yes with the kill state from ops.kill.
 // Default: LIVE_STRATEGIES is empty, so nothing here ever fires until the owner says so (S6.8).
 import type { Envelope } from "@asimog/contracts";

@@ -1,4 +1,4 @@
-// How a thinking process talks to core: the MCP server, with one capability token (docs/18). Nothing else.
+// How a thinking process talks to core: the MCP server, with one capability token (docs/SYSTEM.md). Nothing else.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 

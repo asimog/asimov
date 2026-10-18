@@ -1,4 +1,4 @@
-// The five thinking graphs and the no-op (docs/18 "Graph shapes"). Each is a small LangGraph StateGraph over a belt of
+// The five thinking graphs and the no-op (docs/SYSTEM.md "Graph shapes"). Each is a small LangGraph StateGraph over a belt of
 // core tools. Graphs only propose: every write goes through a core tool that validates it (spec validator, prose Guard,
 // citation rule, capability). Retrieved text is fenced and trimmed before any model sees it.
 import { type Lane, CoreRefused, fence } from "@asimog/lane";
@@ -24,7 +24,7 @@ export function filterEvidence(lines: string[], max = 3000): string {
 const last = <T>(a: T, b: T) => b ?? a;
 const Result = Annotation<Record<string, unknown>>({ reducer: (a, b) => ({ ...a, ...b }), default: () => ({}) });
 
-// ---------- Postmortem: why-chain -> filter -> explain -> draft -> propose (docs/18) ----------
+// ---------- Postmortem: why-chain -> filter -> explain -> draft -> propose (docs/SYSTEM.md) ----------
 function postmortem(d: GraphDeps) {
   const S = Annotation.Root({ trigger: Annotation<Trigger>, chain: Annotation<string>({ reducer: last, default: () => "" }), examples: Annotation<unknown[]>({ reducer: last, default: () => [] }), evidence: Annotation<string>({ reducer: last, default: () => "" }), explanation: Annotation<string>({ reducer: last, default: () => "" }), plan: Annotation<{ spec: Record<string, unknown>; why: string[] } | null>({ reducer: last, default: () => null }), problem: Annotation<string>({ reducer: last, default: () => "" }), tries: Annotation<number>({ reducer: last, default: () => 0 }), result: Result });
   const event = (s: typeof S.State) => (s.trigger as unknown as { event: { id: string; body: Record<string, unknown> } }).event;
@@ -97,7 +97,7 @@ function researcher(d: GraphDeps) {
     .addEdge(START, "load").addEdge("load", "propose").addEdge("propose", "register").addEdge("register", END);
 }
 
-// ---------- Ops: doctor -> route (code) -> known fix or alert (docs/18; the Jev route pack replaces the table later) ----------
+// ---------- Ops: doctor -> route (code) -> known fix or alert (docs/SYSTEM.md; the Jev route pack replaces the table later) ----------
 type Finding = { code: string; severity: "info" | "warn" | "page"; scope: string; detail: string };
 const KNOWN: Record<string, (f: Finding) => { alert: string; stop?: { action: "pause"; scope: string; reason: string }; restart?: { scope: string; reason: string } }> = {
   tape_stalled: (f) => ({ alert: `Tape stalled: ${f.detail}.`, stop: { action: "pause", scope: "desk", reason: `tape stalled: ${f.detail}` } }),

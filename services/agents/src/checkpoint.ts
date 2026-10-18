@@ -1,4 +1,4 @@
-// Graph state in Postgres (docs/18): one LangGraph checkpoint thread per job, in the agents schema.
+// Graph state in Postgres (docs/SYSTEM.md): one LangGraph checkpoint thread per job, in the agents schema.
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 
 export async function makeCheckpointer(url: string): Promise<PostgresSaver> {

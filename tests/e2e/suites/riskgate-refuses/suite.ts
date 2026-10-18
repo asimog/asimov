@@ -1,4 +1,4 @@
-// Every bad intent in docs/08's reason-code list must be refused with its own code; good intents pass.
+// Every bad intent in docs/STRATEGY.md's reason-code list must be refused with its own code; good intents pass.
 import { type Book, DEFAULT_LIMITS, type GateFlags, type GateIntent, type GateQuote, riskGate } from "../../../../services/core/src/mind/risk.ts";
 import type { Suite } from "../../lib/suite.ts";
 

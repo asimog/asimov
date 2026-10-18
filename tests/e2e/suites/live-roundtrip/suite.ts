@@ -1,4 +1,4 @@
-// live-roundtrip (docs/14): 0.01 SOL buy then sell on a real coin, token account closed, rent back, books reconcile.
+// live-roundtrip (docs/OPS.md): 0.01 SOL buy then sell on a real coin, token account closed, rent back, books reconcile.
 // SKIPPED unless the owner has set LIVE_TEST=1 and supplied keys. Needs: the Signer process running with the owner's
 // trade key, TX_SEND_URL, WALLET_TRADE, SIGNER_CLIENT_TOKEN_SWAP, LIVE_TEST_MINT (a liquid coin the owner picks; this
 // suite never creates a coin). It runs the real consumers through the Risk Gate. It never reads or prints a key.

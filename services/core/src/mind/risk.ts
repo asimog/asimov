@@ -1,4 +1,4 @@
-// Risk Gate (docs/08): a pure function. Same inputs, same answer, in ghost, paper and live.
+// Risk Gate (docs/STRATEGY.md): a pure function. Same inputs, same answer, in ghost, paper and live.
 import type { KillState } from "@asimog/contracts";
 import type { Sql } from "../lib/db.ts";
 import type { Tx } from "../tape/consumer.ts";
@@ -21,7 +21,7 @@ export type Limits = {
   own_mints: string[];
   blocked_creators: string[];
   blocked_wallets: string[];
-  // rug and bundle floor (docs/23 section 3): shares of SOL bought; top-10 of the circulating supply
+  // rug and bundle floor (docs/PIPELINE.md section 3): shares of SOL bought; top-10 of the circulating supply
   max_bundle_share: number;
   max_top10_share: number;
   max_fresh_share: number;

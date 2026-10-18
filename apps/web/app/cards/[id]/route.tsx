@@ -1,4 +1,4 @@
-// Share card (docs/19): a 1200 x 630 PNG for one callout. It names no caller. Colours are the dark world's.
+// Share card (docs/UI.md): a 1200 x 630 PNG for one callout. It names no caller. Colours are the dark world's.
 import { ImageResponse } from "next/og";
 
 const RELAY = process.env.NEXT_PUBLIC_RELAY_URL ?? "http://localhost:7401";

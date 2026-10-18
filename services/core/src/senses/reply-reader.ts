@@ -1,4 +1,4 @@
-// Reply Reader (docs/06, docs/24 4.2): reads the replies thread of recent callouts that have replies, from the same read
+// Reply Reader (docs/PIPELINE.md, docs/SLOW-MIND.md 4.2): reads the replies thread of recent callouts that have replies, from the same read
 // endpoint the pump.fun site calls (`GET /callout/{id}/replies`, docs/research/pumpfun-endpoints.md). Writes
 // `callout.reply` (one per reply, deduped by reply id). Polite: through pumpGet (one request in flight, backoff on 429),
 // at most REPLY_CALLOUTS_PER_MIN threads a minute, a thread is re-read only when its reply count grew.

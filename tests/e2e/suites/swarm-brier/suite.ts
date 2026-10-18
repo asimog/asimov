@@ -1,4 +1,4 @@
-// The Scorekeeper scores MiroShark's swarm.wave_p (docs/24 P8): a run that predicted a wave is a hit when five or more
+// The Scorekeeper scores MiroShark's swarm.wave_p (docs/SLOW-MIND.md P8): a run that predicted a wave is a hit when five or more
 // distinct callers really call the coin within SWARM_HORIZON_MIN, scored only after the horizon passes (no lookahead).
 // And BettaFish's coin stance (synthesis.coin) as P(price up at STANCE_HORIZON_MIN): bullish 1, bearish 0; a coin with
 // no trade on either side is not scored.

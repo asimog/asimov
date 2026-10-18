@@ -211,7 +211,7 @@ class _MCPProcess:
 
 
 class _MCPHttp:
-    """Asimog (docs/24 M10): one MCP server over streamable HTTP (stateless JSON-RPC POSTs, bearer token), with the
+    """Asimog (docs/SLOW-MIND.md M10): one MCP server over streamable HTTP (stateless JSON-RPC POSTs, bearer token), with the
     same surface as _MCPProcess. A tool outside the spec's allow list is refused here, before the server sees it."""
 
     def __init__(self, name: str, url: str, token: str, tools: List[str]):

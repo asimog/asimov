@@ -1,4 +1,4 @@
-// BettaFish's real Insight engine (docs/24 P3), run offline: the vendored DeepSearchAgent with PumpfunDB over the slow.*
+// BettaFish's real Insight engine (docs/SLOW-MIND.md P3), run offline: the vendored DeepSearchAgent with PumpfunDB over the slow.*
 // views (role slow_reader) and an OpenAI-compatible stub model. Proves the full plan, search, summary and reflection
 // loop runs on our callouts, the cites it writes are real callout ids, and the Bridge maps its output through core.
 import { spawn } from "node:child_process";

@@ -1,4 +1,4 @@
-// Publisher on paper (docs/09, S6.0). The first fill of a calling strategy on a coin becomes the house position:
+// Publisher on paper (docs/EXECUTION.md, S6.0). The first fill of a calling strategy on a coin becomes the house position:
 // thesis formed and committed, then the callout queued. Its exits become updates, its close the final update and
 // the reveal. Nothing is posted: every post is `paper: true` and starts with "PAPER." Reads only the desk's topics.
 import crypto from "node:crypto";
@@ -39,7 +39,7 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
     loaded = true;
   }
 
-  /** Queue a post if its text passes every check (docs/09). Returns the event, or null when refused. */
+  /** Queue a post if its text passes every check (docs/EXECUTION.md). Returns the event, or null when refused. */
   async function queue(tx: Tx, h: Pick<House, "house_id" | "mint">, kind: PostKind, text: string, thesis_id: string | null, because: string[], after: string) {
     const c = checkText(text, { kind, paper: true });
     if (!c.ok) {

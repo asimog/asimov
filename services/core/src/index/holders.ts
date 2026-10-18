@@ -1,4 +1,4 @@
-// Holder snapshot (docs/23 section 3): the 20 largest token accounts of a promoted coin, accounts owned by programs
+// Holder snapshot (docs/PIPELINE.md section 3): the 20 largest token accounts of a promoted coin, accounts owned by programs
 // (the bonding curve, AMM pools, lockers) left out. Written as `holders.snapshot`, so replays see it.
 import { PublicKey } from "@solana/web3.js";
 import type { RpcPool } from "../lib/rpc.ts";

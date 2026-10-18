@@ -17,7 +17,7 @@ Depth: the four pump.fun papers were read in full. The four older social-media p
 | Timing | Creation and transaction times from chain. Price data is daily, and daily highs were replaced by the maximum daily low to remove pump.fun price glitches. |
 | Evaluation | Descriptive prevalence plus a logistic regression of graduation on wash-trade counts (doubling wash trades: graduation odds +19%). Consistency checked across both samples. |
 | Limits and leakage | Graduation (1.02% overall) is the only outcome for most analyses; correlation, not cause. Arkham label misses inflate clusters. Exact-hash copycats miss edited images. Social analysis cannot show intent. "Extractable value" uses graduated coins only. |
-| Informs | **Hunt** (docs/07): `wash_atomic` (WT1) and `bundle_buy` from our own trade stream, `ticker_collision` from our coin and callout records, the no-suffix creation flag. **Indicators, never accusations**: they give lower bounds with named false-positive sources. Funding clusters wait for `wallet.funded_by` (docs/06). |
+| Informs | **Hunt** (docs/PIPELINE.md): `wash_atomic` (WT1) and `bundle_buy` from our own trade stream, `ticker_collision` from our coin and callout records, the no-suffix creation flag. **Indicators, never accusations**: they give lower bounds with named false-positive sources. Funding clusters wait for `wallet.funded_by` (docs/PIPELINE.md). |
 
 Finding we keep: manipulators prioritise transaction **count** over volume, because fees scale with volume. Trade counts and unique-wallet counts are therefore the cheapest signals to fake. Asimog never treats trade count, comment count or callout engagement as proof of demand.
 
@@ -85,7 +85,7 @@ Its lesson about its own correction is also ours: publish corrections in place a
 | Method | Event study: abnormal returns and volume around the event, split by tweet activity. |
 | Finding | Twitter attracts attention before the pump. Participants who rely on Twitter sell late and lose more. |
 | Limits | Known events only (selection). Centralised exchanges, not launchpads. |
-| Informs | **Exits matter more than entries for followers.** This supports posting every exit as a callout update (docs/09) and publishing follower PnL. It also gives the event-study frame for any later "callout as event" analysis: abnormal multiple versus the feed-wide baseline at the same horizon. |
+| Informs | **Exits matter more than entries for followers.** This supports posting every exit as a callout update (docs/EXECUTION.md) and publishing follower PnL. It also gives the event-study frame for any later "callout as event" analysis: abnormal multiple versus the feed-wide baseline at the same horizon. |
 
 ## 7. Identifying and Analyzing Cryptocurrency Manipulations in Social Media (Mirtaheri et al., arXiv:1902.03110, IEEE TCSS 2021)
 
@@ -119,14 +119,14 @@ Its lesson about its own correction is also ours: publish corrections in place a
 
 | Decision | From | Where |
 |---|---|---|
-| Every outcome carries a coverage status and a methodology version; ledgers count exclusions by reason | 3 | docs/07 scorekeeper, docs/04 |
-| Sources write `system.gap` when they stop; outcomes overlapping a gap are marked, never silently computed | 3 | docs/06, docs/07 |
-| Peak multiple is never shown without the net multiple at our order size, after fees, slippage and priority fees | 2, Smurfetc dataset ("a peak is not a payout") | docs/07, docs/11 |
-| Hunt indicators are lower bounds with named alternative explanations; text alone is never evidence | 1, 4, 5 | docs/07 hunt |
-| A callout links to a mint, never to a ticker; ticker collisions are an indicator | 1, 4 | docs/07 hunt |
-| Caller features use only outcomes resolved before the time of use | 2 | docs/07, docs/14 checks |
-| Case files order evidence in time and separate observed, computed, AI judgment, indicator and outcome | 1, 5 | docs/07 case files, docs/11 Integrity |
-| Engagement counts are not demand | 1, 7 | docs/07 |
+| Every outcome carries a coverage status and a methodology version; ledgers count exclusions by reason | 3 | docs/PIPELINE.md scorekeeper, docs/generated/topics.md |
+| Sources write `system.gap` when they stop; outcomes overlapping a gap are marked, never silently computed | 3 | docs/PIPELINE.md, docs/PIPELINE.md |
+| Peak multiple is never shown without the net multiple at our order size, after fees, slippage and priority fees | 2, Smurfetc dataset ("a peak is not a payout") | docs/PIPELINE.md, docs/UI.md |
+| Hunt indicators are lower bounds with named alternative explanations; text alone is never evidence | 1, 4, 5 | docs/PIPELINE.md hunt |
+| A callout links to a mint, never to a ticker; ticker collisions are an indicator | 1, 4 | docs/PIPELINE.md hunt |
+| Caller features use only outcomes resolved before the time of use | 2 | docs/PIPELINE.md, docs/OPS.md checks |
+| Case files order evidence in time and separate observed, computed, AI judgment, indicator and outcome | 1, 5 | docs/PIPELINE.md case files, docs/UI.md Integrity |
+| Engagement counts are not demand | 1, 7 | docs/PIPELINE.md |
 
 ## Baselines to reproduce on our data
 

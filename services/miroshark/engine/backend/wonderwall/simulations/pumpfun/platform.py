@@ -1,7 +1,7 @@
-"""Pump.fun platform for Wonderwall (Asimog, docs/24 section 8.1). SIMULATED.
+"""Pump.fun platform for Wonderwall (Asimog, docs/SLOW-MIND.md section 8.1). SIMULATED.
 
 The server side of a Pump.fun swarm: one or more coins on their bonding curve, the callout feed, updates, replies,
-caller follows, trades and positions. The nine actions of docs/07 are methods here; BaseAction turns the agent-side
+caller follows, trades and positions. The nine actions of docs/SLOW-MIND.md are methods here; BaseAction turns the agent-side
 signatures in actions.py into tools. Seeded from our real data (the coin's curve and its recent real callouts) through
 `seed_world`, so agents start from what the market looked like at the escalation.
 
@@ -68,7 +68,7 @@ class PumpfunPlatform(BasePlatform):
         r = self.db_cursor.fetchone()
         return (r[0], r[1]) if r else (0, 0)
 
-    # ---- the nine actions (docs/07) ----
+    # ---- the nine actions (docs/SLOW-MIND.md) ----
 
     async def browse_callout_feed(self, agent_id):
         self._execute_db_command(

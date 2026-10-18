@@ -1,4 +1,4 @@
-// The Lab (docs/11): counters and the arc show what /v1/lab says; theses show their real commit hashes.
+// The Lab (docs/UI.md): counters and the arc show what /v1/lab says; theses show their real commit hashes.
 import type { Suite } from "../../lib/suite.ts";
 import { Browser, VIEWPORTS, WEB, getJson, pageChecks, servers } from "../../lib/site.ts";
 

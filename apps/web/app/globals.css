@@ -1,4 +1,4 @@
-/* Tokens: docs/12-design-guidelines.md. One dark world for every room (owner, 2026-10-17). */
+/* Tokens: docs/UI.md. One dark world for every room (owner, 2026-10-17). */
 :root {
   --night: oklch(0.14 0.012 60);
   --night-2: oklch(0.19 0.012 60);

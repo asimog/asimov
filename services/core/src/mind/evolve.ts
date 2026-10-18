@@ -1,4 +1,4 @@
-// Evolution (docs/08): MAP-Elites niches (family x horizon), mutation, crossover, retirement.
+// Evolution (docs/STRATEGY.md): MAP-Elites niches (family x horizon), mutation, crossover, retirement.
 // Pure: same pool, stats and random stream give the same offspring. Every child passes the validator.
 import { env } from "../lib/env.ts";
 import { CATALOG, HORIZON_MAX_MIN, type Spec, specDistance, validate } from "./dsl.ts";
@@ -49,7 +49,7 @@ export function mutate(parent: Spec, rand: () => number): Spec {
     const st = s.stop.any.find((w) => "mult_lte" in w) as { mult_lte: number } | undefined;
     if (st) st.mult_lte = Math.max(0.3, Math.min(0.97, nudge(st.mult_lte, rand)));
   } else if (op === 6) {
-    // thresholds evolve too (docs/23 4): a universe number such as a market cap floor drifts like any weight
+    // thresholds evolve too (docs/PIPELINE.md 4): a universe number such as a market cap floor drifts like any weight
     const c = s.universe.all.filter((x) => typeof x.v === "number");
     if (c.length) {
       const x = pick(c, rand);

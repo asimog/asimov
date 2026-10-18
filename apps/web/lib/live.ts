@@ -34,7 +34,7 @@ export type Snapshot = {
 export type Cue = { seq: number; event: string; kind: "callout" | "trade" | "jev" | "fill" | "close" | "refused" | "commit" | "watch" | "post"; mint: string | null; v: number; side?: string; t: number; from?: string; text?: string };
 export const cues: Cue[] = [];
 let seq = 0;
-let current = ""; // the tape event id being ingested: every cue carries the event that caused it (docs/12: no motion without an event)
+let current = ""; // the tape event id being ingested: every cue carries the event that caused it (docs/UI.md: no motion without an event)
 /** The last 500 cues by event id, read by the site-field suite to prove every motion maps to a tape event. */
 export const cueLog: { seq: number; event: string; kind: Cue["kind"] }[] = [];
 if (typeof window !== "undefined") (window as unknown as { __asimogCueLog: typeof cueLog }).__asimogCueLog = cueLog;
@@ -45,7 +45,7 @@ const cue = (c: Omit<Cue, "seq" | "event">) => {
   if (cueLog.length > 500) cueLog.splice(0, cueLog.length - 500);
 };
 
-/** The firm's lanes (docs/18), lit on the Cortex while they write events. */
+/** The firm's lanes (docs/SYSTEM.md), lit on the Cortex while they write events. */
 export const LANES = ["sense", "analyze", "reflex", "decide", "risk", "execute", "publish", "memory", "treasury", "counsel"] as const;
 export type Lane = (typeof LANES)[number];
 const LANE_OF: Record<string, Lane> = {

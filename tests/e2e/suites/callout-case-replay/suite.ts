@@ -1,4 +1,4 @@
-// Callout tracking v2 (docs/07): outcomes ov2 with coverage, the caller ledger, case files, a late-reported gap,
+// Callout tracking v2 (docs/PIPELINE.md): outcomes ov2 with coverage, the caller ledger, case files, a late-reported gap,
 // a consumer restart and duplicate ingestion. The worst ok call's case file is written as the artifact.
 import { replayClock } from "../../../../services/core/src/lib/clock.ts";
 import { Tape } from "../../../../services/core/src/tape/tape.ts";

@@ -1,4 +1,4 @@
-// Scripted model answers for the real BettaFish engines (docs/24 P3, P4), chosen by the output keys each node's system
+// Scripted model answers for the real BettaFish engines (docs/SLOW-MIND.md P3, P4), chosen by the output keys each node's system
 // prompt asks for, so one responder serves the Insight, Query and Media engines, the forum host and the keyword optimizer.
 // `fakeFor(user)` lets a test put an invented callout id into one paragraph only.
 export function bettafishAnswer(system: string, user: string, fakeFor = "DOGE risk"): string {

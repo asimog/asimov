@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import net from "node:net";
 import type { Signer } from "./signer.ts";
 
-/** loopback and private ranges only (docs/15: no ingress) */
+/** loopback and private ranges only (docs/OPS.md: no ingress) */
 export function isPrivateHost(h: string): boolean {
   if (h === "localhost" || h === "::1") return true;
   if (net.isIPv4(h)) {

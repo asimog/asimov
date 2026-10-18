@@ -1,4 +1,4 @@
-// Slow-mind signals (docs/04): BettaFish and MiroShark write events through the MCP tools; this consumer projects them
+// Slow-mind signals (docs/generated/topics.md): BettaFish and MiroShark write events through the MCP tools; this consumer projects them
 // onto the Board with their validity windows, so strategies read them like any other signal. Pure projection:
 // a replay of the same events gives the same signals.
 // Ways it fails: (1) a late event is shown for its remaining window only; (2) a writer outside the slow lanes forges a

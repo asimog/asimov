@@ -21,7 +21,7 @@ export async function migrate(sql: Sql) {
 
 /** Projections (consumers flagged `projection`) only read the Tape and write mem or board; they are cleared and rebuilt.
  * Deciders (desk, scorekeeper, reflex trigger) write events, so they are never re-run over old Tape:
- * their exact rebuild is a replay into a fresh database (docs/14). The tape is untouched. */
+ * their exact rebuild is a replay into a fresh database (docs/OPS.md). The tape is untouched. */
 export async function resetProjections(sql: Sql, consumers: { name: string; projection?: true }[]) {
   await sql.unsafe(`
     truncate mem.coins, mem.callers, mem.callouts, mem.callout_updates, mem.callout_replies, mem.bars_1m, mem.bar_buyers, board.signals;`);

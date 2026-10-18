@@ -1,4 +1,4 @@
-// Publisher text checks (docs/09): every post, paper or live, passes these before it is queued. Pure.
+// Publisher text checks (docs/EXECUTION.md): every post, paper or live, passes these before it is queued. Pure.
 // The voice is terse (agent/skills/voice-terse): no emojis, no em dashes, position disclosed, no promises.
 
 export type PostKind = "callout" | "update" | "reply";
@@ -27,7 +27,7 @@ function noPerson(text: string): boolean {
   if (/\b(x|twitter|t)\.(com|me)\/\w+/i.test(text)) return false; // a profile link
   // a wallet or mint: 32 to 44 base58 characters, and at least one letter (so long numbers never trip it)
   for (const w of text.match(/\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g) ?? []) if (/[A-Za-z]/.test(w)) return false;
-  return !/\b(scam(mer)?|rugger|insider|fraud)\b/i.test(text); // never label anyone (docs/09)
+  return !/\b(scam(mer)?|rugger|insider|fraud)\b/i.test(text); // never label anyone (docs/EXECUTION.md)
 }
 
 export function checkText(text: string, o: { kind: PostKind; paper: boolean }): CheckResult {

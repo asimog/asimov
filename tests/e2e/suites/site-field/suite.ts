@@ -1,4 +1,4 @@
-// The Field (docs/11): the numbers on screen are the relay snapshot's numbers; the strip's tape lines are real tape lines.
+// The Field (docs/UI.md): the numbers on screen are the relay snapshot's numbers; the strip's tape lines are real tape lines.
 import { connect } from "../../../../services/core/src/lib/db.ts";
 import type { Suite } from "../../lib/suite.ts";
 import { Browser, VIEWPORTS, WEB, getJson, pageChecks, servers } from "../../lib/site.ts";

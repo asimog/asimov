@@ -1,11 +1,11 @@
-"""Pump.fun agent actions: the tools the LLM can call (Asimog, docs/24 section 8.1). SIMULATED."""
+"""Pump.fun agent actions: the tools the LLM can call (Asimog, docs/SLOW-MIND.md section 8.1). SIMULATED."""
 from __future__ import annotations
 
 from wonderwall.simulations.base import BaseAction
 
 
 class PumpfunAction(BaseAction):
-    """The nine Pump.fun actions of docs/07, plus a portfolio view."""
+    """The nine Pump.fun actions of docs/SLOW-MIND.md, plus a portfolio view."""
 
     async def browse_callout_feed(self):
         """Read the latest callouts on Pump.fun: who called which coin, what they said, likes and replies.

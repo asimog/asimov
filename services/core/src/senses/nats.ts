@@ -5,7 +5,7 @@ import { log } from "../lib/log.ts";
 
 export type Which = "trades" | "feed";
 
-/** `onGap(fromMs, toMs)` runs on every reconnect with the interval the connection was down (docs/07 coverage). */
+/** `onGap(fromMs, toMs)` runs on every reconnect with the interval the connection was down (docs/PIPELINE.md coverage). */
 export async function natsConnect(which: Which, now: () => number, onGap: (fromMs: number, toMs: number) => void): Promise<NatsConnection> {
   const servers = which === "trades" ? env.str("PUMP_NATS_TRADES_URL") : env.str("PUMP_NATS_FEED_URL");
   const pass = which === "trades" ? env.str("PUMP_NATS_PASS") : env.str("PUMP_NATS_FEED_PASS");

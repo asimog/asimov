@@ -1,4 +1,4 @@
-// Slow Bridge process: `npm run slow-bridge`. Every value from env (docs/24); engines that have no URL are off.
+// Slow Bridge process: `npm run slow-bridge`. Every value from env (docs/SLOW-MIND.md); engines that have no URL are off.
 import crypto from "node:crypto";
 import { connectCore, loadEnv, need, num } from "@asimog/lane";
 import postgres from "postgres";

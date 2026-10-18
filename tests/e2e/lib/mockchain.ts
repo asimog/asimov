@@ -1,4 +1,4 @@
-// A mocked Solana for the hands and treasury suites (docs/14): enough of Pump to buy, sell, close accounts, collect fees
+// A mocked Solana for the hands and treasury suites (docs/OPS.md): enough of Pump to buy, sell, close accounts, collect fees
 // and move SOL, with real serialized transactions in and real signatures checked. No network. The numbers are exact
 // integers so suites can compare to the lamport. Failure hooks let a suite drop a confirmation or drift a balance.
 import { PublicKey, type VersionedTransaction } from "../../../services/signer/src/web3.ts";

@@ -72,4 +72,4 @@ Observed: about 7 `followingFeed` messages per second (fan-out included), about 
 
 ## Posting
 
-Not captured yet: needs the W_trade wallet logged in (docs/09). Pending S6.
+Not captured yet: needs the W_trade wallet logged in (docs/EXECUTION.md). Pending S6.

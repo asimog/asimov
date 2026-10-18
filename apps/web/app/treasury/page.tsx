@@ -1,5 +1,5 @@
 "use client";
-// Treasury (docs/11): the PAPER balance, the reconciliation, and the Tape proof chain. Each chain link is recomputed
+// Treasury (docs/UI.md): the PAPER balance, the reconciliation, and the Tape proof chain. Each chain link is recomputed
 // here in the browser: sha256(prev | hour | count | ids_hash). A link that does not recompute shows BROKEN in crimson.
 import { useEffect, useState } from "react";
 import { fmt, useRoom } from "@/lib/live";

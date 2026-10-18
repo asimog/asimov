@@ -1,4 +1,4 @@
-# Asimog local stack (docs/24): data (Postgres + Neo4j) and the slow workers (BettaFish, MiroShark), one project.
+# Asimog local stack (docs/SLOW-MIND.md): data (Postgres + Neo4j) and the slow workers (BettaFish, MiroShark), one project.
 # `npm run stack:up` starts everything; `npm run stack:data` starts only the databases. All ports bind to 127.0.0.1.
 name: asimog
 services:

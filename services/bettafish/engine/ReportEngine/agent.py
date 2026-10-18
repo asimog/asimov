@@ -934,7 +934,7 @@ class ReportAgent:
         for idx, key in enumerate(keys):
             value = reports[idx] if idx < len(reports) else ""
             normalized[key] = self._stringify(value)
-        # Asimog (docs/24 B6): MiroShark swarm reports (SIMULATED) after the three engines, as a fourth input
+        # Asimog (docs/SLOW-MIND.md B6): MiroShark swarm reports (SIMULATED) after the three engines, as a fourth input
         if len(reports) > len(keys):
             normalized["swarm_reports"] = "\n\n".join(self._stringify(r) for r in reports[len(keys):])
         return normalized

@@ -1,4 +1,4 @@
-// Transaction builders (docs/09): the fun-block API for swaps and fee collection, local code for the small ones
+// Transaction builders (docs/EXECUTION.md): the fun-block API for swaps and fee collection, local code for the small ones
 // (order memo, close account, SOL transfers, proof memo). The Signer checks every result; nothing here is trusted.
 import { MessageV0, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { env } from "../lib/env.ts";
@@ -38,7 +38,7 @@ export class FunBlock implements Builder {
 const b64 = (tx: VersionedTransaction) => Buffer.from(tx.serialize()).toString("base64");
 const memoIx = (text: string) => new TransactionInstruction({ programId: new PublicKey(MEMO_PROGRAM), keys: [], data: Buffer.from(text) });
 
-/** Add the order memo to a built transaction (idempotency key, docs/09). The memo program joins the static keys; table indexes shift by one. */
+/** Add the order memo to a built transaction (idempotency key, docs/EXECUTION.md). The memo program joins the static keys; table indexes shift by one. */
 export function appendMemo(txB64: string, text: string): string {
   const tx = VersionedTransaction.deserialize(Buffer.from(txB64, "base64"));
   const m = tx.message;

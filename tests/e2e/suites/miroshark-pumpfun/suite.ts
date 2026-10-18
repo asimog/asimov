@@ -1,4 +1,4 @@
-// MiroShark's real Wonderwall engine with our Pump.fun module (docs/24 P5, P6), offline: camel agents act through tool
+// MiroShark's real Wonderwall engine with our Pump.fun module (docs/SLOW-MIND.md P5, P6), offline: camel agents act through tool
 // calls answered by a stub model; the Bridge sends the coin dossier from core; branch B injects our callout. Proves the
 // nine-action platform runs, the pump.fun holding rule holds, branches differ, and swarm results reach the Tape; with a
 // Twitter platform beside it (market-media bridge, cross-platform digest), graph memory on Neo4j with SIMULATED edges,

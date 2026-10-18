@@ -1,6 +1,6 @@
-// Index signals (docs/23): `risk.state` (rugs and bundles) and `wallets.smart_buying` (copyable wallets buying now).
+// Index signals (docs/PIPELINE.md): `risk.state` (rugs and bundles) and `wallets.smart_buying` (copyable wallets buying now).
 // Everything is read from the Tape (coin.watched features, holders.snapshot, index.refreshed, trades), so a restart or
-// a replay computes the same signals. Ways it fails: docs/23 section 6.
+// a replay computes the same signals. Ways it fails: docs/PIPELINE.md section 6.
 import type { BodyOf, Envelope } from "@asimog/contracts";
 import { putSignal } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";

@@ -1,4 +1,4 @@
-// Media cache (docs/24 4.2): copies callout media and coin images, the files pump.fun already serves to every viewer,
+// Media cache (docs/SLOW-MIND.md 4.2): copies callout media and coin images, the files pump.fun already serves to every viewer,
 // into our blob store (tape.blobs) with their sha256, and writes `media.cached`. BettaFish's Media engine reads them
 // through slow.media and never fetches the web. Polite: MEDIA_PER_MIN files a minute, MEDIA_MAX_BYTES each.
 // Ways it fails: a host that is not on the allow list (skipped; only pump.fun image hosts and the IPFS gateway it uses);

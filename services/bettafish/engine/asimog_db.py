@@ -1,4 +1,4 @@
-"""Asimog: one small read helper for the Query and Media adapters (docs/24 B3, B4). Reads only the slow.* views as the
+"""Asimog: one small read helper for the Query and Media adapters (docs/SLOW-MIND.md B3, B4). Reads only the slow.* views as the
 slow_reader role, from DATABASE_URL (set by asimog_worker.py from BETTAFISH_DB_URL). Each call opens and closes its own
 event loop, so it is safe from the engines' worker threads."""
 import asyncio

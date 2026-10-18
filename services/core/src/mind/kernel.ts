@@ -1,4 +1,4 @@
-// The allocation kernel (docs/08, docs/22): one rule at every level. Posterior over mean net return per SOL
+// The allocation kernel (docs/STRATEGY.md, docs/SYSTEM.md): one rule at every level. Posterior over mean net return per SOL
 // traded, skeptical prior, Thompson sample per round, capital share proportional to samples above the hurdle.
 import { env } from "../lib/env.ts";
 

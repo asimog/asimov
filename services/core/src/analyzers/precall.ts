@@ -1,4 +1,4 @@
-// Flow and pre-call analyzers (docs/07 flow, precall). A callout is announced by its author's own buy (posting
+// Flow and pre-call analyzers (docs/PIPELINE.md flow, precall). A callout is announced by its author's own buy (posting
 // requires holding), so a known caller's buy on a coin they have not called is a forecast of a callout.
 // Every read is bounded by the event's seen_time: memory may already hold callouts from later in the window.
 import type { BodyOf, Envelope } from "@asimog/contracts";

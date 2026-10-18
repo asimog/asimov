@@ -27,17 +27,17 @@ The site reads core's public relay (server-sent events and a snapshot endpoint) 
 
 ## Capabilities and Constraints
 
-- Instruments (docs/11): Field (night), Cortex, Lab, Ledger, Integrity, Charter, plus Treasury, Connectome, Rewind and Reports as they gain data; legal pages on every footer.
+- Instruments (docs/UI.md): Field (night), Cortex, Lab, Ledger, Integrity, Charter, plus Treasury, Connectome, Rewind and Reports as they gain data; legal pages on every footer.
 - No free-text input from visitors; no wallet connection.
 - No post or page calls out a person; integrity findings state data only.
 - Mobile at 390 px must keep each instrument's dominant form.
-- Stack: Next.js 16, React 19, React Three Fiber, zustand (docs/02, docs/19).
+- Stack: Next.js 16, React 19, React Three Fiber, zustand (docs/SYSTEM.md, docs/UI.md).
 
 ## Brand Commitments
 
 - Name: Asimog. Neutral, functional names for parts (Feed Reader, Scout, Desk, Scorekeeper, Publisher); no creature naming.
 - The agent's voice is terse: short, exact, no emojis, no em dashes, position disclosed (agent/skills/voice-terse).
-- Owner's direction for the look: "futuristic, unique, never seen before, ethereal; not too wordy; it should amaze a person and capture interest first." The visual world is defined in docs/12 (Instrument, Night and Paper modes) and the four reference videos in docs/inspiration/.
+- Owner's direction for the look: "futuristic, unique, never seen before, ethereal; not too wordy; it should amaze a person and capture interest first." The visual world is defined in docs/UI.md (Instrument, Night and Paper modes) and the four reference videos in docs/inspiration/.
 
 ## Evidence on Hand
 
@@ -53,4 +53,4 @@ Live data from core and the relay; the fixture tape (tests/e2e/fixtures/tapes); 
 
 ## Accessibility & Inclusion
 
-Every scene change has a DOM mirror (tape, HUD, strip) with `aria-live="polite"`; instruments are keyboard-navigable; reduced motion removes camera drift and makes temperature changes instant; 44 px touch targets; zoom never disabled (docs/11).
+Every scene change has a DOM mirror (tape, HUD, strip) with `aria-live="polite"`; instruments are keyboard-navigable; reduced motion removes camera drift and makes temperature changes instant; 44 px touch targets; zoom never disabled (docs/UI.md).

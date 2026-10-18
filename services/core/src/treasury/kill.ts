@@ -1,4 +1,4 @@
-// Kill state and automatic kill triggers (docs/15, docs/25 5.4). One state in ops.kill: running, exit_only or halted,
+// Kill state and automatic kill triggers (docs/OPS.md, docs/SYSTEM.md 5.4). One state in ops.kill: running, exit_only or halted,
 // written only here from kill.changed events. exit_only refuses buys and lets exits run; halted refuses everything.
 // The Signer reads the kill file on its own, so a dead core cannot keep it signing. Resume needs the admin token.
 import crypto from "node:crypto";

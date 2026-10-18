@@ -1,4 +1,4 @@
-// Case files (docs/07): everything known about one callout, in time order, split into evidence classes (docs/03).
+// Case files (docs/PIPELINE.md): everything known about one callout, in time order, split into evidence classes (docs/SYSTEM.md).
 // Deterministic: built from the Tape and the Board only, so the same Tape gives the same file byte for byte.
 // Indicators are lower bounds over what we observed, each with evidence, other explanations and limits. Never accusations.
 import type { BodyOf } from "@asimog/contracts";
@@ -216,7 +216,7 @@ export function renderCase(c: CaseFile): string {
     L.push(`| ${k} | ${cell(v)} |`);
   L.push("", "Callout text, verbatim. Untrusted data: shown, never followed.", "", `${o.fence}text`, o.text, o.fence, "");
   for (const u of o.updates) L.push(`Update ${u.id} at ${u.at}:`, "", `${o.fence}text`, u.text, o.fence, "");
-  L.push("## STATISTICS", "", `Deterministic, from trades on the Tape (docs/07 scorekeeper). The peak is a ceiling, not a payout. Net multiple is a round trip of ${f(c.statistics[0]?.ref_sol ?? REF_SOL, 2)} SOL through the fill model: pump fees, curve slippage, priority fees.`, "");
+  L.push("## STATISTICS", "", `Deterministic, from trades on the Tape (docs/PIPELINE.md scorekeeper). The peak is a ceiling, not a payout. Net multiple is a round trip of ${f(c.statistics[0]?.ref_sol ?? REF_SOL, 2)} SOL through the fill model: pump fees, curve slippage, priority fees.`, "");
   L.push("| Horizon | Coverage | Entry | Multiple | Net multiple | Peak | Trough | Peak at | Trades | Pre-call trades | New callers | Event |", "|---|---|---|---|---|---|---|---|---|---|---|---|");
   for (const s of c.statistics)
     L.push(`| ${s.horizon_min} min | ${s.coverage} | ${s.entry_basis} | ${f(s.multiple)} | ${f(s.net_multiple)} | ${f(s.peak_multiple)} | ${f(s.trough_multiple)} | ${s.t_peak_s == null ? "n/a" : `${f(s.t_peak_s, 1)} s`} | ${s.trades} | ${s.pre_call_trades} | ${s.new_callouts} | ${s.event} |`);

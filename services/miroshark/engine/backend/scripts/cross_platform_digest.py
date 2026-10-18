@@ -47,7 +47,7 @@ _ACTION_LABELS = {
     'comment_on_market': 'commented on a market',
     'browse_markets': 'browsed markets',
     'view_portfolio': 'checked portfolio',
-    # Pump.fun actions (Asimog, docs/24 M2)
+    # Pump.fun actions (Asimog, docs/SLOW-MIND.md M2)
     'buy': 'bought the coin',
     'sell': 'sold the coin',
     'post_callout': 'posted a callout',

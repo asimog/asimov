@@ -1,4 +1,4 @@
-// Field shaders (docs/19). Clouds are bundles of curved strands, so a coin reads as fibre, not fog; a second, wider and
+// Field shaders (docs/UI.md). Clouds are bundles of curved strands, so a coin reads as fibre, not fog; a second, wider and
 // fainter pass of the same points is the glow. Every visible change comes from uniforms the scene sets from real events.
 export const MAX_CLUSTERS = 64; // slot 63 is the Core (the firm itself)
 export const CORE = MAX_CLUSTERS - 1;

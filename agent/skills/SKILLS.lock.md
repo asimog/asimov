@@ -1,6 +1,6 @@
 # Agent runtime skills
 
-Loaded by the LangGraph thinking agents in `services/agents` (docs/18). Not for dev agents.
+Loaded by the LangGraph thinking agents in `services/agents` (docs/SYSTEM.md). Not for dev agents.
 
 | skill | source | commit |
 |---|---|---|

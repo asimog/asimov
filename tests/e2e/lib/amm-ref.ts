@@ -1,10 +1,10 @@
-// The reference Pump bonding-curve math (docs/24 P9: moved here from the old TS swarm), ported from @pump-fun/pump-sdk (getBuyTokenAmountFromSolAmount,
+// The reference Pump bonding-curve math (docs/SLOW-MIND.md P9: moved here from the old TS swarm), ported from @pump-fun/pump-sdk (getBuyTokenAmountFromSolAmount,
 // getSellSolAmountFromTokenAmount) in integers (lamports, base token units). The `amm-golden` suite compares it with
 // the SDK on every run. Fees: protocol and creator basis points on the SOL side (the SDK's flat schedule).
 export type Curve = { vTok: bigint; vSol: bigint; realTok: bigint; realSol: bigint };
 export type Fees = { protocolBps: bigint; creatorBps: bigint };
 
-/** Mainnet defaults read on 2026-10-17 (docs/21): 1,073,000,000 tokens (6 decimals), 30 SOL virtual, 793,100,000 real. */
+/** Mainnet defaults read on 2026-10-17 (docs/DECISIONS.md): 1,073,000,000 tokens (6 decimals), 30 SOL virtual, 793,100,000 real. */
 export const START: Curve = { vTok: 1_073_000_000_000_000n, vSol: 30_000_000_000n, realTok: 793_100_000_000_000n, realSol: 0n };
 export const FEES: Fees = { protocolBps: 95n, creatorBps: 30n };
 

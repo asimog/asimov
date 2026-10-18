@@ -1,4 +1,4 @@
-// Pre-call desk and house callouts (docs/07 flow and precall, docs/08 pre-call, docs/09 thesis and Publisher).
+// Pre-call desk and house callouts (docs/PIPELINE.md flow and precall, docs/STRATEGY.md pre-call, docs/EXECUTION.md thesis and Publisher).
 // A known caller's buy on a coin they have not called must produce precall.callout_p, scored by Brier; pre_call
 // strategies may enter only then; every house callout is committed before it is queued, passes the text checks,
 // is revealed on close and scored as the caller `house`. A restart halfway changes nothing.

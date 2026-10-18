@@ -1,4 +1,4 @@
-// Agent lanes (docs/18): the MCP tool list differs per token, out-of-lane calls are refused, a no-op agent runs on
+// Agent lanes (docs/SYSTEM.md): the MCP tool list differs per token, out-of-lane calls are refused, a no-op agent runs on
 // schedule, the five graphs write only their own topics through core's validators, and spend limits are per lane.
 import fs from "node:fs";
 import path from "node:path";

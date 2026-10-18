@@ -1,4 +1,4 @@
-// Index refresh (docs/23 2.3, 2.4): score every wallet on what WE could have made copying it, then publish a new
+// Index refresh (docs/PIPELINE.md 2.3, 2.4): score every wallet on what WE could have made copying it, then publish a new
 // version. Scores come only from idx.* rows already flushed; the smart set rides on `index.refreshed`, so replays see it.
 import type { BodyOf } from "@asimog/contracts";
 import type { Sql } from "../lib/db.ts";
@@ -14,13 +14,13 @@ const P = {
   minCoins: env.int("INDEX_MIN_COINS"),
   minCoinsSeed: env.int("INDEX_MIN_COINS_SEED"),
   smartMax: env.int("INDEX_SMART_MAX"),
-  cost: env.num("INDEX_ROUND_TRIP_COST"), // fees both ways plus slippage at 0.02 SOL (docs/21 cost floor)
+  cost: env.num("INDEX_ROUND_TRIP_COST"), // fees both ways plus slippage at 0.02 SOL (docs/DECISIONS.md cost floor)
   sniperShare: env.num("INDEX_SNIPER_SHARE"),
 };
 
 type Smart = BodyOf<"index.refreshed">["smart"][number];
 
-/** Seed lists (docs/23 2.1): pump.fun's leaderboards are a list of wallets to watch, never a ranking we copy. */
+/** Seed lists (docs/PIPELINE.md 2.1): pump.fun's leaderboards are a list of wallets to watch, never a ranking we copy. */
 export async function seed(sql: Sql, now: string) {
   let n = 0;
   for (const period of ["daily", "weekly", "monthly"]) {

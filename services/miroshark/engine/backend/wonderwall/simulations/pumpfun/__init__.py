@@ -1,4 +1,4 @@
-"""Pump.fun swarm simulation for Wonderwall (Asimog, docs/24 section 8). SIMULATED.
+"""Pump.fun swarm simulation for Wonderwall (Asimog, docs/SLOW-MIND.md section 8). SIMULATED.
 
 Usage::
 

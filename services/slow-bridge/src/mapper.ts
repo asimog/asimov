@@ -1,4 +1,4 @@
-// Engine output -> core MCP write tools (docs/24 section 5). No rule lives here: core validates every write (citation
+// Engine output -> core MCP write tools (docs/SLOW-MIND.md section 5). No rule lives here: core validates every write (citation
 // rule, Jev verify, prose Guard, capability). Reports are published first, so the signals can name them.
 import type { Core, Job, RunOutput } from "./types.ts";
 

@@ -1,4 +1,4 @@
-"""What a Pump.fun agent sees each round (Asimog, docs/24 section 8.1). SIMULATED."""
+"""What a Pump.fun agent sees each round (Asimog, docs/SLOW-MIND.md section 8.1). SIMULATED."""
 from __future__ import annotations
 
 from wonderwall.simulations.base import BaseEnvironment

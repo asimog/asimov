@@ -1,4 +1,4 @@
-// The Cortex (docs/11): a lobe is lit only by events. The lane counters never run ahead of the stream.
+// The Cortex (docs/UI.md): a lobe is lit only by events. The lane counters never run ahead of the stream.
 import type { Suite } from "../../lib/suite.ts";
 import { Browser, RELAY, VIEWPORTS, WEB, pageChecks, servers } from "../../lib/site.ts";
 

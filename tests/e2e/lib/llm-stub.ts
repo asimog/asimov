@@ -1,4 +1,4 @@
-// An offline OpenAI-compatible server (docs/24 section 10): POST /v1/chat/completions and /v1/embeddings. The Python
+// An offline OpenAI-compatible server (docs/SLOW-MIND.md section 10): POST /v1/chat/completions and /v1/embeddings. The Python
 // engines point their *_BASE_URL here in tests, so BettaFish and MiroShark run end to end with no network and no key.
 // `respond` sees the system and user text and returns the answer; the default echoes a small JSON object.
 import http from "node:http";

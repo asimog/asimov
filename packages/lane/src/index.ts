@@ -1,4 +1,4 @@
-// A lane is one thinking lane's door to a model (docs/18): its own OpenRouter key, its own hourly USD limit, checked
+// A lane is one thinking lane's door to a model (docs/SYSTEM.md): its own OpenRouter key, its own hourly USD limit, checked
 // before every call. `LLM_STUB=1` (or a stub passed in) swaps the model for a scripted one, so everything runs offline.
 import { AIMessage, type BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";

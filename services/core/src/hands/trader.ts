@@ -1,7 +1,7 @@
-// Trader / Executor (docs/09): order.created -> fun-block swap -> memo -> Signer -> simulate -> send -> confirm ->
+// Trader / Executor (docs/EXECUTION.md): order.created -> fun-block swap -> memo -> Signer -> simulate -> send -> confirm ->
 // real fill from the transaction -> order.filled, position.changed; after a full exit, close the token account.
 // Idempotent by order id and attempt: the memo names both, the signature is committed before we wait for the confirm,
-// and an order with a stored signature is only ever confirmed again, never rebuilt (docs/25 5.3). retry() drives
+// and an order with a stored signature is only ever confirmed again, never rebuilt (docs/SYSTEM.md 5.3). retry() drives
 // unconfirmed orders, sells that failed and closes that failed.
 import type { Envelope } from "@asimog/contracts";
 import { type Limits, loadLimits } from "../mind/risk.ts";
@@ -122,7 +122,7 @@ export function trader(d: TraderDeps): Trader {
     const found = await chain.findByMemo(wallet, memo); // sent before a crash that lost our commit
     if (found) return confirm(tx, e, o, found, n, d.clock.now());
     const L = await limitsOf(tx);
-    if (o.side === "buy") { // docs/09 Executor step 1: re-read the quote; the Risk Gate checked it once already
+    if (o.side === "buy") { // docs/EXECUTION.md Executor step 1: re-read the quote; the Risk Gate checked it once already
       const [q] = await tx`select seen_time from tape.events where subject = ${o.mint} and topic in ('trade.curve', 'trade.amm') and body->>'price_sol' is not null order by seen_time desc, id desc limit 1`;
       const age = q ? d.clock.now() - (q.seen_time as Date).getTime() : Number.POSITIVE_INFINITY;
       if (age > L.max_quote_age_ms) return fail(tx, e, o, `stale_quote:${Number.isFinite(age) ? Math.round(age) : "none"} ms`, true, null, n);

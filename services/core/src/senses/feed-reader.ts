@@ -1,4 +1,4 @@
-// Feed Reader (docs/06): every Pump.fun callout, push-first with poll as the safety net.
+// Feed Reader (docs/PIPELINE.md): every Pump.fun callout, push-first with poll as the safety net.
 // Push: NATS followingFeed.user.> (each callout fanned out per follower; dedupe by calloutId).
 // Poll: home-feed/new every FEED_POLL_MS; gap walk with pageToken; startup backfill.
 import { isoOrNull } from "../lib/clock.ts";
@@ -68,7 +68,7 @@ export class FeedReader {
   async start() {
     await this.backfill(env.int("FEED_BACKFILL_MIN"), env.int("FEED_BACKFILL_PAGES"), 0, "poll");
     void this.pollLoop();
-    // the Index's callout history (docs/23): 30 days, paged slowly in the background so live polling keeps its turn
+    // the Index's callout history (docs/PIPELINE.md): 30 days, paged slowly in the background so live polling keeps its turn
     const days = env.num("INDEX_CALLOUT_DAYS");
     if (days > 0) void this.backfill(days * 1440, env.int("INDEX_CALLOUT_PAGES"), env.int("INDEX_CALLOUT_PAGE_MS"), "history");
     if (env.bool("FEED_PUSH")) await this.startPush();

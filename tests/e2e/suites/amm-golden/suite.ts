@@ -1,4 +1,4 @@
-// Golden test (docs/14): the miroshark curve port against @pump-fun/pump-sdk, 1,000 buys and 1,000 sells, to the lamport.
+// Golden test (docs/OPS.md): the miroshark curve port against @pump-fun/pump-sdk, 1,000 buys and 1,000 sells, to the lamport.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -88,7 +88,7 @@ export const suite: Suite = {
     add("a round trip always loses to fees", freeMoney === 0, `${freeMoney} of 300 paid out at least what went in`);
     add("a buy never takes more tokens than the curve has", buyTokens({ ...START, realTok: 1000n }, 10_000_000_000n) === 1000n);
 
-    // the Python port inside MiroShark's pumpfun module (docs/24 8.1) quotes the same as this reference
+    // the Python port inside MiroShark's pumpfun module (docs/SLOW-MIND.md 8.1) quotes the same as this reference
     const backend = path.join(env.root, "services/miroshark/engine/backend");
     const py = path.join(backend, ".venv-asimog", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
     if (!fs.existsSync(py)) add("MiroShark venv exists for the Python golden check", false, py);

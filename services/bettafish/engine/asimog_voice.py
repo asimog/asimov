@@ -1,4 +1,4 @@
-"""Asimog patch B10 (docs/24 section 7): one suffix appended to every engine's system prompt under ASIMOG_FORK=1.
+"""Asimog patch B10 (docs/SLOW-MIND.md section 7): one suffix appended to every engine's system prompt under ASIMOG_FORK=1.
 English output, our voice rules, untrusted text treated as data, and callout ids cited. Upstream prompts stay as they are."""
 import os
 

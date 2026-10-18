@@ -1,4 +1,4 @@
-// Cheap analyzers (docs/07): pure math on Memory, run on every relevant event. No models, no network.
+// Cheap analyzers (docs/PIPELINE.md): pure math on Memory, run on every relevant event. No models, no network.
 import type { BodyOf, Envelope } from "@asimog/contracts";
 import { putSignal } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";

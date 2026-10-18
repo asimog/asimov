@@ -1,6 +1,6 @@
 # Inspiration: four instrument videos
 
-The owner's reference videos (`uxinsipirevideos/`, not committed), converted to 6-second GIFs and 12-frame contact sheets with the `video-frames` skill. They define the visual direction in `docs/12-design-guidelines.md`. These are references, not assets: we take ideas and never copy their pixels.
+The owner's reference videos (`uxinsipirevideos/`, not committed), converted to 6-second GIFs and 12-frame contact sheets with the `video-frames` skill. They define the visual direction in `docs/UI.md`. These are references, not assets: we take ideas and never copy their pixels.
 
 ## 1. Paper Lab
 
@@ -54,7 +54,7 @@ The owner's reference videos (`uxinsipirevideos/`, not committed), converted to 
 **What it is.** Header `AGENTS // SWARM CORTEX` with KPIs (`TASKS 119 → 149`, `TOOL CALLS 2,456 → 3,178`, `SUCCESS 97.1%`, `TOKENS/S`, `AGENTS 6/6`, `QUEUE`, `WAITS FOR YOUR YES`). The hero is an x-ray point-cloud brain on paper white, teal accents. Each lobe is labeled with an agent file: `planner.md · frontal`, `research.md · parietal`, `executor.md · motor cortex`, `critic.md · occipital`, `coder.md · temporal`, `memory.md · hippocampus`, `ORCHESTRATOR` in the center. When an agent works, its lobe lights teal, fiber tracts glow toward the orchestrator, and a detail card opens (`coder.md · writes code · pricing.tsx · 142 ln · confidence 88% · step 7/9`). Right column: three MRI slice views (axial, coronal, sagittal) of the same brain, updating. Bottom: task ingest list with routing labels, an agent chat thread (planner, researcher, coder, critic, executor, memory, ending in "consensus 6/6 · waits for your yes"), a throughput chart, tool-call bars per agent, and a `tail -f agents.log`. Footer rule: `never ships · deletes · pays without your yes`.
 
 **What we take.**
-- **The mind as an organ with regions.** Each lane of our firm is a lobe; work lights the lobe that does it. This is how visitors see our agent roles (docs/18) working.
+- **The mind as an organ with regions.** Each lane of our firm is a lobe; work lights the lobe that does it. This is how visitors see our agent roles (docs/SYSTEM.md) working.
 - Slices as alternate projections of the same state.
 - A visible human-approval count (`waits for your yes`) as a first-class number. Ours: the counsel queue.
 - Teal accent on paper for the mind; vermilion stays for money.

@@ -1,4 +1,4 @@
-"""Personas for the Pump.fun swarm (Asimog, docs/24 section 8.1). SIMULATED.
+"""Personas for the Pump.fun swarm (Asimog, docs/SLOW-MIND.md section 8.1). SIMULATED.
 
 Callers carry their measured record (hit rate, lead time, follower PnL from caller.dna) and samples of their real
 callout text, for style only; their handle is hashed, never a real name. Followers carry an archetype: sniper, bundler,

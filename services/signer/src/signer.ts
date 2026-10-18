@@ -1,4 +1,4 @@
-// The Signer (docs/09): one handler per endpoint, one capability per token, an audit line for every request.
+// The Signer (docs/EXECUTION.md): one handler per endpoint, one capability per token, an audit line for every request.
 // It signs and returns; it never sends. Keys are injected (main.ts loads them from files the owner sets).
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -8,7 +8,7 @@ import { type Ctx, checkCloseAccount, checkCollectFees, checkMemo, checkSweepSpl
 
 export const ENDPOINTS = ["/sign/swap", "/sign/close-account", "/sign/collect-fees", "/sign/sweep-split", "/sign/memo", "/sign/login", "/sign/bounty", "/sign/x402"] as const;
 export type Endpoint = (typeof ENDPOINTS)[number];
-/** which capability opens which endpoint (docs/18) */
+/** which capability opens which endpoint (docs/SYSTEM.md) */
 export const CAPS: Record<string, Endpoint[]> = {
   "cap:sign.swap": ["/sign/swap", "/sign/close-account"],
   "cap:sign.treasury": ["/sign/collect-fees", "/sign/sweep-split", "/sign/memo"],

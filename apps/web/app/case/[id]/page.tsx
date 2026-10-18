@@ -1,5 +1,5 @@
 "use client";
-// Case file (docs/07): everything known about one callout, in six sections that never mix evidence classes.
+// Case file (docs/PIPELINE.md): everything known about one callout, in six sections that never mix evidence classes.
 // Callout text is data: it is shown in a fenced block as plain text and never interpreted.
 import { use } from "react";
 import { RELAY, useRoom } from "@/lib/live";

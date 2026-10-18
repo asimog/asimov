@@ -1,4 +1,4 @@
-// How well the slow mind did (docs/24 P8), one read for `ctl slow` and the site. Swarm Brier, the stance Brier and
+// How well the slow mind did (docs/SLOW-MIND.md P8), one read for `ctl slow` and the site. Swarm Brier, the stance Brier and
 // stance accuracy (share of decisive stances that were right) come from the Scorekeeper's mind.scores; claim survival
 // is counted from report.published (cites kept against cites the core dropped), per engine, over the window.
 // Read-only, bounded by `at`.

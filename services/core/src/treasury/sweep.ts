@@ -1,4 +1,4 @@
-// Fee sweep (docs/10), every 10 minutes: collect creator fees, measure what arrived, split 50% to W_trade (base capital,
+// Fee sweep (docs/EXECUTION.md), every 10 minutes: collect creator fees, measure what arrived, split 50% to W_trade (base capital,
 // never profit), the rest to W_agent up to its runway room and then W_operator. Idempotent by sweep id: the memos
 // `asimog:<id>:collect` and `asimog:<id>:split` are searched on chain before anything is sent again.
 import type { Clock } from "../lib/clock.ts";
@@ -16,7 +16,7 @@ export type SweepDeps = {
   signer: SignerClient; // cap:sign.treasury
   wallets: { trade: string; creator: string; agent: string; operator: string };
   mint: string;
-  /** SOL the agent wallet should hold: 30 days of measured running costs (docs/10) */
+  /** SOL the agent wallet should hold: 30 days of measured running costs (docs/EXECUTION.md) */
   runwayLamports: () => number;
 };
 

@@ -1,5 +1,5 @@
 "use client";
-// The Lab (docs/11): every decision and thesis is hashed before its outcome (commit) and opened after (reveal).
+// The Lab (docs/UI.md): every decision and thesis is hashed before its outcome (commit) and opened after (reveal).
 // The arc holds the last commits in time order; a revealed one sends a ray outward, crimson if the hash did not match.
 import { fmt, useRoom } from "@/lib/live";
 

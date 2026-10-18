@@ -1,5 +1,5 @@
 "use client";
-// Integrity (docs/11, docs/07): the caller ledger with its denominators, the Index's copyable wallets, and the rug and
+// Integrity (docs/UI.md, docs/PIPELINE.md): the caller ledger with its denominators, the Index's copyable wallets, and the rug and
 // bundle floor at work. Data and limits only: no verdicts about people.
 import { useRoom } from "@/lib/live";
 

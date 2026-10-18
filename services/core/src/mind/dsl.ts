@@ -1,4 +1,4 @@
-// Strategy DSL (docs/08): a strategy is data. This file validates specs and evaluates them against Board values.
+// Strategy DSL (docs/STRATEGY.md): a strategy is data. This file validates specs and evaluates them against Board values.
 // No eval, no code in specs. Every number a spec can reach is bounded here.
 import { z } from "zod";
 import { FEE } from "../analyzers/curve-math.ts";
@@ -32,7 +32,7 @@ export const CATALOG: Record<string, SigInfo> = {
   },
 };
 
-/** Compressed horizons (docs/08): the longest a position of each horizon may be held. */
+/** Compressed horizons (docs/STRATEGY.md): the longest a position of each horizon may be held. */
 export const HORIZON_MAX_MIN = {
   fast: env.num("HORIZON_FAST_MIN"),
   medium: env.num("HORIZON_MEDIUM_MIN"),
@@ -169,7 +169,7 @@ export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: numbe
   return { enter: true, score, terms, edge_bps, cost_bps, size_sol: size };
 }
 
-/** `calledS`: seconds since a callout landed on the coin after our entry, or null (docs/08 pre-call). */
+/** `calledS`: seconds since a callout landed on the coin after our entry, or null (docs/STRATEGY.md pre-call). */
 export type ExitCtx = { mult: number; heldMin: number; calledS: number | null; board: BoardValues };
 export function whenHolds(w: ExitWhenT, x: ExitCtx, band = 1): boolean {
   if ("mult_gte" in w) return x.mult >= w.mult_gte * band;

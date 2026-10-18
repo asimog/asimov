@@ -1,4 +1,4 @@
-// soul.update (docs/22): validation, versions, the hash chain, and who may call it.
+// soul.update (docs/SYSTEM.md): validation, versions, the hash chain, and who may call it.
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { ensureGenesis, latest, updateSoul, validateSoul, verifyChain, versions } from "../../../../services/core/src/soul/soul.ts";

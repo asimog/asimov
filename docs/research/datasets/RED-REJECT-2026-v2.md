@@ -110,7 +110,7 @@ Caveats on all of the above: no control group; DEX Screener prices lag; the entr
 
 Use it as a test set only: a "missed winners" yardstick, not a source of new signals. The big takeaways are plain: even after the author's filters, about 1 in 10 rejected coins doubles and about 1 in 14 doubles cleanly, so a Scanner rule that rejects must beat that rate to be called good. Momentum fades and fast-exit rules throw away the most winners; the 24h-downtrend rule throws away the fewest.
 
-Plug-in (an E2E replay, per `docs/14-testing.md`):
+Plug-in (an E2E replay, per `docs/OPS.md`):
 1. Build a tape from the 18,224 events: for each, the entry sample (price, liquidity, volume, price changes, `rejectTs`) plus the label (`win2x`, `clean2x`, time to 2x). Fix the build as a script and record its output hash.
 2. Run our Scanner rules on the entry sample only (never on later rows, to stop lookahead). Count per rule: events rejected, winners missed, share missed with an interval.
 3. Pass a rule only if its missed-winner share is not above the dataset's 10.6% (2x) or 7.1% (clean) with a full interval below that, and its sample is above 200 events. Score separately on bonding-curve coins when the new Scanner data arrives, since this file barely has them.

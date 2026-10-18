@@ -1,4 +1,4 @@
-// The slow-mind rooms (docs/24 P8, docs/11): /synthesis (BettaFish forum lines, feed and coin syntheses, reports with
+// The slow-mind rooms (docs/SLOW-MIND.md P8, docs/UI.md): /synthesis (BettaFish forum lines, feed and coin syntheses, reports with
 // their cites) and /simulations (MiroShark swarm runs: wave probability, branch A vs B, belief drift, simulated posts,
 // the Swarm Report). Read-only. Everything from MiroShark carries `simulated: true`; the site labels it SIMULATED.
 import type postgres from "postgres";

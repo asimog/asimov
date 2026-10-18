@@ -1,4 +1,4 @@
-// Memory (docs/05): projections built only from tape events. Rebuildable at any time (resetProjections + replay).
+// Memory (docs/generated/tables.md): projections built only from tape events. Rebuildable at any time (resetProjections + replay).
 import type { BodyOf, Envelope } from "@asimog/contracts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 
@@ -129,7 +129,7 @@ async function onTrades(tx: Tx, trades: Envelope<BodyOf<"trade.curve">>[]) {
                last_price_usd = coalesce(${l.price}, last_price_usd) where mint = ${mint}`;
 }
 
-/** The Scout promoted a coin (docs/06): the Chain Reader watches from the earliest of this and the first callout. */
+/** The Scout promoted a coin (docs/PIPELINE.md): the Chain Reader watches from the earliest of this and the first callout. */
 async function onWatched(tx: Tx, e: Envelope<BodyOf<"coin.watched">>) {
   await tx`insert into mem.coins (mint, first_seen, watched_at, watch_reason) values (${e.body.mint}, ${e.seen_time}, ${e.seen_time}, ${e.body.reason})
     on conflict (mint) do update set watched_at = coalesce(mem.coins.watched_at, excluded.watched_at), watch_reason = coalesce(mem.coins.watch_reason, excluded.watch_reason)`;

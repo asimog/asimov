@@ -1,5 +1,5 @@
 // Who each thinking agent is: its capability, its model lane, its token variable and the only tools its graph may call
-// (docs/18). Core enforces the capability; the graph refuses anything outside this list before it leaves the process.
+// (docs/SYSTEM.md). Core enforces the capability; the graph refuses anything outside this list before it leaves the process.
 import type { LaneName } from "@asimog/lane";
 
 export const AGENT_NAMES = ["noop", "postmortem", "researcher", "ops", "reporter", "integrity"] as const;

@@ -39,7 +39,9 @@
     "agents:smoke": "tsx services/agents/src/smoke.ts",
     "bettafish": "cd services/bettafish/engine && .venv-asimog/Scripts/python asimog_worker.py",
     "miroshark": "cd services/miroshark/engine/backend && .venv-asimog/Scripts/python asimog_worker.py",
-    "slow-bridge": "tsx services/slow-bridge/src/main.ts"
+    "slow-bridge": "tsx services/slow-bridge/src/main.ts",
+    "docs:gen": "tsx scripts/docs-gen.ts",
+    "docs:check": "tsx scripts/docs-gen.ts --check"
   },
   "type": "module"
 }

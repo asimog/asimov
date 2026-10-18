@@ -51,7 +51,7 @@ class MCPServerSpec:
     command: str
     args: List[str] = field(default_factory=list)
     env: Dict[str, str] = field(default_factory=dict)
-    # Asimog (docs/24 M10): an HTTP server (streamable HTTP MCP) instead of a subprocess, with a bearer token,
+    # Asimog (docs/SLOW-MIND.md M10): an HTTP server (streamable HTTP MCP) instead of a subprocess, with a bearer token,
     # and an allow list of tool names (empty: every tool the server lists)
     url: str = ""
     token: str = ""

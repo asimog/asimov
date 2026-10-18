@@ -1,4 +1,4 @@
-// Fill model (docs/08): one model for ghost, replay and live checks. An intent fills at the first trade seen after
+// Fill model (docs/STRATEGY.md): one model for ghost, replay and live checks. An intent fills at the first trade seen after
 // the modeled latency, at that trade's curve state, with pump fees, priority fee and token-account rent.
 import { curveFromPrice, FEE, quoteBuy, quoteSell } from "../analyzers/curve-math.ts";
 import { env } from "../lib/env.ts";

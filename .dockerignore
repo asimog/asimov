@@ -1,4 +1,4 @@
-# Build context for deploy/slow-workers (docs/24): only the two engines and the worker scripts
+# Build context for deploy/slow-workers (docs/SLOW-MIND.md): only the two engines and the worker scripts
 *
 !services/bettafish/engine
 !services/miroshark/engine/backend
