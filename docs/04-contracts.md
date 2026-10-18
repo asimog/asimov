@@ -196,6 +196,8 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `mood.feed` | global and coin | fear, greed, fomo, disgust, calm (0..1 each) | 15 min | bettafish |
 | `swarm.wave_p` | coin | P(wave) from the swarm, branch A and B | 30 min | miroshark |
 | `swarm.impact` | coin | expected extra callers if the agent calls | 30 min | miroshark |
+| `swarm.beliefs` | coin | belief drift per branch, sample, round and archetype (SIMULATED) | 30 min | miroshark |
+| `report.latest` | `<mint or global>\|<producer>` | the newest `report.published` envelope of that producer on that subject (summary, cites, parents, sha256; the body stays in `slow.reports`) | 30 min | slow-bridge |
 | `integrity.finding` | caller or coin | pattern (echo_ring, late_caller, dump_on_followers), evidence ids, confidence | 7 d | hunt |
 
 Hunt indicators (`wash_atomic`, `bundle_buy`, `author_trades`, `ticker_collision`, `no_pump_suffix`, `thin_curve`) are not signals in v1. Case files compute them from the Tape on demand (docs/07 case files), so they need no Board history.

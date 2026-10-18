@@ -5,6 +5,10 @@ import http from "node:http";
 import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
 import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
 import type { RunRequest, RunStatus } from "../../../../services/slow-bridge/src/types.ts";
+import type { Envelope } from "../../../../packages/contracts/src/index.ts";
+import { slowSignals } from "../../../../services/core/src/analyzers/slow-signals.ts";
+import { liveFor } from "../../../../services/core/src/board/board.ts";
+import type { Tx } from "../../../../services/core/src/tape/consumer.ts";
 import type { Check } from "../../lib/checks.ts";
 import { CAP, MINT_A, slowEnv } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
@@ -110,6 +114,13 @@ export const suite: Suite = {
       const after = await w.sql`select count(*)::int n from tape.events`;
       add("a dead engine fails its job with a reason", failed?.state === "failed" && String(failed.error).length > 0, String(failed?.error));
       add("a dead engine writes nothing to the Tape", after[0]!.n === before[0]!.n, `${before[0]!.n} -> ${after[0]!.n}`);
+      // 5. the Board keeps the newest report per subject and producer (report.latest), the envelope only
+      const pubs = await w.sql`select * from tape.events where topic = 'report.published' order by seen_time, id`;
+      const proj = slowSignals(w.clock);
+      await w.sql.begin((tx) => proj.handle(pubs.map((r) => ({ ...r, seen_time: (r.seen_time as Date).toISOString() })) as unknown as Envelope[], tx as unknown as Tx));
+      const latest = await liveFor(w.sql, `${MINT_A}|miroshark.report`, w.clock.iso());
+      const lv = latest["report.latest"]?.value as { simulated?: boolean; ir?: unknown } | undefined;
+      add("the Board keeps report.latest per subject and producer, without the body", lv?.simulated === true && lv.ir === undefined, JSON.stringify(lv)?.slice(0, 120));
       bf.close();
       ms.close();
       return { checks, metrics: { ...bridge.stats } };

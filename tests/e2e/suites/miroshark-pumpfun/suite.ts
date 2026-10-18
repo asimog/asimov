@@ -73,6 +73,8 @@ export const suite: Suite = {
     worker.stderr.on("data", (d) => (log += d));
     try {
       await w.seed();
+      // the report exchange, BettaFish -> MiroShark: a coin report the swarm must seed from and its report agent must read
+      await w.inProc(CAP.exchange).call("report_publish", { report_id: "sj_bf0_0", producer: "bettafish.report", kind: "coin", subject: MINT_A, preset: "lite", summary: "PEPE has two early callers and real buyers.", cites: ["co_a1"], markdown: "# Coin synthesis\n\nBF-MARKER two early callers [cid:co_a1]." });
       const eng = new EngineClient("miroshark", `http://127.0.0.1:${port}`);
       for (let i = 0; i < 180 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the MiroShark worker starts with its model from our env", await eng.healthy(), log.slice(-300));
@@ -118,6 +120,8 @@ export const suite: Suite = {
       const titles = ["Spread path", "Branch A vs B", "Belief drift", "The callers who moved it", "Wave probability"];
       add("the report has the fixed Swarm Report (SIMULATED) sections", md.startsWith("# Swarm Report (SIMULATED)") && titles.every((t) => md.includes(`## ${t}`)), md.slice(0, 120));
       add("the report agent read BettaFish reports and the real flow through the core", llm.calls.some((c) => c.user.includes("Tool asimog_reports returned")) && llm.calls.some((c) => c.user.includes("Tool coin_outcome_so_far returned") && c.user.includes("distinct_callers")), "");
+      const repBody = rep?.body as { parent_reports?: string[] } | undefined;
+      add("the BettaFish report is the swarm's parent, seeded into the graph and read by the report agent", (repBody?.parent_reports ?? []).includes("sj_bf0_0") && (ir.graph?.seeded ?? 0) >= 9 && llm.calls.some((c) => c.user.includes("Tool asimog_reports returned") && c.user.includes("sj_bf0_0")) && md.includes("sj_bf0_0"), `${JSON.stringify(repBody?.parent_reports)} seeded ${ir.graph?.seeded}`);
       add("each section opens with numbers from code", md.includes("wave_p ") && md.includes("over 1 samples"), "");
       // P6: caller personas call the core MCP read tools; anything else is refused before the core
       add("caller personas see the core tools", llm.calls.some((c) => c.system.includes("# MCP TOOLS AVAILABLE") && c.system.includes("asimog/coin_dossier")), "");
