@@ -108,6 +108,8 @@ export class Lane {
     this.price = { inM: num(e, "LLM_PRICE_IN_PER_M", 0.032), outM: num(e, "LLM_PRICE_OUT_PER_M", 0.144) };
     this.now = o.now ?? (() => Date.now());
     this.stubbed = !!o.stub || ["1", "true"].includes(e.LLM_STUB ?? "");
+    if (this.stubbed && e.ASIMOG_MODE === "live") throw new Error(`lane ${name}: LLM_STUB is refused when ASIMOG_MODE=live`); // fix plan 5.14
+    if (this.stubbed) console.warn(JSON.stringify({ lane: name, llm: "stub", note: "LLM_STUB is on: answers are canned, not a model" }));
   }
 
   private model(maxTokens?: number): BaseChatModel {
