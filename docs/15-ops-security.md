@@ -98,11 +98,41 @@ Presets nano, lite and full switch the System Two costs with one variable each (
 
 ## RPC pool (`lib/rpc.ts`)
 
-Several free RPC endpoints act as one. Each request goes to the first healthy endpoint in `RPC_URLS` order that has room under its own requests-per-second limit. Pattern: carbon's transaction crawler (`.upstream/repos/sevenlabs-hq__carbon/datasources/rpc-transaction-crawler-datasource`): retries with backoff from 1 s, doubling, capped at 10 s.
+Several free RPC endpoints act as one. Each request goes to the first healthy endpoint in `RPC_URLS` order that may serve the method and has room under its requests-per-second limit and its monthly budget. Pattern: carbon's transaction crawler (`.upstream/repos/sevenlabs-hq__carbon/datasources/rpc-transaction-crawler-datasource`): retries with backoff from 1 s, doubling, capped at 10 s.
 
-- A 429, a 5xx, a network error or a timeout (`RPC_TIMEOUT_MS`, default 8000) rests that endpoint (1 s, 2 s, 4 s, up to 10 s) and the request moves to the next one. A success clears the rest.
-- A JSON-RPC error (for example a bad parameter) is returned as is, never retried: another provider would say the same.
+Free-tier limits we stick to (read from each provider's docs on 2026-10-17; edit `.env.example` when a plan changes):
+
+| Provider | Requests/s | Monthly | Cost per call | Refused on the free plan |
+|---|---|---|---|---|
+| Helius | 10 (`getProgramAccounts` 5, DAS 2, `sendTransaction` 1) | 1,000,000 credits (not on the rate-limit page: check the dashboard) | 1 | none |
+| Chainstack Developer | 5 on Solana mainnet (pricing page says 25: we take the lower) | 3,000,000 request units | 1 | `getProgramAccounts`, `getTokenLargestAccounts` (dedicated nodes only, error -32601) |
+| RPC Fast Start | 15 | 1,500,000 compute units | 1 (`getProgramAccounts` 10) | `getProgramAccounts`, `getTokenAccountsByOwner`, `getTokenAccountsByDelegate`, `getTokenLargestAccounts` (limited query shapes, error -32099) |
+| FluxRPC Free | 15 (third-party source: check) | 10 GB bandwidth, not counted by us | 1 | none known |
+| QuickNode Free trial | 15 | 10,000,000 API credits | 30 for every Solana method (about 333k calls) | none listed; kept last |
+
+- Order: Helius, Chainstack, RPC Fast, FluxRPC, QuickNode. A busy endpoint hands the request to the next one, so the order is also the spill order.
+- Budgets: the pool counts units per endpoint, per UTC month, in `artifacts/rpc-usage.json` (saved at most every 5 s, so a crash can lose a few seconds of counts). An endpoint stops taking calls at `RPC_BUDGET_STOP` (default 95%) of its budget. Provider billing cycles are 30 days from signup, not calendar months: the count is a guard, the dashboard is the truth.
+- A 429, a 5xx, a network error or a timeout (`RPC_TIMEOUT_MS`, default 8000) rests that endpoint (1 s, 2 s, 4 s, up to 10 s; a `Retry-After` header is honoured up to 60 s) and the request moves to the next one. A success clears the rest.
+- A JSON-RPC error (for example a bad parameter) is returned as is, never retried: another provider would say the same. One exception: code -32099 "Method not available" or -32601 "dedicated nodes only" (plan refusals) adds the method to that endpoint's deny list for the run and moves on.
+- Found live (2026-10-17): RPC Fast and QuickNode free plans take at most 5 keys in one `getMultipleAccounts`; callers batch by 5.
+- `RPC_DENY_<NAME>` lists methods a plan refuses; the pool never sends them there. If no endpoint may serve a method, the call fails at once with a clear error.
 - When every endpoint is resting, the request waits for the soonest one, at most `RPC_MAX_TRIES` (default 6) attempts in all.
-- Endpoint URLs carry API keys. They live only in `.env.local`. Logs and `ctl doctor` print endpoint names, never URLs.
-- `ctl doctor` checks each endpoint by name with `getHealth`.
-- Money paths (S6 Trader) will send transactions through one chosen endpoint, never spray them across providers.
+- Methods that begin with `send` are refused by the pool. Money paths (S6 Trader) send through one chosen endpoint, never sprayed across providers.
+- Endpoint URLs carry API keys. They live only in `.env.local`. Logs and `ctl doctor` print endpoint names, never URLs. `ctl doctor` shows `getSlot` and budget used per endpoint.
+- Websockets: `RPC_WS_URL` stays Helius. RPC Fast allows 1 concurrent subscription, Helius 5 connections. Other providers' `*_WSS` values are saved for later and unused.
+- The Helius Gatekeeper URL (`HELIUS_GATEKEEPER_URL`) and FluxRPC Shield URL are saved but not in the pool: they share the plan of the same account and are meant for transaction sending (S6).
+
+Ways the pool fails (written before its code; each has a test in `tests/e2e/suites/rpc-pool`):
+
+1. An endpoint answers 429: it must rest and the call must move on, without losing the call.
+2. A method the plan refuses is sent there anyway: it must never reach that endpoint.
+3. Budget counts reset on restart: usage must survive a new pool and reset on a new month.
+4. The rate limit is exceeded under a burst: calls to one endpoint must be spaced by 1/rps.
+5. A JSON-RPC error is retried across providers and burns budget: it must be thrown at once.
+6. A plan refusal (-32099) is treated as an outage: it must deny the method, not rest the endpoint.
+7. A `send*` method goes through the pool: it must be refused.
+8. An error message or log echoes a URL with its key: it must not.
+
+## RugCheck (`lib/rugcheck.ts`)
+
+`GET {RUGCHECK_URL host}/v1/tokens/{mint}/report/summary` with `X-API-KEY`; rate limits are not documented, so `RUGCHECK_RPS` (default 2) is our own cap and a 429 rests the client like an RPC endpoint. Reports are untrusted data: they feed the Index's risk features, never an order. The Shield key is saved for later.

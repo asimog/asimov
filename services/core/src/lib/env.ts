@@ -21,7 +21,8 @@ function load(): Record<string, string> {
   const merged: Record<string, string> = { ...parse(path.join(ROOT, ".env.example")) };
   for (const [k, v] of Object.entries(parse(path.join(ROOT, ".env.local")))) if (v !== "") merged[k] = v;
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined && v !== "") merged[k] = v;
-  for (const k of Object.keys(merged)) merged[k] = merged[k]!.replace(/\$\{(\w+)\}/g, (_, n) => merged[n] ?? "");
+  for (let pass = 0; pass < 3; pass++) // references may chain (RPC_URLS -> RPCFAST_URL -> RPCFAST_API_KEY)
+    for (const k of Object.keys(merged)) merged[k] = merged[k]!.replace(/\$\{(\w+)\}/g, (_, n) => merged[n] ?? "");
   return merged;
 }
 

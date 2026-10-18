@@ -91,7 +91,9 @@ async function doctor() {
     }
   };
   await probe("pump_feed", "https://frontend-api-v3.pump.fun/home-feed/new?pageSize=1&chain=all&platform=WEB", { headers: { Origin: "https://pump.fun" } });
-  for (const [name, health] of Object.entries(await new RpcPool().health())) checks[`rpc:${name}`] = health; // names only: URLs hold keys
+  const rpc = new RpcPool();
+  const rpcUsage = rpc.usage();
+  for (const [name, health] of Object.entries(await rpc.health())) checks[`rpc:${name}`] = `${health}, units this month ${rpcUsage[name]}`; // names only: URLs hold keys
   if (env.opt("OPENROUTER_API_KEY")) await probe("openrouter", `${env.str("LLM_BASE_URL", "https://openrouter.ai/api/v1")}/models?limit=1`);
   checks.jev_key = env.opt("TYPESAFE_API_KEY") ? "set" : "missing";
   checks.config = redact();

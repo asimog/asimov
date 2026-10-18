@@ -27,7 +27,9 @@ type Parsed = { value: ({ data: { parsed?: { info?: { owner?: string } } } } | n
 export async function snapshotHolders(pool: RpcPool, tape: Tape, mint: string, curveAccount: string | null, causes: string[]) {
   const [largest, supply] = await Promise.all([pool.call<Largest>("getTokenLargestAccounts", [mint, { commitment: "confirmed" }]), pool.call<Supply>("getTokenSupply", [mint])]);
   const accounts = largest.value.map((a) => a.address);
-  const parsed = await pool.call<Parsed>("getMultipleAccounts", [accounts, { encoding: "jsonParsed" }]);
+  // RPC Fast and QuickNode free plans take at most 5 keys per getMultipleAccounts
+  const parsed: Parsed = { value: [] };
+  for (let i = 0; i < accounts.length; i += 5) parsed.value.push(...(await pool.call<Parsed>("getMultipleAccounts", [accounts.slice(i, i + 5), { encoding: "jsonParsed" }])).value);
   const programOwned = new Set(accounts.filter((_, i) => {
     const owner = parsed.value[i]?.data.parsed?.info?.owner;
     return owner ? !PublicKey.isOnCurve(new PublicKey(owner).toBytes()) : false;
