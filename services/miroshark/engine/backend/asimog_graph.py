@@ -81,7 +81,6 @@ class MemoryGraph(_Facts):
     """In-memory GraphStorage (nano): the abstract interface upstream defines, with keyword search."""
 
     def __init__(self):
-        from app.storage.graph_storage import GraphStorage  # noqa: F401  (the interface we follow)
         self.graphs: Dict[str, Dict[str, Any]] = {}
         self.nodes: Dict[str, Dict[str, Any]] = {}
         self.edges: Dict[str, Dict[str, Any]] = {}

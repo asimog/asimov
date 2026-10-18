@@ -1,0 +1,11 @@
+# Build context for deploy/slow-workers (docs/24): only the two engines and the worker scripts
+*
+!services/bettafish/engine
+!services/miroshark/engine/backend
+!deploy/slow-workers
+**/.venv-asimog
+**/__pycache__
+**/node_modules
+**/logs
+**/log
+**/events.jsonl

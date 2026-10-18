@@ -29,8 +29,10 @@ services:
     environment:
       NEO4J_URI: bolt://neo4j:7687
       BETTAFISH_DB_URL: postgresql://slow_reader@pg:5432/asimog
+      CORE_MCP_URL: http://host.docker.internal:${MCP_PORT:-7403}/mcp
       ASIMOG_FORK: "1"
     depends_on: [pg, neo4j]
+    extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["127.0.0.1:7410:7410", "127.0.0.1:7411:7411"]
     volumes: ["asimog-slow:/data"]
 volumes:

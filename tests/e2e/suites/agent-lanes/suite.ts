@@ -63,8 +63,10 @@ export const suite: Suite = {
       add("each token lists exactly the tools its capability allows", same, ALL_CAPS.map((c) => `${c.slice(4)}:${lists[c]!.length}`).join(" "));
       const distinct = new Set(ALL_CAPS.map((c) => lists[c]!.join()));
       add("no two capabilities see the same tool list", distinct.size === ALL_CAPS.length, `${distinct.size} distinct of ${ALL_CAPS.length}`);
-      const everyone = TOOLS.filter((t) => ALL_CAPS.every((c) => lists[c]!.includes(t.name))).map((t) => t.name);
-      add("the only tool every lane shares is job_event", everyone.join() === "job_event", everyone.join());
+      const writers = ALL_CAPS.filter((c) => c !== CAP.swarmRead); // the read-only MiroShark worker token records nothing
+      const everyone = TOOLS.filter((t) => writers.every((c) => lists[c]!.includes(t.name))).map((t) => t.name);
+      add("the only tool every writing lane shares is job_event", everyone.join() === "job_event", everyone.join());
+      add("the read-only worker token has no write tool", !lists[CAP.swarmRead]!.some((n) => /^(emit_|report_publish|job_event|propose_|ops_|draft_|write_|soul_update|media_caption)/.test(n)), lists[CAP.swarmRead]!.join());
       const bad = await connectCore(mcp.url, "not-a-token").then(() => "connected", () => "refused");
       add("an unknown token cannot connect", bad === "refused");
 

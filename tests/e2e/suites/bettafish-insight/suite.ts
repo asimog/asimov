@@ -43,7 +43,7 @@ export const suite: Suite = {
     const worker = spawn(PY, ["asimog_worker.py", "--port", String(port)], {
       cwd: ENGINE,
       env: {
-        ...process.env, ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: "insight", BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1",
+        ...process.env, ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: "insight", SEARCH_TOOL_TYPE: "AsimogMedia", QUERY_SEARCH: "tavily,x", BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1",
         INSIGHT_ENGINE_API_KEY: "stub", INSIGHT_ENGINE_BASE_URL: llm.url, INSIGHT_ENGINE_MODEL_NAME: "stub",
         KEYWORD_OPTIMIZER_API_KEY: "stub", KEYWORD_OPTIMIZER_BASE_URL: llm.url, KEYWORD_OPTIMIZER_MODEL_NAME: "stub", PYTHONIOENCODING: "utf-8", HF_HUB_OFFLINE: "1", PYTHONUTF8: "1", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost",
       },

@@ -23,7 +23,7 @@ export async function runBettafish(tag: string, engines: string, extraEnv: Recor
   const keys = ["INSIGHT_ENGINE", "QUERY_ENGINE", "MEDIA_ENGINE", "REPORT_ENGINE", "FORUM_HOST", "KEYWORD_OPTIMIZER"].flatMap((k) => [[`${k}_API_KEY`, "stub"], [`${k}_BASE_URL`, llm.url], [`${k}_MODEL_NAME`, "stub"]]);
   const worker = spawn(PY, ["asimog_worker.py", "--port", String(port)], {
     cwd: ENGINE,
-    env: { ...process.env, ...Object.fromEntries(keys), ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: engines, BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1", PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1", HF_HUB_OFFLINE: "1", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost", TAVILY_API_KEY: "", X_BEARER_TOKEN: "", ...extraEnv },
+    env: { ...process.env, ...Object.fromEntries(keys), ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: engines, SEARCH_TOOL_TYPE: "AsimogMedia", QUERY_SEARCH: "tavily,x", BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1", PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1", HF_HUB_OFFLINE: "1", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost", TAVILY_API_KEY: "", X_BEARER_TOKEN: "", ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let log = "";
