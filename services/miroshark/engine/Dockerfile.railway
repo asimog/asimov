@@ -1,0 +1,40 @@
+FROM python:3.14
+
+# Copy uv from the official uv image
+COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
+
+WORKDIR /app
+
+# Copy Python dependency descriptor files first to leverage Docker cache
+COPY backend/pyproject.toml backend/uv.lock ./backend/
+
+# Install Python dependencies
+RUN cd backend && uv sync --frozen
+
+# Copy backend source code
+COPY backend ./backend
+
+# Expose the backend port (Railway / Cloud Run inject the PORT env var)
+EXPOSE 5001
+
+# Gunicorn tuning. Defaults to a single worker with multiple threads: the
+# backend loads heavy ML models (torch / sentence-transformers) per worker, so
+# extra workers multiply memory; its workload is I/O-bound (LLM + Neo4j calls),
+# which threads handle well. Override via env on the platform if needed.
+ENV GUNICORN_WORKERS=1 \
+    GUNICORN_THREADS=8 \
+    GUNICORN_TIMEOUT=600
+
+# Start backend only via a production WSGI server (not the Flask dev server).
+# Shell form so ${PORT} (injected by the platform) is expanded; exec makes
+# gunicorn PID 1 so it receives SIGTERM for graceful shutdown.
+CMD exec /app/backend/.venv/bin/gunicorn \
+    --chdir /app/backend \
+    --bind "0.0.0.0:${PORT:-5001}" \
+    --workers "${GUNICORN_WORKERS}" \
+    --threads "${GUNICORN_THREADS}" \
+    --worker-class gthread \
+    --timeout "${GUNICORN_TIMEOUT}" \
+    --access-logfile - \
+    --error-logfile - \
+    "app:create_app()"

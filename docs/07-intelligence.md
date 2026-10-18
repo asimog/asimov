@@ -131,7 +131,7 @@ Ways it fails: tracked-caller list too small (start with all callers seen in 48 
 
 ## bettafish: synthesis of the callout feed
 
-**Build choice (S7, 2026-10-18).** The BettaFish fork is not built. `services/bettafish` is a small TypeScript service that keeps the contract below (runs, presets, forum lines, cited claims, mood) on the shared lane models, so it runs offline with a stub and needs no Python venv. Only the `insight` engine exists; `query` and `media` are named in the preset and skipped (listed as `skipped_engines` in the run result) until their senses exist. The patch-set table is the plan if the fork is ever adopted.
+**Build choice (S7, 2026-10-18).** The BettaFish fork is not built. `services/bettafish` is a small TypeScript service that keeps the contract below (runs, presets, forum lines, cited claims, mood) on the shared lane models, so it runs offline with a stub and needs no Python venv. Only the `insight` engine exists; `query` and `media` are named in the preset and skipped (listed as `skipped_engines` in the run result) until their senses exist. The full build replacing this slice is planned in docs/24 (patches B1 to B10 there supersede the table below).
 
 BettaFish runs as-is, with a patch set on our fork (`services/bettafish`, branch `agent`). It does not crawl: the agent is its crawler.
 
@@ -171,7 +171,7 @@ Ways it fails: LLM invents a callout (dropped by the citation check); forum log 
 
 ## miroshark: swarm simulation
 
-**Build choice (S7, 2026-10-18).** The MiroShark fork is not built. `services/miroshark` is TypeScript: `amm.ts` (integer port of the curve, golden-tested against `@pump-fun/pump-sdk`), `swarm.ts` (personas, rounds, branches A and B, USD cap) and a runner that reads the dossier and writes results through the core MCP tools. `SWARM_SAMPLES` (runs per branch: nano 1, lite 3, full 5) sets how many independent runs make `swarm.wave_p`. Graph-memory flags do nothing yet. The file table below is the fork plan.
+**Build choice (S7, 2026-10-18).** The MiroShark fork is not built. `services/miroshark` is TypeScript: `amm.ts` (integer port of the curve, golden-tested against `@pump-fun/pump-sdk`), `swarm.ts` (personas, rounds, branches A and B, USD cap) and a runner that reads the dossier and writes results through the core MCP tools. `SWARM_SAMPLES` (runs per branch: nano 1, lite 3, full 5) sets how many independent runs make `swarm.wave_p`. Graph-memory flags do nothing yet. The full build replacing this slice is planned in docs/24 (module `simulations/pumpfun/` and patches M1 to M11).
 
 New module in our fork: `backend/wonderwall/simulations/pumpfun/`, built on the same base classes as `simulations/polymarket` (`BasePlatform`, `BaseAction`, `BaseEnvironment`, `BasePromptBuilder`).
 

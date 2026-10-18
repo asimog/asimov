@@ -1,0 +1,171 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    name: Backend unit tests
+    runs-on: ${{ github.repository_owner == 'MiroShark' && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      # uv installs the same constraints as pip, several times faster, and caches
+      # the downloaded wheels across runs. prune-cache off keeps the pre-built
+      # wheels (torch included) in the saved cache; uv's default prunes them.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+          prune-cache: false
+          cache-suffix: unit
+          cache-dependency-glob: |
+            .github/workflows/tests.yml
+            backend/requirements.txt
+            backend/pyproject.toml
+
+      # Install only the thin dependencies the unit suite needs.
+      # The full ``requirements.txt`` pulls in torch/transformers etc., which
+      # are not required for the offline unit tests and slow CI cold-start.
+      - name: Install unit-test dependencies
+        run: |
+          uv pip install --system --no-config \
+            "pytest>=8.0.0" \
+            pyyaml \
+            "openai>=1.0.0" \
+            "flask>=3.0.0" \
+            "flask-cors>=6.0.0" \
+            "flask-compress>=1.17" \
+            "python-dotenv>=1.0.0" \
+            "pydantic>=2.0.0" \
+            "requests>=2.31.0" \
+            "neo4j>=5.26.0" \
+            "pillow>=12.0.0" \
+            "httpx>=0.28,<1.0"
+
+      - name: Run unit tests
+        run: pytest -m "not integration"
+
+  frontend:
+    name: Frontend build
+    runs-on: ${{ github.repository_owner == 'MiroShark' && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  camel-smoke:
+    name: Camel agent smoke test
+    runs-on: ${{ github.repository_owner == 'MiroShark' && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      # uv installs the same constraints as pip, several times faster, and caches
+      # the downloaded wheels across runs. prune-cache off keeps the pre-built
+      # wheels (torch included) in the saved cache; uv's default prunes them.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+          prune-cache: false
+          cache-suffix: camel
+          cache-dependency-glob: |
+            .github/workflows/tests.yml
+            backend/requirements.txt
+            backend/pyproject.toml
+
+      # The unit job deliberately skips camel-ai/torch, so nothing else in CI
+      # exercises the camel <-> wonderwall integration. This job installs the
+      # REAL camel-ai (from requirements.txt, so a Dependabot bump re-triggers
+      # it) plus the wonderwall runtime deps that requirements.txt omits
+      # (torch/igraph/etc., kept in pyproject). A future camel-ai release that
+      # breaks the agent loop (see #181) then fails here instead of silently
+      # shipping a simulation that produces zero actions.
+      - name: Install camel + wonderwall runtime deps
+        # torch goes in first, alone, from the CPU-only index; the later installs
+        # see it already satisfied and keep it (no CUDA wheels from PyPI).
+        # --no-config: skip pyproject's [tool.uv] overrides (pillow, tiktoken), so
+        # this resolves the same versions as the pip install it replaces.
+        run: |
+          uv pip install --system --no-config torch --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --system --no-config -r requirements.txt
+          uv pip install --system --no-config \
+            "numpy>=1.26.0" \
+            "pandas>=2.0.0" \
+            "scikit-learn>=1.3.0" \
+            "igraph>=0.11.0" \
+            "sentence-transformers>=2.2.0" \
+            "pytest>=8.0.0" \
+            "pytest-asyncio>=0.23.0"
+
+      - name: Run camel agent smoke test
+        run: pytest tests/test_smoke_camel_agent.py -v
+
+
+  # ruff and the i18n scan share one job: each job bills at least a full minute,
+  # and both take seconds.
+  lint:
+    name: Lint (ruff + i18n)
+    runs-on: ${{ github.repository_owner == 'MiroShark' && 'blacksmith-2vcpu-ubuntu-2404' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Rules live in ruff.toml at the repo root (bug-catching rules only,
+      # no formatting). Pinned so a new ruff release can't turn CI red.
+      # Standalone binary via ruff-action: no Python setup or pip install.
+      - name: Run ruff
+        uses: astral-sh/ruff-action@v4.1.0
+        with:
+          version: "0.15.11"
+          args: check .
+
+      # Run the scan even when ruff fails, so one push reports both.
+      - name: Set up Python 3.11
+        if: ${{ !cancelled() }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      # The scanner parses every tr() call in the frontend and flags:
+      #   A. EN empty/short suffix but fr non-empty (clear copy-paste bug)
+      #   B. fr length wildly different from de (potential copy-paste)
+      #   C. Same long fr reused for >1 distinct EN (potential copy-paste)
+      # Only Type A fails CI (it's an unambiguous bug). Type B and C are
+      # reported as warnings because legitimate short translations and shared
+      # phrases trigger them.
+      - name: Run i18n scanner
+        if: ${{ !cancelled() }}
+        run: python scripts/scan_i18n.py

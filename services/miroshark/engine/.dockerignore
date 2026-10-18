@@ -1,0 +1,13 @@
+# Installed deps are rebuilt in the image (npm ci / uv sync)
+node_modules/
+frontend/node_modules/
+backend/.venv/
+*.log
+.env
+.env.local
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.git/
+.gitignore

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="MiroShark - Multi-Agent Scenario Exploration Engine" />
+    <!-- Public-gallery syndication feeds — readers (Feedly, Inoreader,
+         NetNewsWire, Obsidian RSS) auto-discover these via the address-
+         bar globe icon. Atom is preferred; RSS kept for older clients. -->
+    <link rel="alternate" type="application/atom+xml" title="MiroShark · Public Simulations (Atom)" href="/api/feed.atom" />
+    <link rel="alternate" type="application/rss+xml" title="MiroShark · Public Simulations (RSS)" href="/api/feed.rss" />
+    <title>MiroShark</title>
+
+    <!-- Boot splash — inlined so it paints instantly (before the JS/CSS
+         bundle), then cross-fades out once Vue mounts (see main.js). -->
+    <style>
+      #boot-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 30px;
+        background:
+          radial-gradient(ellipse 55% 45% at 50% 40%, rgba(139, 92, 246, 0.42), transparent 65%),
+          radial-gradient(ellipse 40% 35% at 80% 20%, rgba(150, 80, 230, 0.28), transparent 70%),
+          linear-gradient(180deg, #050210 0%, #0a0420 50%, #02010a 100%);
+        font-family: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+        transition: opacity 0.55s ease, visibility 0.55s ease;
+      }
+      #boot-loader.boot-done {
+        opacity: 0;
+        visibility: hidden;
+      }
+      .bl-stage {
+        position: relative;
+        width: 132px;
+        height: 132px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .bl-shark {
+        width: 88px;
+        height: 88px;
+        object-fit: contain;
+        filter:
+          drop-shadow(0 12px 32px rgba(139, 92, 246, 0.6))
+          drop-shadow(0 0 55px rgba(167, 139, 250, 0.45));
+        animation: bl-float 3s ease-in-out infinite;
+      }
+      .bl-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 9999px;
+        border: 2px solid rgba(167, 139, 250, 0.14);
+        border-top-color: rgba(196, 181, 253, 0.95);
+        animation: bl-spin 0.9s linear infinite;
+      }
+      .bl-text {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: rgba(228, 222, 255, 0.72);
+      }
+      @keyframes bl-spin {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes bl-float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-9px); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .bl-shark, .bl-ring { animation: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="boot-loader" aria-hidden="true">
+      <div class="bl-stage">
+        <div class="bl-ring"></div>
+        <img src="/shark.webp" alt="" class="bl-shark" />
+      </div>
+      <div class="bl-text">Summoning the swarm…</div>
+    </div>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

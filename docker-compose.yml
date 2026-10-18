@@ -1,0 +1,39 @@
+# Asimog local stack (docs/24): data (Postgres + Neo4j) and the slow workers (BettaFish, MiroShark), one project.
+# `npm run stack:up` starts everything; `npm run stack:data` starts only the databases. All ports bind to 127.0.0.1.
+name: asimog
+services:
+  pg:
+    image: postgres:18
+    container_name: asimog-pg
+    restart: unless-stopped
+    environment: { POSTGRES_USER: asimog, POSTGRES_DB: asimog, POSTGRES_HOST_AUTH_METHOD: trust }
+    command: ["postgres", "-c", "synchronous_commit=off"]
+    ports: ["127.0.0.1:54329:5432"]
+    volumes: ["asimog-pg:/var/lib/postgresql"]
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: asimog-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env.local}"
+      NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP:-512m}"
+      NEO4J_server_memory_pagecache_size: "256m"
+    ports: ["127.0.0.1:7687:7687", "127.0.0.1:7474:7474"]
+    volumes: ["asimog-neo4j:/data"]
+  slow-workers:
+    build: { context: ., dockerfile: deploy/slow-workers/Dockerfile }
+    container_name: asimog-slow-workers
+    restart: unless-stopped
+    profiles: ["workers"]
+    env_file: [.env.example, .env.local]
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      BETTAFISH_DB_URL: postgresql://slow_reader@pg:5432/asimog
+      ASIMOG_FORK: "1"
+    depends_on: [pg, neo4j]
+    ports: ["127.0.0.1:7410:7410", "127.0.0.1:7411:7411"]
+    volumes: ["asimog-slow:/data"]
+volumes:
+  asimog-pg: { external: true }
+  asimog-neo4j: {}
+  asimog-slow: {}

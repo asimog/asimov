@@ -40,7 +40,7 @@
 | 24 | Milestone values | The defaults in #17 |
 | 25 | Coin details (mint, name) | Provided with the creator wallet |
 
-## BettaFish and MiroShark: fork or port (open, 2026-10-18)
+## BettaFish and MiroShark: fork or port (recommended: fork, docs/24; owner and counsel to confirm, 2026-10-18)
 
 The plan (docs/13 S7.1, S7.2) said "fork as a submodule, patch set". What was built is a thin TypeScript slice of each (about 210 and 280 lines) that keeps the docs/07 contract: inputs through the core MCP tools, `synthesis.*` and `swarm.*` outputs, presets and step counts by env, one OpenRouter key per lane. The owner asked for full implementations configured for our use case. Options:
 
@@ -49,3 +49,4 @@ The plan (docs/13 S7.1, S7.2) said "fork as a submodule, patch set". What was bu
 
 Never adopted in either: crawlers of other sites, any publisher or notifier outside Publisher, oracle seeding or web enrichment of real people.
 
+Recommendation (docs/24): option 1, fork both as submodules, turn off (never delete) the crawlers, publishers and web enrichment, and couple to core only through the Slow Bridge over HTTP and MCP. Counsel item: GPL-2.0 (BettaFish) and AGPL-3.0 (MiroShark) with public forks and network-only coupling.

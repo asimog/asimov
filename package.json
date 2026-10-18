@@ -25,8 +25,11 @@
   "scripts": {
     "dev": "tsx services/core/src/main.ts",
     "ctl": "tsx services/core/src/cli/ctl.ts",
-    "pg:start": "docker start asimog-pg || docker run -d --name asimog-pg --restart unless-stopped -e POSTGRES_USER=asimog -e POSTGRES_DB=asimog -e POSTGRES_HOST_AUTH_METHOD=trust -p 127.0.0.1:54329:5432 -v asimog-pg:/var/lib/postgresql postgres:18 -c synchronous_commit=off",
+    "pg:start": "docker compose --env-file .env.local up -d pg",
     "pg:stop": "docker stop asimog-pg",
+    "stack:data": "docker compose --env-file .env.local up -d pg neo4j",
+    "stack:up": "docker compose --env-file .env.local --profile workers up -d --build",
+    "stack:down": "docker compose --env-file .env.local --profile workers stop",
     "e2e": "tsx tests/e2e/run.ts",
     "relay": "tsx services/relay/src/main.ts",
     "web": "pnpm --filter @asimog/web dev",
