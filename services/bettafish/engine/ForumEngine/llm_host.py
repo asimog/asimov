@@ -4,6 +4,7 @@
 """
 
 from openai import OpenAI
+from asimog_voice import with_rules  # asimog B10
 import sys
 import os
 from typing import List, Dict, Any, Optional
@@ -211,7 +212,7 @@ class ForumHost:
     def _call_qwen_api(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
         """调用Qwen API"""
         try:
-            current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
+            current_time = (lambda d: f"{d.year}年{d.month:02d}月{d.day:02d}日{d.hour:02d}时{d.minute:02d}分")(datetime.now())  # asimog: same text, no locale codec (Windows)
             time_prefix = f"今天的实际时间是{current_time}"
             if user_prompt:
                 user_prompt = f"{time_prefix}\n{user_prompt}"
@@ -221,7 +222,7 @@ class ForumHost:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": with_rules(system_prompt)},
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.6,

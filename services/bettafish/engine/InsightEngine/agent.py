@@ -30,6 +30,7 @@ from .tools import (
     keyword_optimizer,
     multilingual_sentiment_analyzer,
 )
+from .tools.pumpfun_db import make_search_agency
 from .utils import format_search_results_for_prompt
 from .utils.config import Settings, settings
 
@@ -54,7 +55,7 @@ class DeepSearchAgent:
         self.llm_client = self._initialize_llm()
 
         # 初始化搜索工具集
-        self.search_agency = MediaCrawlerDB()
+        self.search_agency = make_search_agency()  # asimog B1: PumpfunDB under ASIMOG_FORK=1, else MediaCrawlerDB
 
         # 初始化聚类小模型（懒加载）
         self._clustering_model = None
@@ -313,6 +314,8 @@ class DeepSearchAgent:
                         end_date=end_date,
                         limit=limit,
                     )
+                elif tool_name in ("search_caller_record", "search_coin_flow", "search_swarm_reports") and hasattr(self.search_agency, tool_name):
+                    response = getattr(self.search_agency, tool_name)(keyword)  # asimog B1 tools
                 else:
                     logger.info(f"    未知的搜索工具: {tool_name}，使用默认全局搜索")
                     response = self.search_agency.search_topic_globally(

@@ -4,6 +4,7 @@
 """
 
 from openai import OpenAI
+from asimog_voice import with_rules  # asimog B10
 import json
 import sys
 import os
@@ -195,7 +196,7 @@ class KeywordOptimizer:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": with_rules(system_prompt)},
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.7,

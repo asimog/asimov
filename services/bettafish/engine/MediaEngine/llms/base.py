@@ -2,6 +2,7 @@
 Unified OpenAI-compatible LLM client for the Media Engine, with retry support.
 """
 
+from asimog_voice import with_rules  # asimog B10
 import os
 import sys
 from datetime import datetime
@@ -59,14 +60,14 @@ class LLMClient:
 
     @with_retry(LLM_RETRY_CONFIG)
     def invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
-        current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
+        current_time = (lambda d: f"{d.year}年{d.month:02d}月{d.day:02d}日{d.hour:02d}时{d.minute:02d}分")(datetime.now())  # asimog: same text, no locale codec (Windows)
         time_prefix = f"今天的实际时间是{current_time}"
         if user_prompt:
             user_prompt = f"{time_prefix}\n{user_prompt}"
         else:
             user_prompt = time_prefix
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": with_rules(system_prompt)},
             {"role": "user", "content": user_prompt},
         ]
 
@@ -98,14 +99,14 @@ class LLMClient:
         Yields:
             响应文本块（str）
         """
-        current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
+        current_time = (lambda d: f"{d.year}年{d.month:02d}月{d.day:02d}日{d.hour:02d}时{d.minute:02d}分")(datetime.now())  # asimog: same text, no locale codec (Windows)
         time_prefix = f"今天的实际时间是{current_time}"
         if user_prompt:
             user_prompt = f"{time_prefix}\n{user_prompt}"
         else:
             user_prompt = time_prefix
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": with_rules(system_prompt)},
             {"role": "user", "content": user_prompt},
         ]
 

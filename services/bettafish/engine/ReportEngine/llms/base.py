@@ -4,6 +4,7 @@ Report Engine 默认的OpenAI兼容LLM客户端封装。
 提供统一的非流式/流式调用、可选重试、字节安全拼接与模型元信息查询。
 """
 
+from asimog_voice import with_rules  # asimog B10
 import os
 import sys
 from typing import Any, Dict, Optional, Generator
@@ -79,7 +80,7 @@ class LLMClient:
             去除首尾空白后的LLM响应文本
         """
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": with_rules(system_prompt)},
             {"role": "user", "content": user_prompt},
         ]
 
@@ -112,7 +113,7 @@ class LLMClient:
             str: 每次yield一段delta文本，方便上层实时渲染。
         """
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": with_rules(system_prompt)},
             {"role": "user", "content": user_prompt},
         ]
 

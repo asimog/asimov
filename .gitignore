@@ -26,3 +26,6 @@ artifacts/
 uxinsipirevideos/
 *:Zone.Identifier
 .impeccable/
+
+# asimog: local Python envs for the vendored engines
+.venv-asimog/
