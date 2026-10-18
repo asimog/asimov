@@ -1,4 +1,6 @@
 // Golden test (docs/14): the miroshark curve port against @pump-fun/pump-sdk, 1,000 buys and 1,000 sells, to the lamport.
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { applyBuy, applySell, buyTokens, type Curve, curveFromPrice, FEES, sellSol, START } from "../../../../services/miroshark/src/amm.ts";
@@ -85,6 +87,27 @@ export const suite: Suite = {
     add("the constant product never shrinks across a buy and a sell", kShrunk === 0, `${kShrunk} of 300`);
     add("a round trip always loses to fees", freeMoney === 0, `${freeMoney} of 300 paid out at least what went in`);
     add("a buy never takes more tokens than the curve has", buyTokens({ ...START, realTok: 1000n }, 10_000_000_000n) === 1000n);
+
+    // the Python port inside MiroShark's pumpfun module (docs/24 8.1) quotes the same as this reference
+    const backend = path.join(env.root, "services/miroshark/engine/backend");
+    const py = path.join(backend, ".venv-asimog", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
+    if (!fs.existsSync(py)) add("MiroShark venv exists for the Python golden check", false, py);
+    else {
+      const cases: { op: string; c: string[]; x: string; want: string }[] = [];
+      for (let i = 0; i < 1000; i++) {
+        const c = randomCurve(r);
+        const cs = [c.vTok, c.vSol, c.realTok, c.realSol].map(String);
+        const lam = BigInt(Math.floor(1e6 + r() * r() * 5e10));
+        const tok = BigInt(Math.floor(1e9 + r() * r() * Number(c.vTok) * 0.2));
+        cases.push({ op: "buy", c: cs, x: String(lam), want: String(buyTokens(c, lam)) }, { op: "sell", c: cs, x: String(tok), want: String(sellSol(c, tok)) });
+      }
+      const prices = Array.from({ length: 200 }, () => 2.8e-8 * Math.exp(r() * Math.log(30)));
+      for (const p of prices) { const c = curveFromPrice(p); cases.push({ op: "curve", c: [], x: String(p), want: JSON.stringify([c.vTok, c.vSol, c.realTok, c.realSol].map(String)) }); }
+      const out = spawnSync(py, ["-m", "wonderwall.simulations.pumpfun.golden"], { cwd: backend, input: cases.map((k) => JSON.stringify(k)).join("\n"), encoding: "utf8", env: { ...process.env, PYTHONUTF8: "1" } });
+      const got = out.stdout.trim().split("\n").map((l) => JSON.parse(l) as unknown);
+      const miss = cases.filter((k, i) => (k.op === "curve" ? JSON.stringify(got[i]) : got[i]) !== k.want);
+      add("MiroShark's Python curve (amm.py) equals this reference on 1,000 buys, 1,000 sells and 200 curves", got.length === cases.length && miss.length === 0, miss.length ? `${miss.length} differ; first ${JSON.stringify(miss[0])}` : `${got.length} quotes, 0 differ ${out.stderr.slice(0, 200)}`);
+    }
     return { checks, metrics: { buys: 1000, sells: 1000, fees_bps: Number(FEES.protocolBps + FEES.creatorBps) } };
   },
 };
