@@ -71,6 +71,12 @@ export const suite: Suite = {
       add("swarm.wave_p reaches the Tape", typeof wb?.wave_p === "number", JSON.stringify(wb));
       const [imp] = await w.sql`select body from tape.events where topic = 'swarm.impact' and subject = ${MINT_A}`;
       add("branch B (our callout) is measured against branch A", typeof (imp?.body as { d_callers?: number } | undefined)?.d_callers === "number", JSON.stringify(imp?.body));
+      const [bel] = await w.sql`select body from tape.events where topic = 'swarm.beliefs' and subject = ${MINT_A}`;
+      const branches = (bel?.body as { branches?: Record<string, { round: number; stance: Record<string, number> }[][]> } | undefined)?.branches ?? {};
+      const rounds = branches.A?.[0]?.length ?? 0;
+      add("belief drift per round and archetype reaches the Tape for both branches", rounds === 3 && !!branches.B && Object.keys(branches.A![0]![0]!.stance).includes("caller"), JSON.stringify(branches.A?.[0]?.at(-1)));
+      const sysWithBeliefs = llm.calls.filter((c) => (c.system + c.user).includes("YOUR CURRENT BELIEFS")).length;
+      add("agents see their own beliefs in later rounds", sysWithBeliefs > 0, `${sysWithBeliefs} calls carried a belief block`);
       const posts = await w.sql`select body from tape.events where topic = 'swarm.post'`;
       add("simulated posts reach the Tape marked simulated", posts.length > 0 && posts.every((p) => (p.body as { simulated: boolean }).simulated === true), `${posts.length} posts`);
       const [rep] = await w.sql`select body from tape.events where topic = 'report.published' and body->>'producer' = 'miroshark.report'`;

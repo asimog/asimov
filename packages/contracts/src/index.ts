@@ -396,6 +396,10 @@ export const JevqProposed = z.object({ question_id: z.string(), pack: z.string()
 export const ReportDrafted = z.object({ report_id: z.string(), day: z.string(), text: z.string(), checks: z.array(z.string()) });
 export const IntegrityText = z.object({ finding_id: z.string(), text: z.string(), checks: z.array(z.string()) });
 export const OpsAlert = z.object({ severity: z.enum(["info", "warn", "page"]), text: z.string(), finding: z.string() });
+export const SwarmBeliefs = z.object({
+  swarm_id: z.string(), mint: z.string(), topic: z.string(), simulated: z.literal(true),
+  branches: z.record(z.string(), z.array(z.array(z.object({ round: z.number().int(), stance: z.record(z.string(), z.number()) })))),
+});
 export const ReportPublished = z.object({
   report_id: z.string(), producer: z.string(), kind: z.enum(["feed", "coin", "swarm"]), subject: z.string(), window_from: iso.nullable(), window_to: iso.nullable(),
   preset: z.string(), sha256: z.string(), summary: z.string(), cites: z.array(z.string()), parent_reports: z.array(z.string()), simulated: z.boolean(), cites_dropped: z.number().int(),
@@ -530,6 +534,7 @@ export const TOPICS = {
   "ops.stop_requested": OpsStopRequested,
   "ops.restart_requested": OpsRestartRequested,
   "report.published": ReportPublished,
+  "swarm.beliefs": SwarmBeliefs,
   "attention.grant": AttentionGrant,
   "jev.escalated": JevEscalated,
   "soul.updated": SoulUpdated,

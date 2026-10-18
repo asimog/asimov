@@ -261,6 +261,15 @@ export const TOOLS: Tool[] = [
     return { posts_written: a.posts.length - refused, posts_refused: refused };
   }),
 
+  tool("emit_swarm_beliefs", [CAP.swarm], "Write a swarm run's belief drift: mean stance per archetype per round, per branch and sample. SIMULATED.", {
+    swarm_id: z.string(), mint: z.string(), topic: z.string().max(40),
+    branches: z.record(z.string(), z.array(z.array(z.object({ round: z.number().int(), stance: z.record(z.string(), z.number().min(-1).max(1)) })).max(50)).max(10)),
+  }, async (a, c) => {
+    c.tape.emit("swarm.beliefs", { ...a, simulated: true }, { source: source(c), subject: a.mint, dedupe: `swarm.beliefs:${a.swarm_id}` });
+    await c.tape.flush();
+    return { ok: true };
+  }),
+
   // ----- writes: proposals, alerts, drafts -----
   tool("propose_strategy", [CAP.propose], "Propose a strategy spec. Core validates it; a valid proposal is only a record.", { spec: z.record(z.string(), z.unknown()), why: z.array(z.string().max(300)).min(1).max(8), because: z.array(z.string()).max(12).default([]) }, async (a, c) => {
     const v = validateSpec(a.spec);

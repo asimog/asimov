@@ -29,5 +29,6 @@ export async function mapOutput(c: Cores, job: Job, out: RunOutput, parents: str
   if (out.synthesis_coin) await write(c.synth, "emit_synthesis_coin", { synthesis_id: job.id, mint: job.subject, preset: job.preset, ...out.synthesis_coin });
   for (const [i, f] of (out.forum_lines ?? []).entries()) await write(c.synth, "emit_forum_line", { synthesis_id: job.id, round: i, ...f });
   if (out.swarm) await write(c.swarm, "emit_swarm_result", { swarm_id: job.id, mint: job.subject, preset: job.preset, ...out.swarm });
+  if (out.beliefs) await write(c.swarm, "emit_swarm_beliefs", { swarm_id: job.id, mint: job.subject, ...out.beliefs });
   return m;
 }

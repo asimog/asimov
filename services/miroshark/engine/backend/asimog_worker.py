@@ -107,6 +107,13 @@ async def one_run(req: dict, branch: str, sample: int, profiles: list[dict], mdl
     env.platform.seed_world([{"mint": mint, "symbol": symbol, "curve": curve_from_price(price)}], [{"real_id": c.get("callout_id"), "mint": mint, "content": c.get("text") or "", "likes": c.get("likes") or 0} for c in (d.get("callouts") or [])[:20]])
     truncated = False
     rounds = env_int("SWARM_ROUNDS", 6)
+    # P6 beliefs (upstream BeliefState): stance on the coin per agent, updated each round from what was posted
+    from wonderwall.social_agent.belief_state import BeliefState, inject_belief_context
+    topic = symbol
+    stance0 = {"caller": "supportive", "house": "supportive"}
+    beliefs = {i: BeliefState.from_profile({"stance": stance0.get(p["role"], "neutral"), "sentiment_bias": 0.3 if p.get("archetype") in ("degen_follower", "exit_farmer") else 0.0}, [topic]) for i, p in enumerate(everyone)}
+    drift: list[dict] = []
+    seen_rows = 0
     for r in range(rounds):
         if time.time() > deadline:
             truncated = True
@@ -122,6 +129,26 @@ async def one_run(req: dict, branch: str, sample: int, profiles: list[dict], mdl
         except asyncio.TimeoutError:
             truncated = True
             break
+        con = sqlite3.connect(db)
+        new = con.execute("SELECT rowid, user_id, content, likes FROM callout WHERE rowid > ? UNION ALL SELECT -rowid, user_id, content, 0 FROM reply", (seen_rows,)).fetchall()
+        seen_rows = max([seen_rows] + [x[0] for x in new if x[0] > 0])
+        con.close()
+        posts_seen = [{"content": c, "author_id": u, "num_likes": lk, "num_dislikes": 0} for (_, u, c, lk) in new]
+        for i, b in beliefs.items():
+            b.update_from_round([p for p in posts_seen if p["author_id"] != i], {"likes_received": 0, "dislikes_received": 0}, r)
+            agent = g.get_agent(i)
+            if agent is not None and getattr(agent, "system_message", None) is not None:
+                # camel returns a copy on every read: edit one copy with upstream's injector, then push it back
+                holder = type("H", (), {})()
+                holder.system_message = agent.system_message
+                inject_belief_context(holder, b.to_prompt_text())
+                # reset_memory=True: camel keeps the old system record otherwise; each round's prompt carries the full feed and wallet
+                agent.update_system_message(holder.system_message.content, reset_memory=True)
+        by_role: dict[str, list[float]] = {}
+        for i, b in beliefs.items():
+            key = everyone[i].get("archetype") or everyone[i]["role"]
+            by_role.setdefault(key, []).append(b.positions.get(topic, 0.0))
+        drift.append({"round": r, "stance": {k: round(sum(v) / len(v), 4) for k, v in by_role.items()}})
     await env.close()
     con = sqlite3.connect(db)
     q = lambda sql, *a: con.execute(sql, a).fetchall()  # noqa: E731
@@ -132,7 +159,7 @@ async def one_run(req: dict, branch: str, sample: int, profiles: list[dict], mdl
              for (u, t) in q("SELECT user_id, content FROM callout WHERE real_id IS NULL UNION ALL SELECT user_id, content FROM reply")][:100]
     actions_n = q("SELECT count(*) FROM trace WHERE action NOT IN ('sign_up', 'browse_callout_feed', 'view_portfolio')")[0][0]
     con.close()
-    return {"callers": len(simulated_callers), "net_lamports": net, "posts": posts, "actions": actions_n, "truncated": truncated}
+    return {"callers": len(simulated_callers), "net_lamports": net, "posts": posts, "actions": actions_n, "truncated": truncated, "drift": drift}
 
 
 def execute(run_id: str, req: dict) -> None:
@@ -158,8 +185,9 @@ def execute(run_id: str, req: dict) -> None:
         md = "\n".join([f"# Swarm report (SIMULATED)", "", summary, "", "## Branches", *[f"- {k}: " + ", ".join(f"callers {x['callers']}, net {x['net_lamports'] / 1e9:+.3f} SOL, actions {x['actions']}" for x in v) for k, v in res.items()],
                         "", "## Seeded from", *[f"- {t['producer']} {t['report_id']}: {t['summary'][:200]}" for t in (req.get("parent_texts") or [])]])
         cites = [c.get("callout_id") for c in ((req.get("dossier") or {}).get("callouts") or [])[:20] if c.get("callout_id")]
-        out = {"swarm": {"samples": max(1, len(a)), "usd": 0.0, "truncated": truncated, "wave_p": wave_p, "d_callers": d_callers, "d_net_sol": d_net, "posts": posts},
-               "reports": [{"producer": "miroshark.report", "kind": "swarm", "subject": req["subject"], "summary": summary[:590], "cites": cites, "markdown": md, "ir": {"branches": {k: [{kk: vv for kk, vv in x.items() if kk != "posts"} for x in v] for k, v in res.items()}}, "simulated": True}]}
+        beliefs_out = {k: [x["drift"] for x in v] for k, v in res.items()}
+        out = {"beliefs": {"topic": (req.get("dossier") or {}).get("coin", {}).get("symbol") or req["subject"][:4], "branches": beliefs_out}, "swarm": {"samples": max(1, len(a)), "usd": 0.0, "truncated": truncated, "wave_p": wave_p, "d_callers": d_callers, "d_net_sol": d_net, "posts": posts},
+               "reports": [{"producer": "miroshark.report", "kind": "swarm", "subject": req["subject"], "summary": summary[:590], "cites": cites, "markdown": md, "ir": {"branches": {k: [{kk: vv for kk, vv in x.items() if kk not in ("posts",)} for x in v] for k, v in res.items()}}, "simulated": True}]}
         with LOCK:
             RUNS[run_id] = {"state": "done", "output": out}
     except Exception as err:  # noqa: BLE001

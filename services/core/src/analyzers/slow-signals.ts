@@ -19,6 +19,7 @@ const KINDS: Record<string, { subject: (b: Record<string, unknown>) => string; v
   "mood.feed": { subject: () => "global", validMin: 15, analyzer: "bettafish@1", conf: () => 0.6 },
   "synthesis.coin": { subject: (b) => String(b.mint), validMin: 30, analyzer: "bettafish@1", conf: keptShare },
   "swarm.wave_p": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: (b) => (b.truncated ? 0.3 : Math.min(0.8, 0.4 + 0.1 * Number(b.samples))) },
+  "swarm.beliefs": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: () => 0.3 },
   "swarm.impact": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: (b) => (b.truncated ? 0.3 : 0.5) },
 };
 

@@ -119,6 +119,7 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `report.drafted` | `report_id`, `day`, `text`, `checks[]`. A draft; publishing is S9 |
 | `integrity.text` | `finding_id`, `text`, `checks[]`. Prose for `/integrity`; it states data and names no person |
 | `ops.alert` | `severity` (info, warn, page), `text`, `finding` |
+| `swarm.beliefs` | `swarm_id`, `mint`, `topic`, `simulated: true`, `branches` (per branch, per sample, per round: mean stance from -1 to 1 by archetype; MiroShark BeliefState, docs/24 M4) |
 | `report.published` | `report_id`, `producer`, `kind` (feed, coin, swarm), `subject`, `window_from?`, `window_to?`, `preset`, `sha256` (of the canonical IR and Markdown in `slow.reports`), `summary`, `cites[]`, `parent_reports[]`, `simulated`, `cites_dropped` (docs/24 section 6) |
 | `ops.restart_requested` | `scope`, `reason`. The Ops agent asks the owner to restart a consumer or sense; a record only, nothing restarts on it |
 | `ops.stop_requested` | `action` (pause, kill), `scope`, `reason`. The kill switch (S6.7) acts on it; thinking agents can stop, never start |

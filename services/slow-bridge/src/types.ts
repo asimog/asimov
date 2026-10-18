@@ -13,6 +13,7 @@ export type RunOutput = {
   mood?: Record<string, unknown>; // emit_mood_feed arguments
   forum_lines?: Record<string, unknown>[]; // emit_forum_line arguments
   swarm?: Record<string, unknown>; // emit_swarm_result arguments
+  beliefs?: Record<string, unknown>; // emit_swarm_beliefs arguments (topic, branches)
   cost_usd?: number;
 };
 export type RunStatus = { state: "running" | "done" | "failed"; output?: RunOutput; error?: string };
