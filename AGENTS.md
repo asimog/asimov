@@ -116,5 +116,6 @@ These hold for every agent working here and for Asimog itself. Breaking one is n
 | `docs/15`, `16`, `20` | Ops, secrets and RPC pool; open decisions; risk review |
 | `docs/18`, `21`, `22` | Agents and lanes; first principles and findings; firm architecture and milestones |
 | `docs/24` | Slow mind integration: full BettaFish and MiroShark forks, the Slow Bridge, shared reports |
+| `docs/25`, `26` | Domain model (contexts, lifecycles, lists, invariants, with status words); trading strategy plan |
 | `docs/GLOSSARY.md` | One term per thing |
 | `docs/research/` | Platform evidence, literature review, pre-call evidence, dataset reports (`datasets/README.md`) |

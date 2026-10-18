@@ -1,3 +1,0 @@
-[submodule "MindSpider/DeepSentimentCrawling/MediaCrawler"]
-	path = MindSpider/DeepSentimentCrawling/MediaCrawler
-	url = https://github.com/NanmiCoder/MediaCrawler

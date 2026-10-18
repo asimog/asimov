@@ -39,12 +39,17 @@ export const env = {
     return v === undefined || v === "" ? undefined : v;
   },
   int(name: string, fallback: number): number {
-    const v = ENV[name];
-    return v === undefined || v === "" ? fallback : Number.parseInt(v, 10);
+    const n = env.num(name, fallback);
+    if (!Number.isInteger(n)) throw new Error(`env ${name} must be a whole number, got ${ENV[name]}`);
+    return n;
   },
+  /** A typo must stop boot: NaN would silently turn a cap or a kill trigger off. */
   num(name: string, fallback: number): number {
     const v = ENV[name];
-    return v === undefined || v === "" ? fallback : Number(v);
+    if (v === undefined || v.trim() === "") return fallback;
+    const n = Number(v);
+    if (!Number.isFinite(n)) throw new Error(`env ${name} must be a number, got ${v}`);
+    return n;
   },
   bool(name: string, fallback = false): boolean {
     const v = ENV[name];

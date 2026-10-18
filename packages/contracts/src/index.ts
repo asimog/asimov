@@ -33,12 +33,12 @@ export type Mode = (typeof MODES)[number];
 
 export const SOURCES = [
   "feedreader", "nats", "rpc", "xreader", "reflex", "guard", "trader", "publisher", "treasurer",
-  "signer", "scorekeeper", "attention", "strategies", "riskgate", "system", "analyzer", "bettafish", "miroshark", "agents", "soul",
+  "signer", "scorekeeper", "attention", "strategies", "riskgate.paper", "riskgate.live", "system", "analyzer", "bettafish", "miroshark", "agents", "soul", "slow-bridge",
 ] as const;
+export type Source = (typeof SOURCES)[number];
 
 const iso = z.string().datetime({ offset: true });
 const num = z.number().finite();
-const solAddr = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
 
 // ---------- topic bodies ----------
 export const CalloutCreated = z.object({
@@ -556,7 +556,7 @@ export const Envelope = z.object({
   v: z.number().int(),
   event_time: iso,
   seen_time: iso,
-  source: z.string(),
+  source: z.enum(SOURCES),
   subject: z.string().nullable(),
   causes: z.array(z.string()),
   mode: z.enum(MODES),
@@ -584,12 +584,6 @@ export const SCHEMA_VERSION: Record<Topic, number> = {
   "system.gap": 2,
   "coin.watched": 2,
 };
-
-export function validateBody<T extends Topic>(topic: T, body: unknown): BodyOf<T> {
-  return TOPICS[topic].parse(body) as BodyOf<T>;
-}
-
-export { solAddr };
 
 /** Canonical JSON (sorted keys, recursively): the only form commit hashes are computed over. */
 export function canonical(x: unknown): string {

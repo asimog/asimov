@@ -49,7 +49,7 @@ export class ReplyReader {
         this.stats.skipped++;
         continue;
       }
-      this.tape.emit("callout.reply", { callout_id: calloutId, mint, reply_id: x.id, parent_id: x.parentMessageId ?? null, wallet: x.walletAddress ?? null, handle: x.userName ?? null, text: x.content, likes: x.likeCount ?? 0, media_url: x.mediaUrl ?? null, created_at: x.createdAt }, { source: "feed", subject: calloutId, dedupe: `reply:${x.id}` });
+      this.tape.emit("callout.reply", { callout_id: calloutId, mint, reply_id: x.id, parent_id: x.parentMessageId ?? null, wallet: x.walletAddress ?? null, handle: x.userName ?? null, text: x.content, likes: x.likeCount ?? 0, media_url: x.mediaUrl ?? null, created_at: x.createdAt }, { source: "feedreader", subject: calloutId, dedupe: `reply:${x.id}` });
       this.stats.replies++;
     }
     this.seen.set(calloutId, count);

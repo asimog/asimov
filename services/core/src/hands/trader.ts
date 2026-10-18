@@ -76,7 +76,7 @@ export function trader(d: TraderDeps): Consumer {
     const memo = `asimog:${o.order_id}`;
     const [have] = await tx`select state, tx_sig from hands.orders where order_id = ${o.order_id}`;
     if (have && (have.state === "filled" || have.state === "failed")) return;
-    if (await killed(tx)) return fail(tx, e, o, "killed", false);
+    if (o.side === "buy" && (await killed(tx))) return fail(tx, e, o, "killed", false);
     let sig = (have?.tx_sig as string | null) ?? (await chain.findByMemo(wallet, memo));
     if (!sig && o.side === "buy") { // docs/09 Executor step 1: re-read the quote; the Risk Gate checked it once already
       const [lim] = await tx`select body from mind.limits order by version desc limit 1`;

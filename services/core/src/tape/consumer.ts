@@ -14,6 +14,8 @@ export interface Consumer {
   batch?: number;
   /** live only: a decider with no offset starts at the Tape head instead of deciding on old history */
   startAtHead?: boolean;
+  /** reads the Tape and writes only mem.* or board.signals: `ctl rebuild` clears its output and re-runs it */
+  projection?: true;
   handle(events: Envelope[], tx: Tx): Promise<void>;
 }
 

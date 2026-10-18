@@ -230,16 +230,18 @@ export function desk(tape: Tape, clock: Clock): Desk {
   // ---------- intents and fills ----------
   async function newIntent(tx: Tx, i: Omit<Intent, "id" | "event_id" | "fill_after_ms">, reasons: string[], boardSnap: Record<string, unknown>, e: Envelope, gate: () => ReturnType<typeof riskGate>) {
     const id = clock.id("intent");
+    const pos = i.side === "sell" ? open.get(i.mint)?.find((p) => p.id === i.position_id) : undefined;
+    const fraction = pos && i.tokens != null && pos.tokens_left > 0 ? Math.min(1, i.tokens / pos.tokens_left) : null; // the live leg holds a different token count
     const ev = await tape.emitIn(
       tx, "intent.created",
-      { strategy_id: i.strategy_id, mint: i.mint, side: i.side, size_sol: i.size_sol, fraction: i.tokens, reason: reasons, score: i.score, board: boardSnap },
+      { strategy_id: i.strategy_id, mint: i.mint, side: i.side, size_sol: i.size_sol, fraction, reason: reasons, score: i.score, board: boardSnap },
       { source: "strategies", subject: id, causes: [e.id], after: e.seen_time },
     );
     bump("intents");
     const g = gate();
     if (!g.ok) {
       rejected[g.reason_code] = (rejected[g.reason_code] ?? 0) + 1;
-      await tape.emitIn(tx, "order.rejected", { intent_id: id, reason_code: g.reason_code, detail: g.detail }, { source: "riskgate", subject: id, causes: [ev.id], after: ev.seen_time });
+      await tape.emitIn(tx, "order.rejected", { intent_id: id, reason_code: g.reason_code, detail: g.detail }, { source: "riskgate.paper", subject: id, causes: [ev.id], after: ev.seen_time });
       return null;
     }
     const full: Intent = { ...i, id, event_id: ev.id, fill_after_ms: i.created_ms + sampleLatencyMs(clock.rand) };
@@ -261,7 +263,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
       await dropIntent(tx, i);
       if (i.side === "buy") {
         rejected.stale_quote = (rejected.stale_quote ?? 0) + 1;
-        await tape.emitIn(tx, "order.rejected", { intent_id: i.id, reason_code: "stale_quote", detail: "no trade on the coin before the fill deadline" }, { source: "riskgate", subject: i.id, causes: [i.event_id], after: e.seen_time });
+        await tape.emitIn(tx, "order.rejected", { intent_id: i.id, reason_code: "stale_quote", detail: "no trade on the coin before the fill deadline" }, { source: "riskgate.paper", subject: i.id, causes: [i.event_id], after: e.seen_time });
       }
       return;
     }
@@ -273,7 +275,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
       }
       await dropIntent(tx, i);
       rejected.fill_failed = (rejected.fill_failed ?? 0) + 1;
-      await tape.emitIn(tx, "order.rejected", { intent_id: i.id, reason_code: "fill_failed", detail: "modeled landing failure" }, { source: "riskgate", subject: i.id, causes: [i.event_id], after: e.seen_time });
+      await tape.emitIn(tx, "order.rejected", { intent_id: i.id, reason_code: "fill_failed", detail: "modeled landing failure" }, { source: "riskgate.paper", subject: i.id, causes: [i.event_id], after: e.seen_time });
       return;
     }
     await dropIntent(tx, i);

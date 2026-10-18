@@ -25,15 +25,23 @@ services:
     container_name: asimog-slow-workers
     restart: unless-stopped
     profiles: ["workers"]
-    env_file: [.env.example, .env.local]
+    # Defaults only. This container reads strangers' text, so it never gets the whole secrets file:
+    # each secret it needs is named below and read from .env.local through --env-file.
+    env_file: [.env.example]
     environment:
+      LLM_KEY_SYNTH: ${LLM_KEY_SYNTH:-}
+      LLM_KEY_SWARM: ${LLM_KEY_SWARM:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      SWARM_CORE_TOKEN: ${SWARM_CORE_TOKEN:-}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env.local}
       NEO4J_URI: bolt://neo4j:7687
       BETTAFISH_DB_URL: postgresql://slow_reader@pg:5432/asimog
       CORE_MCP_URL: http://host.docker.internal:${MCP_PORT:-7403}/mcp
       ASIMOG_FORK: "1"
     depends_on: [pg, neo4j]
     extra_hosts: ["host.docker.internal:host-gateway"]
-    ports: ["127.0.0.1:7410:7410", "127.0.0.1:7411:7411"]
+    ports: ["127.0.0.1:7412:7412", "127.0.0.1:7411:7411"]
     volumes: ["asimog-slow:/data"]
 volumes:
   asimog-pg: { external: true }

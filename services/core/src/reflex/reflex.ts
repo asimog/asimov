@@ -161,6 +161,7 @@ export function reflexTrigger(tape: Tape, clock: Clock): ReflexTrigger {
 export function reflexSignals(clock: Clock): Consumer {
   return {
     name: "reflex.signals",
+    projection: true,
     topics: ["jev.answer"],
     async handle(events, tx) {
       for (const e of events as Envelope<BodyOf<"jev.answer">>[]) {

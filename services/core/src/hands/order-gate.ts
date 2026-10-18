@@ -52,10 +52,10 @@ export function orderGate(tape: Tape, clock: Clock, wallets: { trade: string }, 
       }
     }
     const g = riskGate({ id: intentId, mint: b.mint, side: b.side, size_sol: b.size_sol ?? 0, duplicate: !!dup }, await book(tx, now), limits, quote, { kill: await killed(tx), mode_ok: cfg.live(), strategy_live: liveSet.has(b.strategy_id) } /* handle() already skips both; passed for real so the gate checks them too */, now);
-    if (!g.ok) return void (await tape.emitIn(tx, "order.rejected", { intent_id: intentId, reason_code: g.reason_code, detail: g.detail }, { source: "riskgate", subject: intentId, causes: [e.id], after: e.seen_time }));
+    if (!g.ok) return void (await tape.emitIn(tx, "order.rejected", { intent_id: intentId, reason_code: g.reason_code, detail: g.detail }, { source: "riskgate.live", subject: intentId, causes: [e.id], after: e.seen_time }));
     const orderId = clock.id("order");
     await tape.emitIn(tx, "order.created", { order_id: orderId, intent_id: intentId, strategy_id: b.strategy_id, mint: b.mint, side: b.side, size_sol: b.size_sol, fraction: b.fraction, max_slippage_bps: limits.max_slippage_bps, limits_version: Number(lim?.version ?? 0) },
-      { source: "riskgate", subject: orderId, causes: [e.id], after: e.seen_time });
+      { source: "riskgate.live", subject: orderId, causes: [e.id], after: e.seen_time });
   }
 
   return {

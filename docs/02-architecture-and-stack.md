@@ -56,7 +56,7 @@ Versions are the latest stable release when Phase 1 starts, pinned in lockfiles.
 | Schemas | zod in `packages/contracts`; JSON Schema emitted when the first Python service needs it | One source of truth across two languages. |
 | DB access | `postgres` (porsager) in TS, `psycopg` 3 in Python | Thin, fast, no ORM. |
 | Solana | `@solana/web3.js` 1.99.x, `@coral-xyz/anchor` 0.31, `bn.js` | What the pump SDKs depend on. One copy. |
-| Pump.fun | `@pump-fun/pump-sdk` 4.1.0, `@pump-fun/pump-swap-sdk` 2.1.0, `@pump-fun/shared-contracts` 0.2.2, `fun-block.pump.fun` API | Official curve math, swaps, fee collection, trade schema. The pump-sdk ESM build fails to load (it imports the agent-payments SDK, whose ESM needs a `BN` export anchor's ESM lacks): load it with `createRequire` (CJS) when the Trader needs it. The Backfill decodes `TradeEvent` itself from the IDL's fixed field offsets (checked against the SDK on live events: 5 of 5 identical). The agent-payments SDK is not a dependency of ours. |
+| Pump.fun | `@pump-fun/pump-sdk` 4.1.0 (core devDependency, with `bn.js`: only the `amm-golden` suite loads it), `fun-block.pump.fun` API | Official curve math as the golden reference; swaps are built by fun-block. The pump-sdk ESM build fails to load (it imports the agent-payments SDK, whose ESM needs a `BN` export anchor's ESM lacks): load it with `createRequire` (CJS) when the Trader needs it. The Backfill decodes `TradeEvent` itself from the IDL's fixed field offsets (checked against the SDK on live events: 5 of 5 identical). The agent-payments SDK is not a dependency of ours. |
 | RPC (default) | Several free tiers behind `RpcPool` (Helius, Chainstack, RPC Fast, QuickNode) | Free, with fallback when one rate-limits. `RPC_URLS` in env (docs/15). |
 | RPC stream (optional) | Yellowstone gRPC (`@triton-one/yellowstone-grpc`) | Switch on with `GRPC_URL` when a paid plan pays off. |
 | Realtime trades | `nats.ws` client to pump.fun NATS | Decoded trades for free. |
@@ -67,8 +67,7 @@ Versions are the latest stable release when Phase 1 starts, pinned in lockfiles.
 | Model messages | `@langchain/core` | Message and chat-model base types the lanes and the stub model share (packages/lane). |
 | Agent tool protocol | `@modelcontextprotocol/sdk` | The core MCP server and the lanes' client: the one door thinking agents have to core (docs/18). |
 | Question-bank model | `catboost` (Python) | The autoresearch cookbook's outcome model. |
-| Browser | `agent-browser` 0.39.x | Sessions, refs, boxes, HAR, frame streaming. |
-| X | `xactions` 4.x | Read X posts and profiles, screenshots. Read only. |
+| Browser | `agent-browser` 0.39.x (dev tool installed at the root, not a core dependency) | Manual site checks. The site suites drive Chrome over DevTools with no dependency (`tests/e2e/lib/site.ts`). |
 | Search | XERJ (binary) | Local index over the dossier corpus. Optional in v1. |
 | Stats (Py) | numpy, scipy, hmmlearn, scikit-learn | HMM regimes, Caller model fitting. |
 | Forecast baseline | `timesfm` 2.5 weights (Apache-2.0) | Baseline only. |

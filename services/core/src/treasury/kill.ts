@@ -48,7 +48,7 @@ export function kill(tape: Tape, killFile: string | null): Consumer {
         } else if (e.topic === "signer.refused" || (e.topic === "order.failed" && String(b.error).startsWith("signer_refused"))) {
           refusals = [...refusals.filter((t) => at - t < windowMs), at];
           if (refusals.length >= need) await trip(tx, e, "signer_refusals", `${refusals.length} signer refusals in ${windowMs / 60_000} min`);
-        } else if (e.topic === "order.rejected" && b.reason_code === "daily_loss_stop") await trip(tx, e, "daily_loss", String(b.detail));
+        } else if (e.topic === "order.rejected" && e.source === "riskgate.live" && b.reason_code === "daily_loss_stop") await trip(tx, e, "daily_loss", String(b.detail));
         else if (e.topic === "books.reconciled" && b.ok === false) await trip(tx, e, "books", b.degraded ? "reconciliation degraded" : "ledger and chain differ");
         else if (e.topic === "system.gap" && b.to && Date.parse(b.to as string) - Date.parse(b.from as string) >= gapMs) {
           const [open] = await tx`select 1 from books.lots limit 1`;

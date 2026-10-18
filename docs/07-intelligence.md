@@ -217,7 +217,6 @@ The service stays fully deployed. Presets and every step count are variables, so
 | `MCP_AGENT_TOOLS_ENABLED` (caller personas call core read tools) | false | true | true |
 | `SWARM_RUNS_PER_HOUR` | 2 | 6 | 12 |
 | `SWARM_SAMPLES` (runs per branch; TS build, S7) | 1 | 3 | 5 |
-| `SWARM_USD_CAP_PER_RUN` | 0.02 | 0.10 | 0.50 |
 | `SWARM_MODEL` | `LLM_MODEL_CHEAP` | `LLM_MODEL_CHEAP` | `LLM_MODEL_CHEAP` |
 | Approx cost per run (DeepSeek v4.1 Flash, about 1.8k tokens in and 120 out per agent turn) | about $0.007 | about $0.05 | about $0.34 |
 

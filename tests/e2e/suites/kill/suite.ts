@@ -15,7 +15,7 @@ const count = async (w: World, topic: string) => ((await w.sql`select count(*)::
 
 export const suite: Suite = {
   name: "kill",
-  proves: "The owner's kill and every automatic trigger stop new and pending orders while senses keep recording; the Signer refuses swaps by itself; resume needs the admin token; the live gate is off by default.",
+  proves: "The owner's kill and every automatic trigger stop new and pending orders while senses keep recording; the Signer refuses buys by itself; exits still pass; resume needs the admin token; the live gate is off by default.",
   async run() {
     const checks: Check[] = [];
     const check = (name: string, pass: boolean, detail: string) => checks.push({ name, pass, detail });
@@ -37,7 +37,9 @@ export const suite: Suite = {
       const filled = (await w.topic("order.filled")).map((e) => e.body.side);
       check("roundtrip before the kill: buy, sell, account closed", errors.length === 0 && filled.join() === "buy,sell" && w.chain.tokensOf(w.wallets.trade, w.mint) === undefined, `${filled.join()} ${errors.join(";")}`);
 
-      // 2. owner kill
+      // 2. owner kill with a position open
+      await w.intent("buy");
+      await w.settle();
       ownerKill(w.tape, "test");
       await w.settle();
       let s = await state(w);
@@ -45,16 +47,17 @@ export const suite: Suite = {
       await w.intent("buy");
       await w.settle();
       const rej = (await w.topic("order.rejected")).filter((e) => e.body.reason_code === "kill_switch");
-      check("a new buy is rejected with kill_switch and makes no order", rej.length === 1 && (await count(w, "order.created")) === 2, `${rej.length} rejection, ${await count(w, "order.created")} orders in all`);
+      check("a new buy is rejected with kill_switch and makes no order", rej.length === 1 && (await count(w, "order.created")) === 3, `${rej.length} rejection, ${await count(w, "order.created")} orders in all`);
       await w.intent("sell");
-      await w.settle();
-      check("exits are stopped too (kill stops all hands)", (await w.topic("order.rejected")).filter((e) => e.body.reason_code === "kill_switch").length === 2, "2 kill_switch rejections");
+      const sellErrors = await w.settle();
+      const exits = (await w.topic("order.filled")).map((e) => e.body.side);
+      check("an exit still passes while killed and closes the open position", sellErrors.length === 0 && exits.join() === "buy,sell,buy,sell" && w.chain.tokensOf(w.wallets.trade, w.mint) === undefined, `${exits.join()} ${sellErrors.join(";")}`);
       const built = await w.builder.swap({ side: "buy", mint: w.mint, wallet: w.wallets.trade, amount: "10000000", slippagePct: 3 });
       const direct = await w.swapSigner.sign("/sign/swap", (await import("../../../../services/core/src/hands/builder.ts")).appendMemo(built.tx, "asimog:direct"), { max_lamports: 20_000_000, order_id: "direct" });
-      check("the Signer refuses swaps on its own while killed", !direct.ok && direct.reason === "kill_switch", direct.ok ? "signed" : direct.reason);
+      check("the Signer refuses buys on its own while killed", !direct.ok && direct.reason === "kill_switch", direct.ok ? "signed" : direct.reason);
       // a pending order that was created just before the kill is failed, not sent
       const sendsBefore = w.chain.sends;
-      w.tape.emit("order.created", { order_id: "or_pending", intent_id: "in_pending", strategy_id: "sr_live", mint: w.mint, side: "buy", size_sol: 0.01, fraction: null, max_slippage_bps: 300, limits_version: 0 }, { source: "riskgate", subject: "or_pending" });
+      w.tape.emit("order.created", { order_id: "or_pending", intent_id: "in_pending", strategy_id: "sr_live", mint: w.mint, side: "buy", size_sol: 0.01, fraction: null, max_slippage_bps: 300, limits_version: 0 }, { source: "riskgate.live", subject: "or_pending" });
       await w.settle();
       const failed = (await w.topic("order.failed")).filter((e) => e.body.order_id === "or_pending");
       check("a pending order is failed as killed and nothing is sent", failed.length === 1 && failed[0]!.body.error === "killed" && failed[0]!.body.retryable === false && w.chain.sends === sendsBefore, `${failed[0]?.body.error}, sends +${w.chain.sends - sendsBefore}`);
@@ -73,7 +76,7 @@ export const suite: Suite = {
       check("resume with the token: state off, kill file removed", !s.on && !fs.existsSync(w.killFile), JSON.stringify(s));
       await w.intent("buy");
       await w.settle();
-      check("orders flow again after resume", (await w.topic("order.filled")).length === 3, `${(await w.topic("order.filled")).length} fills`);
+      check("orders flow again after resume", (await w.topic("order.filled")).length === 5, `${(await w.topic("order.filled")).length} fills`);
       await w.intent("sell");
       await w.settle();
 
@@ -82,7 +85,11 @@ export const suite: Suite = {
         resume(w.tape, "admin-secret", "admin-secret");
         await w.settle();
       };
-      w.tape.emit("order.rejected", { intent_id: "in_x", reason_code: "daily_loss_stop", detail: "lost 0.05 SOL today" }, { source: "riskgate", subject: "in_x" });
+      w.tape.emit("order.rejected", { intent_id: "in_p", reason_code: "daily_loss_stop", detail: "a paper strategy lost 0.05 SOL today" }, { source: "riskgate.paper", subject: "in_p" });
+      await w.settle();
+      s = await state(w);
+      check("a paper strategy's daily loss stop leaves the firm running", !s.on, JSON.stringify(s));
+      w.tape.emit("order.rejected", { intent_id: "in_x", reason_code: "daily_loss_stop", detail: "lost 0.05 SOL today" }, { source: "riskgate.live", subject: "in_x" });
       await w.settle();
       s = await state(w);
       check("trigger: daily loss stop", s.on && s.by === "daily_loss", JSON.stringify(s));

@@ -273,6 +273,7 @@ async function curve(tx: Tx, clock: Clock, last: Map<string, Envelope<BodyOf<"tr
 export function cheapAnalyzers(clock: Clock): Consumer {
   return {
     name: "analyzers.cheap",
+    projection: true,
     topics: ["callout.created", "trade.curve", "trade.amm"],
     batch: 500,
     async handle(events, tx) {

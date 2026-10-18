@@ -43,7 +43,7 @@ One term per thing. If you need a new word, add it here in the same change.
 | Opportunity age | How far a coin's price moved, and how long ago the first call was, before a given callout. |
 | Echo | A callout explained by an earlier one (copy, repost, habitual follower). |
 | Echo ring | A group of callers who repeatedly echo one origin. |
-| Wave | A burst of distinct tracked callers calling one coin. Default: 5 or more within 2 hours. |
+| Wave | A burst of distinct tracked callers calling one coin. Default: 3 or more within 5 minutes (`WAVE_N`, `WAVE_HORIZON_MIN`). |
 | Session (S1-S8) | One agent-browser session plus its current task. Its live frames appear in the Field and Cortex strips. |
 | Read box | The box of a page element a session read; sent with each frame. |
 | Feed Reader | The direct reader of the callout feed endpoints. |
@@ -119,4 +119,14 @@ One term per thing. If you need a new word, add it here in the same change.
 | Evidence class | Observed, computed, AI judgment, hypothesis or outcome (docs/03). |
 | Indicator | A deterministic pattern over observed data (for example `wash_atomic`) with evidence, other explanations and limits. Never an accusation. |
 | Net multiple | SOL back / SOL spent for a round trip of `OUTCOME_REF_SOL` through the fill model. The only multiple that counts as a result. |
+| Decision | An entry that passed the gate and filled; it owns its legs and its exits (docs/25). Today the paper position plays this role. |
+| Leg | One execution of a decision on one venue: ghost (the fill model) or live (the chain). |
+| In-play reason | Why the desk looked at a coin: `callout`, `precall`, `smart_buy` or `scout` (docs/26). |
+| Calibration map | A per-family table from score to measured win chance and mean net, built from closed ghost decisions (docs/26). |
+| List | An owner-supplied set of wallets, creators or mints with one meaning, such as `blocked_creators`. Loaded only through the admin path. Empty by default (docs/25). |
+| Mass deployer | A creator who launches many coins; refused above `max_creator_launches_7d` or when on `blocked_creators`. |
+| Kill state | `running`, `exit_only` or `halted`; the one field that says what the firm may trade (docs/25). |
+| Cascade stage | 0 to 3: how much slow-mind work a coin gets, from free math to full engines (docs/26). |
+| Hot set | The few coins kept warm with cheap slow-mind runs because good callers are buying them. |
+| As-of rule | A decision at time now reads only rows seen by now. |
 | Caller ledger | The per-caller record of every callout's outcome with denominators and exclusions (`ctl callers`, methodology `cl1`). |

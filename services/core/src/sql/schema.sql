@@ -296,21 +296,6 @@ create table if not exists mind.limits (
 );
 
 -- ---------- ops ----------
-create table if not exists ops.budgets (
-  lane text not null,
-  hour timestamptz not null,
-  units text not null,
-  spent double precision not null default 0,
-  primary key (lane, hour, units)
-);
-create table if not exists ops.admin_actions (
-  id bigserial primary key,
-  action text not null,
-  by text not null,
-  at timestamptz not null default now(),
-  detail jsonb
-);
-
 -- soul versions on a hash chain (docs/22): chain = sha256(prev chain + sha256(body))
 create table if not exists ops.soul_versions (
   version int primary key,

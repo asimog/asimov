@@ -31,7 +31,7 @@ Both repos were read from source in `.upstream/repos/` (`666ghj__BettaFish` at `
 | Report engine | `ReportEngine/agent.py` (`ReportAgent`), `nodes/` (template selection, document layout, word budget, chapter generation), `ir/schema.py`, `renderers/` (HTML, PDF, Markdown, chart to SVG), `report_template/` | Takes the three engines' reports plus the forum log. Picks a template, plans a layout and a word budget, writes chapters as IR blocks, validates and repairs them, then renders them. It has rescue LLMs and retries. | Reads the newest file in each engine's report folder (`FileCountBaseline`) and the forum log. |
 | Orchestrator | `app.py` (Flask + Socket.IO), `SingleEngineApp/*.py` (one Streamlit app per engine), `report_engine_only.py` | Starts the three engines as Streamlit subprocesses, starts the forum monitor, then the report engine. A config screen writes `config.py`. | Subprocesses and files. |
 | MindSpider | `MindSpider/` | Crawlers for Chinese social platforms (Weibo, Xiaohongshu, Douyin, Kuaishou, Bilibili, Zhihu, Tieba), plus topic extraction. They fill the database the Insight engine reads. | Writes the crawled-posts tables (`schema/models_bigdata.py`). |
-| Sentiment models | `SentimentAnalysisModel/` | Five model families (fine-tuned BERT, GPT-2 LoRA, small Qwen, classic machine learning, multilingual). | Imported by the Insight engine. |
+| Sentiment models | `SentimentAnalysisModel/WeiboMultilingualSentiment/` | The multilingual model only; the other four upstream families (fine-tuned BERT, GPT-2 LoRA, small Qwen, classic machine learning) were deleted on 2026-10-18 because nothing imports them. | Imported by the Insight engine (`InsightEngine/tools/sentiment_analyzer.py:49`); off with `BETTAFISH_SENTIMENT=off`. |
 | Config | `config.py` (pydantic settings, `.env`) | Each engine has its own `*_API_KEY`, `*_BASE_URL` and `*_MODEL_NAME`, and all speak the OpenAI API, so OpenRouter works as is. The defaults name providers (Moonshot, inferera, DeepSeek). | Env override for everything. |
 
 **The seams that matter:** the Insight engine only needs a database whose tables have the crawled-posts shape. Every LLM call goes through one OpenAI-compatible client per engine. Engines and the forum couple only through files. So we can keep every engine whole and swap only (a) the database underneath, (b) the search tool behind the Media engine, and (c) the base URLs and keys.
@@ -131,7 +131,7 @@ Six rules shape it:
 | core (unchanged; adds views, tools, consumers) | TS | always | `CORE_PORT`, `MCP_PORT` 7403 |
 | relay, web (unchanged) | TS | always | 7401, 7402 |
 | `services/slow-bridge` (new) | TS | always, when any slow engine is on | `SLOW_BRIDGE_PORT` 7404 |
-| `services/bettafish/engine` (fork submodule) behind `asimog_worker.py` | Python 3.11, uv venv | on demand, or warm in `lite` and `full` | `BETTAFISH_PORT` 7410 (localhost only) |
+| `services/bettafish/engine` (fork submodule) behind `asimog_worker.py` | Python 3.11, uv venv | on demand, or warm in `lite` and `full` | `BETTAFISH_PORT` 7412 (localhost only) |
 | `services/miroshark/engine` (fork submodule), backend API only | Python 3.11, uv venv | on demand, or warm | `MIROSHARK_PORT` 7411 (localhost only) |
 | Neo4j 5 (Docker, `npm run neo4j:start`) | | when MiroShark is warm | 7687 (localhost only) |
 | Embeddings | via OpenRouter-compatible API by env (`EMBEDDING_PROVIDER=openai`) or a local Ollama | | |
@@ -277,7 +277,7 @@ Fork: `asimog/MiroShark`, submodule at `services/miroshark/engine`, branch `agen
 | M8 | `app/services/signal_service.py`, `signed_result.py` | `signal.json` carries `wave_p` (share of samples reaching 5 or more distinct tracked callers), `d_callers`, `d_net_sol`, `samples`, `truncated` and `usd`, which is what `emit_swarm_result` needs. |
 | M9 | `app/config.py`, publishers, notifiers, `/fetch-url`, `oracle_seed`, `web_enrichment` | `ASIMOG_FORK=1`: required env with no defaults used; the listed services become no-ops; the route returns 404. The code stays. |
 | M10 | `scripts/mcp_agent_bridge.py`, `agent_mcp_tools.py` | Register our core MCP as one server (HTTP transport added next to stdio) with its own read-only capability, `cap:swarm.read` (no write tool at all), and a tool allow list on the server spec (`SWARM_PERSONA_TOOLS`). Caller personas get `tools_enabled` for `coin_dossier` and `reports_for`; upstream's `MCP_AGENT_TOOLS_ENABLED` switches it. |
-| M11 | `app/services/cost_service.py` | Per-run USD cap `SWARM_USD_CAP_PER_RUN`: stop at the cap and mark `truncated`. Per-key spend stays enforced by OpenRouter. |
+| M11 | `app/services/cost_service.py` | Per-run USD cap (not built yet; fix plan Phase 5 row 5.2 adds it with a per-day cap): stop at the cap and mark `truncated`. Per-key spend stays enforced by OpenRouter. |
 
 ### 8.3 Configuration (env)
 

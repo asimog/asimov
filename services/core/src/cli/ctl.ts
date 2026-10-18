@@ -12,6 +12,7 @@ import { coverage, ledger } from "../scorekeeper/ledger.ts";
 import { slowScores } from "../scorekeeper/slow-scores.ts";
 import { liveClock } from "../lib/clock.ts";
 import { Tape } from "../tape/tape.ts";
+import { buildConsumers } from "../runtime.ts";
 import { balances, nav, recordDeposit } from "../treasury/books.ts";
 import { killed, ownerKill, resume } from "../treasury/kill.ts";
 import { verifyProofs } from "../treasury/proofs.ts";
@@ -101,7 +102,7 @@ const commands: Record<string, () => Promise<unknown>> = {
   tail: () => tail(args.filter((a) => !a.startsWith("--"))),
   doctor,
   migrate: async () => (await migrate(sql), { ok: true }),
-  rebuild: async () => (await resetProjections(sql), { ok: true, note: "projections cleared; restart core to rebuild from the tape" }),
+  rebuild: async () => (await resetProjections(sql, buildConsumers(new Tape(sql, liveClock("live")))), { ok: true, note: "projections cleared; restart core to rebuild from the tape" }),
   export: () => exportTape(opt("out") ?? `data/tapes/tape-${Date.now()}.ndjson.gz`, opt("from"), opt("to")),
   case: async () => {
     const c = await buildCase(sql, args[0] ?? "");

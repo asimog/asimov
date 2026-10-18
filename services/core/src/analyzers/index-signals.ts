@@ -86,6 +86,7 @@ export function indexSignals(clock: Clock): Consumer {
 
   return {
     name: "analyzers.index",
+    projection: true,
     topics: ["index.refreshed", "coin.watched", "holders.snapshot", ...TRADES],
     batch: 500,
     async handle(events, tx) {

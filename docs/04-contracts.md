@@ -19,7 +19,7 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 }
 ```
 
-- `source`: `feedtap | session:S1..S8 | nats | rpc | grpc | xeye | reflex | guard | trader | publisher | treasurer | wallet | scorekeeper | attention | strategy pool | riskgate | agent:<name> | system`.
+- `source`: one of `SOURCES` in `packages/contracts` (the envelope schema is that enum): `feedreader | nats | rpc | xreader | reflex | guard | trader | publisher | treasurer | signer | scorekeeper | attention | strategies | riskgate.paper | riskgate.live | system | analyzer | bettafish | miroshark | agents | soul | slow-bridge`. The paper desk writes `riskgate.paper`; the live order gate writes `riskgate.live`. Only `riskgate.live` rejections can trip the kill switch.
 - `subject`: the main ID the event is about. Lets `ctl why` and the website jump straight to it.
 - `causes`: upstream IDs. Must never be empty except for observations.
 - `v`: schema version of `body`. Bump on any change. No backward compatibility (pre-users rule): replays use the tape's own version or are regenerated.
@@ -57,7 +57,7 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | Topic | Body |
 |---|---|
 | `attention.grant` | `job` (session_read, swarm_run, synthesis_deep, x_lookup), `subject`, `voi`, `cost_est`, `budget_left` |
-| `intent.created` | `strategy_id`, `mint`, `side` (buy, sell), `size_sol` (buys) or `fraction` (tokens to sell), `reason[]` (score vs threshold, edge vs cost floor, or the exit rule), `score`, `board` (the score terms, edge and cost in bps, callout id) |
+| `intent.created` | `strategy_id`, `mint`, `side` (buy, sell), `size_sol` (buys) or `fraction` (share of the tokens still held, 0 to 1, so the live leg can apply it to its own balance), `reason[]` (score vs threshold, edge vs cost floor, or the exit rule), `score`, `board` (the score terms, edge and cost in bps, callout id) |
 | `intent.ghost_filled` | `intent_id`, `strategy_id`, `mint`, `side`, `sol` (spent on buys incl. priority fee, received on sells), `tokens`, `price_sol` (average), `fee_sol` (pump fee + priority fee), `rent_sol` (token account, buys), `slippage_bps` |
 | `position.closed` | `position_id`, `strategy_id`, `mint`, `cost_sol` (incl. rent), `proceeds_sol`, `rent_refund_sol`, `net_sol`, `held_ms`, `exit_reason` |
 | `order.created` | `order_id` (subject), `intent_id`, `strategy_id`, `mint`, `side`, `size_sol` (buys) or `fraction` (sells), `max_slippage_bps`, `limits_version`. Written only by the live gate (`hands/order-gate.ts`), after the Risk Gate said yes. |

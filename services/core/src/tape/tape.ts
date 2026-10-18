@@ -1,6 +1,6 @@
 // The Tape: append-only typed events (docs/03). Writer batches inserts; consumers resume from offsets.
 import crypto from "node:crypto";
-import { SCHEMA_VERSION, TOPICS, type BodyOf, type Envelope, type Topic } from "@asimog/contracts";
+import { SCHEMA_VERSION, TOPICS, type BodyOf, type Envelope, type Source, type Topic } from "@asimog/contracts";
 import type { Clock } from "../lib/clock.ts";
 import type { Sql } from "../lib/db.ts";
 import type { Tx } from "./consumer.ts";
@@ -8,7 +8,7 @@ import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 
 export interface EmitOpts {
-  source: string;
+  source: Source;
   subject?: string | null;
   causes?: string[];
   eventTime?: string;

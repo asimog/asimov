@@ -1,6 +1,6 @@
 # 03 · System model
 
-This doc defines how Asimog is shaped so that an agent (human or LLM) can understand the whole system from a few commands and change one part without breaking the others. Read it before writing any code.
+This doc defines how Asimog is shaped so that an agent (human or LLM) can understand the whole system from a few commands and change one part without breaking the others. Read it before writing any code. docs/25 names the nouns, their lifecycles and the rules that must hold, with a status word on each; where this doc states a target the code does not meet yet, it says so.
 
 ## The design question
 
@@ -62,7 +62,7 @@ IDs are ULIDs with the prefix (`sg_01JA...`). Sortable by time, and the prefix t
 
 ## The Tape
 
-- A single Postgres table `events`, append-only. No `UPDATE`, no `DELETE`. A database role without those rights writes it.
+- A single Postgres table `events`, append-only. No `UPDATE`, no `DELETE`. Today this is a rule every writer follows; no role or trigger enforces it yet (docs/25 I1).
 - Every event has `event_time` (when it happened in the world) and `seen_time` (when Asimog learned it). Replays order by `seen_time`. Analyzers must never read an event whose `seen_time` is after the clock's `now`.
 - Every event has a `topic` (for example `callout.created`, `trade.curve`, `session.read`, `order.filled`) and a JSON `body` that matches a zod schema in `packages/contracts` (validated on write).
 - Consumers keep their own offset `(seen_time, id)` in `tape.consumer_offsets`. `NOTIFY tape` wakes them; a poll is the safety net. The handler and the offset update share one transaction, so a crash never applies a batch twice. A consumer that restarts resumes from its offset.
@@ -77,7 +77,7 @@ IDs are ULIDs with the prefix (`sg_01JA...`). Sortable by time, and the prefix t
 - A table `signals` (append-only history) plus a view `board` with the latest live signal per `(kind, subject)`.
 - A signal has `kind` (for example `hawkes.branching`, `regime.state`, `echo.score`, `swarm.wave_p`), `subject` (an ID such as `cn_...` or `cl_...`), `value` (number or small JSON), `confidence` 0..1, `produced_at`, `valid_until`, `inputs` (event and signal IDs), and `analyzer@version`.
 - **A signal past `valid_until` is absent.** Decisions treat absent as unknown and must still work. This is what makes the beats simultaneous: nothing waits for a slow analyzer. When MiroShark finishes in 4 minutes, its signal appears on the Board and the next Strategy Pool tick uses it.
-- The Board keeps an in-memory mirror in the `core` process, updated from the `signals.created` notification.
+- Every Board read is a SQL query on `board.signals` (`board/board.ts`). There is no in-memory mirror.
 
 ## Analyzers
 
@@ -131,13 +131,13 @@ In v1 the estimate is simple and explicit (see `07-intelligence.md`): coins in S
 
 - **Strategy Pool:** a population of strategies. Every Strategy Pool tick (each new Board change for a coin, plus every 5 s) each strategy evaluates its rules and may emit an Intent. Every intent is ghost-traded (paper) for scoring, whether it gets capital or not.
 - **Allocator:** decides which intents get real capital. Thompson sampling over each strategy's posterior of net return per trade.
-- **Risk Gate:** pure function `(intent, portfolio, limits, board) → order | rejection(reason)`. No network, no LLM. Every rejection is an event with a reason code.
+- **Risk Gate:** pure function `(intent, book, limits, quote, flags) → ok | rejection(reason)` (`mind/risk.ts`). No network, no LLM. Every rejection is an event with a reason code. The limits come from `mind.limits`, which nothing writes yet, so the defaults in code are the live set until the admin path exists (docs/25 I5).
 
 Details: `08-mind-strategy-evolution.md`.
 
 ## Hands
 
-Hands consume orders and posts, act on the world, and write Effects as events. They are the only parts that touch money or speak in public. Each hand is idempotent by order id. A restart never double-buys or double-posts.
+Hands consume orders and posts, act on the world, and write Effects as events. They are the only parts that touch money or speak in public. Each hand must be idempotent by order id, so a restart never double-buys or double-posts. Today the Trader can send twice after a confirm timeout, and the live side follows paper intents rather than paper positions; docs/25 sections 5.2 and 5.3 give the target and the gaps.
 
 ## Clock and modes
 

@@ -28,6 +28,7 @@ const KINDS: Record<string, { kind?: string; subject: (b: Record<string, unknown
 export function slowSignals(clock: Clock): Consumer {
   return {
     name: "analyzers.slow",
+    projection: true,
     topics: Object.keys(KINDS),
     async handle(events: Envelope[], tx: Tx) {
       for (const e of events) {

@@ -2,7 +2,7 @@
 // Polite by default: one request in flight per host, backoff on 429/5xx, schema-checked by callers.
 import { log } from "../lib/log.ts";
 
-const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0 Safari/537.36";
+const UA = "asimog/0.1 (+https://github.com/asimog/asimov)"; // AGENTS.md Platform: we say who we are
 const BASE = "https://frontend-api-v3.pump.fun";
 
 let chain: Promise<unknown> = Promise.resolve();
@@ -14,7 +14,7 @@ export async function pumpGet<T>(path: string, params: Record<string, string | n
   const run = async () => {
     if (backoffMs) await new Promise((r) => setTimeout(r, backoffMs));
     const res = await fetch(url, {
-      headers: { "User-Agent": UA, Origin: "https://pump.fun", Referer: "https://pump.fun/", Accept: "application/json" },
+      headers: { "User-Agent": UA, Accept: "application/json" },
       signal: AbortSignal.timeout(15_000),
     });
     const raw = await res.text();

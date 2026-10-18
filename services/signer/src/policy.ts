@@ -32,7 +32,7 @@ const no = (reason: string, detail?: string): Verdict => ({ ok: false, reason, d
 
 export type Wallets = { trade?: string; creator?: string; agent?: string; operator?: string };
 export type Rules = { feeRecipients: string[]; maxPriorityLamports: number; maxOrderLamports: number; coinMint?: string };
-export type Ctx = { max_lamports?: number; order_id?: string; total_lamports?: number; agent_room_lamports?: number; mint?: string };
+export type Ctx = { killed?: boolean; max_lamports?: number; order_id?: string; total_lamports?: number; agent_room_lamports?: number; mint?: string };
 
 export function parse(b64: string): VersionedTransaction | null {
   try {
@@ -104,6 +104,7 @@ export function checkSwap(tx: VersionedTransaction, w: Wallets, ctx: Ctx, rules:
   const allowed = [PROGRAMS.pump, PROGRAMS.amm, PROGRAMS.fees, PROGRAMS.budget, PROGRAMS.ata, PROGRAMS.system, PROGRAMS.token, PROGRAMS.token22, PROGRAMS.memo];
   const dests = new Set([w.trade, ata(w.trade, NATIVE_MINT), ...rules.feeRecipients]);
   let spend = 0;
+  let buys = 0;
   let memo = false;
   const v = walk(tx, w.trade, allowed, rules, (ix) => {
     if (ix.program === PROGRAMS.system) {
@@ -121,11 +122,13 @@ export function checkSwap(tx: VersionedTransaction, w: Wallets, ctx: Ctx, rules:
       const t = ix.program === PROGRAMS.pump ? T.pump : ix.program === PROGRAMS.amm ? T.amm : T.fees;
       const n = named(ix, t);
       if (isVerdict(n)) return n;
+      if (n.name.startsWith("buy")) buys++;
       if (n.off != null) spend += Number(ix.data.readBigUInt64LE(n.off));
     }
     return null;
   });
   if (!v.ok) return v;
+  if (ctx.killed && buys > 0) return no("kill_switch", "the kill switch allows exits only");
   if (spend > cap) return no("over_cap", `${spend} lamports over ${cap}`);
   if (ctx.order_id && !memo) return no("memo_missing", "order memo is required");
   return { ok: true, detail: { spend_lamports: spend } };

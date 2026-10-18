@@ -1,7 +1,8 @@
 // The core's tools for thinking agents (docs/18). Each tool names the capabilities that may call it; a token maps to
 // exactly one capability. This file is the only door thinking agents have: reads of the Tape, Board and mind tables,
 // and writes of proposal, synthesis, swarm and report events. Nothing here trades, signs, posts or changes limits.
-import { canonical, SwarmPlatform } from "@asimog/contracts";
+import crypto from "node:crypto";
+import { canonical, type Source, SwarmPlatform } from "@asimog/contracts";
 import { z } from "zod";
 import { liveFor } from "../board/board.ts";
 import { checkProse } from "../hands/text-checks.ts";
@@ -28,13 +29,13 @@ export const CAP = {
 export const ALL_CAPS: string[] = Object.values(CAP);
 
 /** Who a capability's writes are recorded as on the Tape. */
-const SOURCE: Record<string, string> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul", [CAP.exchange]: "slow-bridge", [CAP.swarmRead]: "miroshark" };
+const SOURCE: Record<string, Source> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul", [CAP.exchange]: "slow-bridge", [CAP.swarmRead]: "miroshark" };
 /** Topic prefixes and signal kinds a capability may read through `events_since` and `board_signals`. */
 const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["attention.grant", "jev.escalated"] };
 const READ_KINDS: Record<string, string[]> = { [CAP.integrity]: ["integrity.finding"], [CAP.report]: ["synthesis.", "mood.", "swarm."] };
 
 /** Sources written by thinking lanes and core on their behalf. */
-const LANE_SOURCES = ["agents", "bettafish", "miroshark", "soul", "slow-bridge"];
+const LANE_SOURCES: Source[] = ["agents", "bettafish", "miroshark", "soul", "slow-bridge"];
 
 export class Refusal extends Error {
   constructor(readonly code: string, message: string) {
@@ -394,7 +395,11 @@ export class Toolbox {
   constructor(readonly ctx: Omit<ToolCtx, "cap">, readonly tokens: Map<string, string>) {}
 
   capOf(token: string | null | undefined): string | null {
-    return token ? (this.tokens.get(token) ?? null) : null;
+    if (!token) return null;
+    const digest = (x: string) => crypto.createHash("sha256").update(x).digest();
+    const want = digest(token);
+    for (const [t, cap] of this.tokens) if (crypto.timingSafeEqual(digest(t), want)) return cap;
+    return null;
   }
 
   list(cap: string): Tool[] {

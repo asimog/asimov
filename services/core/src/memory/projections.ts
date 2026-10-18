@@ -137,6 +137,7 @@ async function onWatched(tx: Tx, e: Envelope<BodyOf<"coin.watched">>) {
 
 export const memory: Consumer = {
   name: "memory",
+  projection: true,
   topics: ["coin.seen", "coin.watched", "callout.created", "callout.updated", "callout.reply", "callout.counts", "trade.curve", "trade.amm"],
   batch: 1000,
   async handle(events, tx) {

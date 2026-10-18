@@ -30,3 +30,13 @@ uxinsipirevideos/
 # asimog: local Python envs for the vendored engines
 .venv-asimog/
 *.tsbuildinfo
+
+# Audits and fix plans: they name attack paths in unfixed code, and the repo is public
+docs/audits/
+
+# Local tool state and OS files
+.claude/settings.local.json
+*.log
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -243,7 +243,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=int(os.getenv("BETTAFISH_PORT", "7410")))
+    ap.add_argument("--port", type=int, default=int(os.getenv("BETTAFISH_PORT", "7412")))
     ap.add_argument("--host", default=os.getenv("BETTAFISH_HOST", "127.0.0.1"))
     a = ap.parse_args()
     check_env()

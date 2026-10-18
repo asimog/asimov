@@ -57,10 +57,11 @@ export type GateResult = { ok: true } | { ok: false; reason_code: string; detail
 const no = (reason_code: string, detail: string): GateResult => ({ ok: false, reason_code, detail });
 
 export function riskGate(i: GateIntent, book: Book, L: Limits, q: GateQuote | null, f: GateFlags, now_ms: number): GateResult {
-  if (f.kill) return no("kill_switch", "kill switch is on");
   if (!f.mode_ok) return no("mode_not_live", "mode does not allow this order");
   if (i.duplicate) return no("duplicate_intent", "an intent for this coin is already pending");
-  if (i.side === "sell") return { ok: true }; // exits reduce risk; only the switches above stop them
+  if (i.side === "sell") return { ok: true }; // exits reduce risk, so the kill switch never strands a position
+  if (f.kill) return no("kill_switch", "kill switch is on");
+  if (!(i.size_sol > 0)) return no("order_cap", `buy size ${i.size_sol} SOL is not positive`);
   if (!f.strategy_live) return no("strategy_not_live", "strategy has no capital");
   if (L.own_mints.includes(i.mint)) return no("own_coin", "never trade our own coin");
   if (L.blocklist.includes(i.mint)) return no("blocklisted", "coin is on the blocklist");

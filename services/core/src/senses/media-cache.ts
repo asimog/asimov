@@ -45,13 +45,13 @@ export class MediaCache {
       return void this.stats.skipped++;
     }
     if (!HOSTS().includes(host)) return void this.stats.skipped++;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) }).catch(() => null);
+    const res = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(15_000) }) /* a redirect could leave the host allowlist */.catch(() => null);
     const type = res?.headers.get("content-type") ?? "";
     if (!res?.ok || !type.startsWith("image/")) return void this.stats.skipped++;
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length > env.int("MEDIA_MAX_BYTES", 2_000_000)) return void this.stats.skipped++;
     const blob = await putBlob(this.sql, "media", url, buf);
-    this.tape.emit("media.cached", { media_id: mediaId, kind: kind as "callout" | "coin", mint, callout_id: calloutId, url, sha256: blob.sha256, bytes: blob.bytes, mime: type }, { source: "feed", subject: mediaId, dedupe: `media:${mediaId}` });
+    this.tape.emit("media.cached", { media_id: mediaId, kind: kind as "callout" | "coin", mint, callout_id: calloutId, url, sha256: blob.sha256, bytes: blob.bytes, mime: type }, { source: "feedreader", subject: mediaId, dedupe: `media:${mediaId}` });
     this.stats.cached++;
   }
 }

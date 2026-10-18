@@ -19,6 +19,13 @@ function dotenv(): Record<string, string> {
   return { ...out, ...(process.env as Record<string, string>) };
 }
 const E = dotenv();
+function num(name: string, fallback: number): number {
+  const v = E[name];
+  if (v === undefined || v.trim() === "") return fallback;
+  const n = Number(v);
+  if (!Number.isFinite(n)) throw new Error(`env ${name} must be a number, got ${v}`);
+  return n;
+}
 const load = (name: string) => (E[name] ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(E[name]!, "utf8")) as number[])) : undefined);
 
 const tokens = Object.fromEntries((E.SIGNER_TOKENS ?? "").split(",").filter(Boolean).map((s) => [s.slice(0, s.indexOf("=")), s.slice(s.indexOf("=") + 1)]));
@@ -27,13 +34,13 @@ const signer = new Signer({
   tokens,
   rules: {
     feeRecipients: (E.SIGNER_FEE_RECIPIENTS ?? "").split(",").filter(Boolean),
-    maxPriorityLamports: Number(E.SIGNER_MAX_PRIORITY_LAMPORTS ?? 200_000),
-    maxOrderLamports: Math.round(Number(E.SIGNER_MAX_ORDER_SOL ?? 0.05) * 1e9),
+    maxPriorityLamports: num("SIGNER_MAX_PRIORITY_LAMPORTS", 200_000),
+    maxOrderLamports: Math.round(num("SIGNER_MAX_ORDER_SOL", 0.05) * 1e9),
     coinMint: E.COIN_MINT,
   },
   auditFile: path.join(root, "artifacts", "signer-audit.jsonl"),
   killFile: path.join(root, "artifacts", "KILL"),
-  ratePerMin: Number(E.SIGNER_RATE_PER_MIN ?? 30),
+  ratePerMin: num("SIGNER_RATE_PER_MIN", 30),
 });
-listen(signer, E.SIGNER_HOST ?? "127.0.0.1", Number(E.SIGNER_PORT ?? 7410));
+listen(signer, E.SIGNER_HOST ?? "127.0.0.1", num("SIGNER_PORT", 7410));
 console.log(JSON.stringify({ signer: "up", wallets: signer.wallets, capabilities: Object.keys(tokens) }));

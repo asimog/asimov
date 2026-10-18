@@ -26,10 +26,10 @@ Requires [uv](https://docs.astral.sh/uv/getting-started/installation/) (handles 
 
 ```bash
 # From GitHub (recommended)
-uv tool install git+https://github.com/chainstacklabs/pumpfun-cli.git
+uv tool install git+https://github.com/chainstacklabs/pumpfun-cli.git@0feac766c7176d045b6d906e26f78583047c98e0
 
 # Upgrade
-uv tool install --force git+https://github.com/chainstacklabs/pumpfun-cli.git
+uv tool install --force git+https://github.com/chainstacklabs/pumpfun-cli.git@<new commit, after review>
 ```
 
 This installs `pumpfun` globally — available from any directory.

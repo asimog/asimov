@@ -66,13 +66,13 @@ Never print secrets. Never commit `.env`. Never put a secret in a prompt.
 | Command | Effect | Who |
 |---|---|---|
 | `ctl pause hands` | Trader and Publisher stop taking new work; open orders finish | Owner, Ops agent |
-| `ctl kill` | Cancel pending orders, stop all hands, keep senses and the Tape recording | Owner, Ops agent |
+| `ctl kill` | Cancel pending buys, stop new buys, keep exits open so no position is stranded, keep senses and the Tape recording | Owner, Ops agent |
 | `ctl resume` | After kill | Owner (admin token) |
 | Limits or budget caps change | New version in config | Owner (admin token) |
 
 Automatic kill triggers: daily loss stop hit, Signer refuses 3 requests in 10 min, fill-model drift above 3× for an hour, Feed Reader gap longer than 5 min while positions are open, a failed reconciliation.
 
-**Built (S6.7), `treasury/kill.ts`.** One state: `ops.kill`, written only by the projection of `kill.changed` events. `ctl kill [reason]` emits `kill.changed {on: true, by: owner}` and also writes `artifacts/KILL` (the Signer reads that file). `ctl resume` needs `ADMIN_TOKEN` and removes it. The kill watcher is a consumer: it reads `order.rejected`, `books.reconciled`, `system.gap`, `order.failed`, `signer.refused` and `ledger.entry` and trips the kill for the listed causes, each with its threshold from env (`KILL_SIGNER_REFUSALS=3`, `KILL_REFUSAL_WINDOW_MIN=10`, `KILL_FEED_GAP_MIN=5`). When on: the live gate rejects every order (`kill_switch`), the Trader fails pending orders as `order.failed` (`killed`, not retryable), senses keep recording.
+**Built (S6.7), `treasury/kill.ts`.** One state: `ops.kill`, written only by the projection of `kill.changed` events. `ctl kill [reason]` emits `kill.changed {on: true, by: owner}` and also writes `artifacts/KILL` (the Signer reads that file). `ctl resume` needs `ADMIN_TOKEN` and removes it. The kill watcher is a consumer: it reads `order.rejected`, `books.reconciled`, `system.gap`, `order.failed`, `signer.refused` and `ledger.entry` and trips the kill for the listed causes (a `daily_loss_stop` counts only from the live gate, source `riskgate.live`; paper desk rejections are `riskgate.paper` and never trip it), each with its threshold from env (`KILL_SIGNER_REFUSALS=3`, `KILL_REFUSAL_WINDOW_MIN=10`, `KILL_FEED_GAP_MIN=5`). When on: the live gate rejects every buy (`kill_switch`) and lets sells through, the Trader fails pending buys as `order.failed` (`killed`, not retryable) and still runs sells, senses keep recording. Env numbers that do not parse stop boot with a named error, so a typo can never turn a trigger off.
 
 Send endpoint: `TX_SEND_URL` is the one endpoint used to send and confirm (the Gatekeeper or the FluxRPC Shield URL from `.env.local`). `FUN_BLOCK_URL` defaults to `https://fun-block.pump.fun`. Treasury: `WALLET_TRADE`, `WALLET_CREATOR`, `WALLET_AGENT`, `WALLET_OPERATOR` (public keys), `COIN_MINT`. Signer client tokens (core side): `SIGNER_CLIENT_TOKEN_SWAP`, `SIGNER_CLIENT_TOKEN_TREASURY`. Live gate: `LIVE_STRATEGIES` (comma list of strategy ids), `ASIMOG_MODE=live`.
 
@@ -124,6 +124,7 @@ Free-tier limits we stick to (read from each provider's docs on 2026-10-17; edit
 - `RPC_DENY_<NAME>` lists methods a plan refuses; the pool never sends them there. If no endpoint may serve a method, the call fails at once with a clear error.
 - When every endpoint is resting, the request waits for the soonest one, at most `RPC_MAX_TRIES` (default 6) attempts in all.
 - Methods that begin with `send` are refused by the pool. Money paths (S6 Trader) send through one chosen endpoint, never sprayed across providers.
+- The slow-workers container reads strangers' text, so `docker-compose.yml` gives it `.env.example` plus a named list of the secrets it needs (`LLM_KEY_SYNTH`, `LLM_KEY_SWARM`, `EMBEDDING_API_KEY`, `TAVILY_API_KEY`, `SWARM_CORE_TOKEN`, `NEO4J_PASSWORD`), never the whole `.env.local`. A new worker secret gets a line there. The Signer refuses to start if its port (7410) is taken; BettaFish uses 7412, MiroShark 7411.
 - Endpoint URLs carry API keys. They live only in `.env.local`. Logs and `ctl doctor` print endpoint names, never URLs. `ctl doctor` shows `getSlot` and budget used per endpoint.
 - Websockets: `RPC_WS_URL` stays Helius. RPC Fast allows 1 concurrent subscription, Helius 5 connections. Other providers' `*_WSS` values are saved for later and unused.
 - The Helius Gatekeeper URL (`HELIUS_GATEKEEPER_URL`) and FluxRPC Shield URL are saved but not in the pool: they share the plan of the same account and are meant for transaction sending (S6).
@@ -139,6 +140,3 @@ Ways the pool fails (written before its code; each has a test in `tests/e2e/suit
 7. A `send*` method goes through the pool: it must be refused.
 8. An error message or log echoes a URL with its key: it must not.
 
-## RugCheck (`lib/rugcheck.ts`)
-
-`GET {RUGCHECK_URL host}/v1/tokens/{mint}/report/summary` with `X-API-KEY`; rate limits are not documented, so `RUGCHECK_RPS` (default 2) is our own cap and a 429 rests the client like an RPC endpoint. Reports are untrusted data: they feed the Index's risk features, never an order. The Shield key is saved for later.

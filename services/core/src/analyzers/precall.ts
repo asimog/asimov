@@ -144,6 +144,7 @@ export function precallAnalyzers(clock: Clock): Consumer {
 
   return {
     name: "analyzers.precall",
+    projection: true,
     topics: TRADES,
     batch: 500,
     async handle(events, tx) {

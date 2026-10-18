@@ -57,9 +57,8 @@ export class Signer {
   private capOf(endpoint: string, token: string | null): string | null {
     if (!token) return null;
     for (const [cap, secret] of Object.entries(this.o.tokens)) {
-      const a = Buffer.from(secret);
-      const b = Buffer.from(token);
-      if (a.length === b.length && crypto.timingSafeEqual(a, b) && CAPS[cap]?.includes(endpoint as Endpoint)) return cap;
+      const digest = (x: string) => crypto.createHash("sha256").update(x).digest(); // equal lengths: the compare leaks nothing about the token
+      if (crypto.timingSafeEqual(digest(secret), digest(token)) && CAPS[cap]?.includes(endpoint as Endpoint)) return cap;
     }
     return null;
   }
@@ -82,12 +81,11 @@ export class Signer {
     const cap = this.capOf(endpoint, token);
     if (!cap) return refuse(401, "bad_capability");
     if (endpoint === "/sign/login" || endpoint === "/sign/bounty" || endpoint === "/sign/x402") return refuse(501, "endpoint_not_enabled", "arrives with S8 and S9", cap);
-    if (endpoint === "/sign/swap" && fs.existsSync(this.o.killFile)) return refuse(403, "kill_switch", undefined, cap);
     if (!body || typeof body.tx !== "string") return refuse(400, "bad_request", "tx missing", cap);
     const tx = parse(body.tx);
     if (!tx) return refuse(400, "bad_transaction", "cannot read transaction", cap);
     const sha = crypto.createHash("sha256").update(body.tx).digest("hex");
-    const ctx = body.ctx ?? {};
+    const ctx = { ...(body.ctx ?? {}), killed: fs.existsSync(this.o.killFile) }; // never trusted from the caller
     const { rules, keys, wallets } = { rules: this.o.rules, keys: this.o.keys, wallets: this.wallets };
     let v: Verdict;
     let key: Keypair | undefined;

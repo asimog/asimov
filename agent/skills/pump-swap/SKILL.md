@@ -5,6 +5,7 @@ description: >
   query SOL/token balances. Prefer runnable Node scripts in this skill folder;
   use @pump-fun/pump-sdk and @pump-fun/pump-swap-sdk for custom integrations.
 metadata:
+  dev-only: "true" # thinking agents never trade or sign (AGENTS.md); for owner tooling only
   author: pump-fun
   version: "1.0"
 ---

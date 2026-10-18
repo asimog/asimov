@@ -98,10 +98,8 @@ Money tables for payouts and seats (`profit_hours`, `holder_samples`, `distribut
 
 | Table | Columns |
 |---|---|
-| `budgets` | analyzer, hour, units, cap, spent |
 | `browser_sessions` | session, session_id, state, url, task, started_at, last_frame_at |
 | `scores` | target, metric, window, value, at |
-| `admin_actions` | id, action, by, at, detail | Every human override. |
 | `soul_versions` | version, sha256, prev_sha256, chain_sha256, body, reason, by, at | Every `SOUL.md` version. `chain_sha256 = sha256(prev chain + sha256(body))`; version 0 is the genesis file. Written only by `soul.update` in core. |
 
 ## agents (own schema, own role)

@@ -29,5 +29,10 @@ export function app(signer: Signer) {
 
 export function listen(signer: Signer, host: string, port: number) {
   if (!isPrivateHost(host)) throw new Error(`signer refuses to bind ${host}: private addresses only`);
-  return serve({ fetch: app(signer).fetch, hostname: host, port });
+  const server = serve({ fetch: app(signer).fetch, hostname: host, port });
+  server.on("error", (err) => {
+    console.error(JSON.stringify({ signer: "refused to start", host, port, error: String(err) })); // a taken port could mean core talks to another process
+    process.exit(1);
+  });
+  return server;
 }

@@ -43,15 +43,15 @@ export const suite: Suite = {
         clock.advance!(t0 + min * 60_000);
         return new Date(t0 + min * 60_000).toISOString();
       };
-      for (let i = 0; i < 5; i++) tape.emit("callout.created", callout(`c_hit${i}`, MINT_HIT, `W${i}`, at(10 + i)), { source: "feed", subject: MINT_HIT });
-      for (let i = 0; i < 3; i++) tape.emit("callout.created", callout(`c_miss${i}`, MINT_MISS, `W${i}`, at(20 + i)), { source: "feed", subject: MINT_MISS });
+      for (let i = 0; i < 5; i++) tape.emit("callout.created", callout(`c_hit${i}`, MINT_HIT, `W${i}`, at(10 + i)), { source: "feedreader", subject: MINT_HIT });
+      for (let i = 0; i < 3; i++) tape.emit("callout.created", callout(`c_miss${i}`, MINT_MISS, `W${i}`, at(20 + i)), { source: "feedreader", subject: MINT_MISS });
       for (const m of [MINT_HIT, MINT_MISS]) tape.emit("trade.curve", trade(m, 2e-8, at(50), `t50${m}`), { source: "nats", subject: m }); // both coins rose
-      tape.emit("callout.created", callout("c_mid", MINT_MISS, "W9", at(60)), { source: "feed", subject: MINT_MISS });
+      tape.emit("callout.created", callout("c_mid", MINT_MISS, "W9", at(60)), { source: "feedreader", subject: MINT_MISS });
       await tape.flush();
       while (await step(db.sql, sk)) { /* drain */ }
       const [early] = await db.sql`select count(*)::int n from mind.scores where kind = 'swarm.wave_p'`;
       add("nothing is scored before the horizon passes", early!.n === 0, `${early!.n} rows at 60 min`);
-      tape.emit("callout.created", callout("c_late", MINT_MISS, "W8", at(125)), { source: "feed", subject: MINT_MISS });
+      tape.emit("callout.created", callout("c_late", MINT_MISS, "W8", at(125)), { source: "feedreader", subject: MINT_MISS });
       await tape.flush();
       while (await step(db.sql, sk)) { /* drain */ }
       const [s] = await db.sql`select n, hits, brier_sum, p_sum from mind.scores where kind = 'swarm.wave_p'`;

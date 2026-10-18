@@ -156,22 +156,34 @@ export class Rollup {
 
   /** Write the minute's changes; forget coins idle for INDEX_COIN_IDLE_MIN. */
   async flush(sql: Sql, now: number) {
-    const rows = [...this.wc.entries()].map(([k, w]) => {
+    const batch = this.wc;
+    this.wc = new Map(); // trades keep arriving while we write
+    try {
+      await this.write(sql, batch, now);
+    } catch (err) {
+      for (const [k, w] of batch) this.wc.set(k, merge(w, this.wc.get(k))); // keep the minute for the next flush
+      throw err;
+    }
+  }
+
+  private async write(sql: Sql, batch: Map<string, WC>, now: number) {
+    const rows = [...batch.entries()].map(([k, w]) => {
       const [wallet, mint] = k.split("|") as [string, string];
       const iso = (x: number | null) => (x === null ? null : new Date(x).toISOString());
       return { wallet, mint, ...w, first_buy_at: iso(w.first_buy_at), first_sell_at: iso(w.first_sell_at), last_at: iso(w.last_at)! };
     });
-    this.wc.clear();
-    for (let i = 0; i < rows.length; i += 2000) {
-      const chunk = rows.slice(i, i + 2000);
-      await sql`insert into idx.wallet_coin ${sql(chunk as never, "wallet", "mint", "buys", "sells", "sol_in", "sol_out", "tok_in", "tok_out", "first_buy_at", "first_buy_price", "copy_price", "first_sell_at", "early_slot", "last_at")}
-        on conflict (wallet, mint) do update set buys = idx.wallet_coin.buys + excluded.buys, sells = idx.wallet_coin.sells + excluded.sells,
-          sol_in = idx.wallet_coin.sol_in + excluded.sol_in, sol_out = idx.wallet_coin.sol_out + excluded.sol_out,
-          tok_in = idx.wallet_coin.tok_in + excluded.tok_in, tok_out = idx.wallet_coin.tok_out + excluded.tok_out,
-          first_buy_at = coalesce(idx.wallet_coin.first_buy_at, excluded.first_buy_at), first_buy_price = coalesce(idx.wallet_coin.first_buy_price, excluded.first_buy_price),
-          copy_price = coalesce(idx.wallet_coin.copy_price, excluded.copy_price), first_sell_at = coalesce(idx.wallet_coin.first_sell_at, excluded.first_sell_at),
-          early_slot = idx.wallet_coin.early_slot or excluded.early_slot, last_at = greatest(idx.wallet_coin.last_at, excluded.last_at)`;
-    }
+    await sql.begin(async (tx) => { // the upsert adds deltas: all chunks land or none, so a retry never double counts
+      for (let i = 0; i < rows.length; i += 2000) {
+        const chunk = rows.slice(i, i + 2000);
+        await tx`insert into idx.wallet_coin ${tx(chunk as never, "wallet", "mint", "buys", "sells", "sol_in", "sol_out", "tok_in", "tok_out", "first_buy_at", "first_buy_price", "copy_price", "first_sell_at", "early_slot", "last_at")}
+          on conflict (wallet, mint) do update set buys = idx.wallet_coin.buys + excluded.buys, sells = idx.wallet_coin.sells + excluded.sells,
+            sol_in = idx.wallet_coin.sol_in + excluded.sol_in, sol_out = idx.wallet_coin.sol_out + excluded.sol_out,
+            tok_in = idx.wallet_coin.tok_in + excluded.tok_in, tok_out = idx.wallet_coin.tok_out + excluded.tok_out,
+            first_buy_at = coalesce(idx.wallet_coin.first_buy_at, excluded.first_buy_at), first_buy_price = coalesce(idx.wallet_coin.first_buy_price, excluded.first_buy_price),
+            copy_price = coalesce(idx.wallet_coin.copy_price, excluded.copy_price), first_sell_at = coalesce(idx.wallet_coin.first_sell_at, excluded.first_sell_at),
+            early_slot = idx.wallet_coin.early_slot or excluded.early_slot, last_at = greatest(idx.wallet_coin.last_at, excluded.last_at)`;
+      }
+    });
     const coins = [...this.coins.entries()].filter(([, c]) => c.last_at > now - 61_000).map(([mint, c]) => ({
       mint, first_seen_at: new Date(c.first_seen_at).toISOString(), first_slot: c.first_slot, creator: c.creator, curve_account: c.curve_account,
       last_price: c.last_price, peak_price: c.peak_price, last_at: new Date(c.last_at).toISOString(), trades: c.trades, bundle_buys: c.bundle_buys, bundle_sol: c.bundle_sol,
@@ -185,4 +197,16 @@ export class Rollup {
     for (const [mint, c] of this.coins) if (c.last_at < now - P.idleMs) this.coins.delete(mint);
     this.stats = { ...this.stats, coins: this.coins.size, wallets: this.known.size, flushed: this.stats.flushed + rows.length };
   }
+}
+
+function merge(a: WC, b: WC | undefined): WC {
+  if (!b) return a;
+  const first = (x: number | null, y: number | null) => (x === null ? y : y === null ? x : Math.min(x, y));
+  const buyFirst = a.first_buy_at !== null && (b.first_buy_at === null || a.first_buy_at <= b.first_buy_at);
+  return {
+    buys: a.buys + b.buys, sells: a.sells + b.sells, sol_in: a.sol_in + b.sol_in, sol_out: a.sol_out + b.sol_out, tok_in: a.tok_in + b.tok_in, tok_out: a.tok_out + b.tok_out,
+    first_buy_at: first(a.first_buy_at, b.first_buy_at), first_buy_price: buyFirst ? a.first_buy_price : (b.first_buy_price ?? a.first_buy_price),
+    copy_price: buyFirst ? (a.copy_price ?? b.copy_price) : (b.copy_price ?? a.copy_price), first_sell_at: first(a.first_sell_at, b.first_sell_at),
+    early_slot: a.early_slot || b.early_slot, last_at: Math.max(a.last_at, b.last_at),
+  };
 }

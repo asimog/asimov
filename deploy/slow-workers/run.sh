@@ -3,6 +3,6 @@
 set -u
 export PYTHONUTF8=1
 run() { while true; do "$@"; echo "exited ($?), restarting in 5 s: $*"; sleep 5; done; }
-cd /srv/bettafish && run /venv/bettafish/bin/python asimog_worker.py --host 0.0.0.0 --port 7410 &
+cd /srv/bettafish && run /venv/bettafish/bin/python asimog_worker.py --host 0.0.0.0 --port 7412 &
 cd /srv/miroshark/backend && run /venv/miroshark/bin/python asimog_worker.py --host 0.0.0.0 --port 7411 &
 wait
