@@ -1,7 +1,7 @@
 // The core's tools for thinking agents (docs/18). Each tool names the capabilities that may call it; a token maps to
 // exactly one capability. This file is the only door thinking agents have: reads of the Tape, Board and mind tables,
 // and writes of proposal, synthesis, swarm and report events. Nothing here trades, signs, posts or changes limits.
-import { canonical } from "@asimog/contracts";
+import { canonical, SwarmPlatform } from "@asimog/contracts";
 import { z } from "zod";
 import { liveFor } from "../board/board.ts";
 import { checkProse } from "../hands/text-checks.ts";
@@ -261,7 +261,7 @@ export const TOOLS: Tool[] = [
   tool("emit_swarm_result", [CAP.swarm], "Write a swarm run: wave probability, impact and the simulated posts.", {
     swarm_id: z.string(), mint: z.string(), preset: z.string(), samples: z.number().int().min(1), usd: z.number().min(0), truncated: z.boolean(),
     wave_p: z.number().min(0).max(1), d_callers: z.number(), d_net_sol: z.number(),
-    posts: z.array(z.object({ branch: z.enum(["A", "B"]), platform: z.enum(["pumpfun", "twitter"]).default("pumpfun"), round: z.number().int(), agent: z.string().max(60), archetype: z.string().max(40), text: z.string().max(280) })).max(400),
+    posts: z.array(z.object({ branch: z.enum(["A", "B"]), platform: SwarmPlatform, round: z.number().int(), agent: z.string().max(60), archetype: z.string().max(40), text: z.string().max(280) })).max(400),
   }, async (a, c) => {
     const subject = a.mint;
     c.tape.emit("swarm.wave_p", { swarm_id: a.swarm_id, mint: a.mint, wave_p: a.wave_p, samples: a.samples, preset: a.preset, usd: a.usd, truncated: a.truncated }, { source: source(c), subject, dedupe: `swarm.wave_p:${a.swarm_id}` });

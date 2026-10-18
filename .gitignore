@@ -29,3 +29,4 @@ uxinsipirevideos/
 
 # asimog: local Python envs for the vendored engines
 .venv-asimog/
+*.tsbuildinfo

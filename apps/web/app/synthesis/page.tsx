@@ -8,7 +8,7 @@ import { fmt, useRoom } from "@/lib/live";
 
 type Claim = { text: string; cites: string[] };
 type Scores = {
-  stance: { n: number; accuracy: number | null; up_rate: number | null; horizon_min: number } | null;
+  stance: { n: number; brier: number; decisive: number; accuracy: number | null; horizon_min: number } | null;
   claims: { producer: string; reports: number; kept: number; dropped: number; survival: number | null }[];
 };
 type Synthesis = {
@@ -38,7 +38,7 @@ export default function SynthesisPage() {
           <p>Three research engines read every callout, reply and trade we have seen, argue in a forum, and write reports. Every claim cites the callouts it rests on; the core drops any claim whose cite it has not seen.</p>
         </div>
         <dl className="room-kpis">
-          <div className="hot"><dt className="micro">Stance, 1 minus Brier at {st?.horizon_min ?? 60} min</dt><dd className="num">{st ? `${fmt.pct(st.accuracy)} of ${st.n}` : "·"}</dd></div>
+          <div className="hot"><dt className="micro">Stances right, {st?.horizon_min ?? 60} min</dt><dd className="num">{st?.accuracy != null ? `${fmt.pct(st.accuracy)} of ${st.decisive}` : "·"}</dd></div>
           <div><dt className="micro">Feed claims kept</dt><dd className="num">{data?.feed ? `${data.feed.claims_total - data.feed.claims_dropped}/${data.feed.claims_total}` : "·"}</dd></div>
         </dl>
       </header>

@@ -26,6 +26,8 @@ const SWARM_WAVE = env.int("SWARM_WAVE_CALLERS", 5);
 // score is the miss rate, so 1 - brier is its accuracy. A coin with no trade on either side is not scored.
 const SYNTH = "synthesis.coin";
 const STANCE_H = env.int("STANCE_HORIZON_MIN", 60);
+/** Decisive stances that were right (n, hits only); not a probability, so it is never published as a Brier score. */
+export const STANCE_RIGHT = "synthesis.coin.right";
 
 type Prob = { kind: string; p: number; n: number; horizon_min: number };
 type Watch = { callout_id: string; event_id: string; mint: string; author: string | null; created_ms: number; t0_ms: number; probs: Prob[]; done: number[] };
@@ -176,6 +178,9 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
           continue;
         }
         hit = p1 > p0 ? 1 : 0;
+        if (w.p !== 0.5) // accuracy counts decisive stances only: right when bullish rose or bearish/avoid did not
+          await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${STANCE_RIGHT}, ${w.horizon_min}, 1, 0, ${Number((w.p > 0.5) === (hit === 1))}, 0)
+            on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, hits = mind.scores.hits + excluded.hits`;
       }
       await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${w.kind}, ${w.horizon_min}, 1, ${(w.p - hit) ** 2}, ${hit}, ${w.p})
         on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, brier_sum = mind.scores.brier_sum + excluded.brier_sum,
@@ -187,7 +192,7 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
   }
 
   async function publishScores(tx: Tx, e: Envelope) {
-    for (const r of await tx`select * from mind.scores where n > 0 order by kind, horizon_min`) {
+    for (const r of await tx`select * from mind.scores where n > 0 and kind <> ${STANCE_RIGHT} order by kind, horizon_min`) {
       const n = r.n as number;
       const base = (r.hits as number) / n;
       const brier = (r.brier_sum as number) / n;

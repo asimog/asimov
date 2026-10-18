@@ -62,6 +62,8 @@ export const suite: Suite = {
       const [st] = await db.sql`select n, hits, brier_sum from mind.scores where kind = 'synthesis.coin' and horizon_min = 60`;
       add("stances are scored at one hour; the coin with no trades is skipped", st?.n === 2, JSON.stringify(st));
       add("bullish on a rising coin is right and bearish on it is wrong (Brier sum 1)", st?.hits === 2 && Number(st?.brier_sum) === 1, JSON.stringify(st));
+      const [right] = await db.sql`select n, hits from mind.scores where kind = 'synthesis.coin.right'`;
+      add("stance accuracy counts decisive stances right: bullish rose (right), bearish rose (wrong)", right?.n === 2 && right.hits === 1, JSON.stringify(right));
       return { checks, metrics: { brier: Number(s?.brier_sum) / Number(s?.n || 1), stance_brier: Number(st?.brier_sum) / Number(st?.n || 1) } };
     } finally {
       await tape.close();

@@ -160,15 +160,14 @@ const commands: Record<string, () => Promise<unknown>> = {
     const jobs = await sql`select engine, kind, state, count(*)::int n from slow.jobs where slot > ${new Date(Date.now() - 86_400_000).toISOString()} group by 1, 2, 3 order by 1, 2, 3`;
     const recent = await sql`select id, engine, kind, subject, state, started_at, finished_at, cost_usd, error from slow.jobs order by slot desc, id desc limit ${Number(opt("n") ?? 10)}`;
     const spend = await sql`select engine, coalesce(sum(cost_usd), 0)::float last_hour from slow.jobs where finished_at > now() - interval '1 hour' group by 1`;
-    const cap = { bettafish: env.num("LLM_USD_HOUR_SYNTH", 0), miroshark: env.num("LLM_USD_HOUR_SWARM", 0) };
-    const health = Object.fromEntries(await Promise.all((["bettafish", "miroshark"] as const).map(async (e) => {
-      const url = env.opt(e === "bettafish" ? "BETTAFISH_URL" : "MIROSHARK_URL");
+    const ENGINES = [{ engine: "bettafish", lane: "SYNTH", url: "BETTAFISH_URL" }, { engine: "miroshark", lane: "SWARM", url: "MIROSHARK_URL" }];
+    const lanes = await Promise.all(ENGINES.map(async (e) => {
+      const url = env.opt(e.url);
       const ok = url ? await fetch(`${url}/asimog/health`, { signal: AbortSignal.timeout(2000) }).then((r) => r.ok, () => false) : false;
-      return [e, url ? (ok ? "up" : "down") : "unset"];
-    })));
+      return { engine: e.engine, lane: e.lane, health: url ? (ok ? "up" : "down") : "unset", usd_last_hour: spend.find((s) => s.engine === e.engine)?.last_hour ?? 0, usd_cap_hour: env.num(`LLM_USD_HOUR_${e.lane}`, 0) };
+    }));
     const reports = await sql`select report_id, producer, kind, subject, published_at, left(summary, 160) summary from slow.reports order by published_at desc limit 5`;
-    const lanes = (["bettafish", "miroshark"] as const).map((e) => ({ engine: e, lane: e === "bettafish" ? "SYNTH" : "SWARM", usd_last_hour: spend.find((s) => s.engine === e)?.last_hour ?? 0, usd_cap_hour: cap[e] }));
-    return { health, lanes, jobs_24h: jobs, recent, reports, scores: await slowScores(sql, at) };
+    return { lanes, jobs_24h: jobs, recent, reports, scores: await slowScores(sql, at) };
   },
   help: async () => ({ commands: Object.keys(commands) }),
 };
