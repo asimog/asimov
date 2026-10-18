@@ -104,7 +104,17 @@ Every cue keeps its source event ids, so clicking anything in a scene opens its 
 | Charter | Markdown render of the constitution and soul; soul diffs as side-by-side; counsel log table |
 | Integrity | GPU-instanced graph in a `<View>` (visualize-web3-realtime pattern) |
 | Connectome | Soma positions as instanced points; spikes from `fly.action`; attribution line |
-| Rewind | react-bits `ScrubField`; on release, fetch `/v1/board?at=` and stored frames; replay cues at 1×, 4× or 16× |
+| Rewind | A range slider; on release, fetch `/v1/board?at=<ms>` (Board at T plus the tape lines up to T). Replay at 1×, 4× or 16× comes later with stored frames |
+
+## Relay endpoints added for S5 (read-only, cached a few seconds)
+
+| Path | Returns |
+|---|---|
+| `/v1/treasury` | `as_of`, `mode` (PAPER), `mandate_sol`, paper balance, reconciliation (positions net vs `position.closed` net), `sweeps` and `costs` (empty until S6), `chain` (24 hourly links) |
+| `/v1/board?at=<ms>` | `at`, `range {from,to}`, `signals` live at `at` (kind, subject, symbol, value, confidence, produced_at, valid_until), `lines` (last 40 non-trade lines before `at`) |
+| `/v1/connectome` | `fly_events`, `state` |
+| `/v1/cards` | ids of 20 sample callouts that have a measured outcome |
+| `/v1/card/:id` | the fields a share card prints |
 
 ## Assets
 
@@ -125,7 +135,7 @@ Every cue keeps its source event ids, so clicking anything in a scene opens its 
 
 ## Testing the UI (E2E)
 
-- `e2e/site-field`, `e2e/site-cortex`, `e2e/site-lab`, `e2e/site-treasury` drive the real site with agent-browser at 1440 × 900 and 390 × 844, wait for real events, and save screenshots.
+- `site-shell`, `site-field`, `site-cortex`, `site-lab`, `site-integrity`, `site-treasury`, `site-rewind`, `site-cards` (suites under `tests/e2e/suites`, shared driver `tests/e2e/lib/site.ts`) drive the real site with agent-browser at 1440 × 900 and 390 × 844, wait for real events, and save screenshots. They need the relay (7401), the web app (7402) and Postgres running; they read the working database and write nothing. Each run writes screenshots and the compared numbers into its artifact folder.
 - Visual diffs with `agent-browser diff screenshot --baseline`; diffs over threshold fail and save the diff image.
 - Truth check: every HUD number and tape line on screen is looked up through the API and must match.
 - Motion check: record a 10 s screen capture and run it through the `video-frames` skill; every visible change must line up with an event in the tape for that window.

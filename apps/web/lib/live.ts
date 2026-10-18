@@ -31,10 +31,19 @@ export type Snapshot = {
 };
 
 /** A cue is one real event the scene may show. Scenes drain this queue each frame. */
-export type Cue = { seq: number; kind: "callout" | "trade" | "jev" | "fill" | "close" | "refused" | "commit" | "watch" | "post"; mint: string | null; v: number; side?: string; t: number; from?: string; text?: string };
+export type Cue = { seq: number; event: string; kind: "callout" | "trade" | "jev" | "fill" | "close" | "refused" | "commit" | "watch" | "post"; mint: string | null; v: number; side?: string; t: number; from?: string; text?: string };
 export const cues: Cue[] = [];
 let seq = 0;
-const cue = (c: Omit<Cue, "seq">) => void cues.push({ ...c, seq: ++seq });
+let current = ""; // the tape event id being ingested: every cue carries the event that caused it (docs/12: no motion without an event)
+/** The last 500 cues by event id, read by the site-field suite to prove every motion maps to a tape event. */
+export const cueLog: { seq: number; event: string; kind: Cue["kind"] }[] = [];
+if (typeof window !== "undefined") (window as unknown as { __asimogCueLog: typeof cueLog }).__asimogCueLog = cueLog;
+const cue = (c: Omit<Cue, "seq" | "event">) => {
+  const x = { ...c, seq: ++seq, event: current };
+  cues.push(x);
+  cueLog.push({ seq: x.seq, event: x.event, kind: x.kind });
+  if (cueLog.length > 500) cueLog.splice(0, cueLog.length - 500);
+};
 
 /** The firm's lanes (docs/18), lit on the Cortex while they write events. */
 export const LANES = ["sense", "analyze", "reflex", "decide", "risk", "execute", "publish", "memory", "treasury", "counsel"] as const;
@@ -74,6 +83,7 @@ function ingest(lines: Line[]) {
   const s = useLive.getState();
   const coins = new Map(s.coins);
   for (const l of lines) {
+    current = l.id;
     const mint = l.mint;
     if (l.topic === "callout.created" && mint) {
       const c = coins.get(mint);

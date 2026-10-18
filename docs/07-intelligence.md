@@ -131,6 +131,8 @@ Ways it fails: tracked-caller list too small (start with all callers seen in 48 
 
 ## bettafish: synthesis of the callout feed
 
+**Build choice (S7, 2026-10-18).** The BettaFish fork is not built. `services/bettafish` is a small TypeScript service that keeps the contract below (runs, presets, forum lines, cited claims, mood) on the shared lane models, so it runs offline with a stub and needs no Python venv. Only the `insight` engine exists; `query` and `media` are named in the preset and skipped (listed as `skipped_engines` in the run result) until their senses exist. The patch-set table is the plan if the fork is ever adopted.
+
 BettaFish runs as-is, with a patch set on our fork (`services/bettafish`, branch `agent`). It does not crawl: the agent is its crawler.
 
 ### Patch set
@@ -169,6 +171,8 @@ Ways it fails: LLM invents a callout (dropped by the citation check); forum log 
 
 ## miroshark: swarm simulation
 
+**Build choice (S7, 2026-10-18).** The MiroShark fork is not built. `services/miroshark` is TypeScript: `amm.ts` (integer port of the curve, golden-tested against `@pump-fun/pump-sdk`), `swarm.ts` (personas, rounds, branches A and B, USD cap) and a runner that reads the dossier and writes results through the core MCP tools. `SWARM_SAMPLES` (runs per branch: nano 1, lite 3, full 5) sets how many independent runs make `swarm.wave_p`. Graph-memory flags do nothing yet. The file table below is the fork plan.
+
 New module in our fork: `backend/wonderwall/simulations/pumpfun/`, built on the same base classes as `simulations/polymarket` (`BasePlatform`, `BaseAction`, `BaseEnvironment`, `BasePromptBuilder`).
 
 | File | Content |
@@ -204,6 +208,7 @@ The service stays fully deployed. Presets and every step count are variables, so
 | `SWARM_MAX_TOKENS_PER_TURN` | 120 | 160 | 240 |
 | `SWARM_GRAPH_FEATURES` (MiroShark graph-memory flags) | off | minimal | all |
 | `SWARM_RUNS_PER_HOUR` | 2 | 6 | 12 |
+| `SWARM_SAMPLES` (runs per branch; TS build, S7) | 1 | 3 | 5 |
 | `SWARM_USD_CAP_PER_RUN` | 0.02 | 0.10 | 0.50 |
 | `SWARM_MODEL` | `LLM_MODEL_CHEAP` | `LLM_MODEL_CHEAP` | `LLM_MODEL_CHEAP` |
 | Approx cost per run (DeepSeek v4.1 Flash, about 1.8k tokens in and 120 out per agent turn) | about $0.007 | about $0.05 | about $0.34 |

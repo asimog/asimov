@@ -58,7 +58,7 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `intent.created` | `strategy_id`, `mint`, `side` (buy, sell), `size_sol` (buys) or `fraction` (tokens to sell), `reason[]` (score vs threshold, edge vs cost floor, or the exit rule), `score`, `board` (the score terms, edge and cost in bps, callout id) |
 | `intent.ghost_filled` | `intent_id`, `strategy_id`, `mint`, `side`, `sol` (spent on buys incl. priority fee, received on sells), `tokens`, `price_sol` (average), `fee_sol` (pump fee + priority fee), `rent_sol` (token account, buys), `slippage_bps` |
 | `position.closed` | `position_id`, `strategy_id`, `mint`, `cost_sol` (incl. rent), `proceeds_sol`, `rent_refund_sol`, `net_sol`, `held_ms`, `exit_reason` |
-| `order.created` | `intent_id`, `mint`, `side`, `size_sol`, `max_slippage_bps`, `limits_version` |
+| `order.created` | `order_id` (subject), `intent_id`, `strategy_id`, `mint`, `side`, `size_sol` (buys) or `fraction` (sells), `max_slippage_bps`, `limits_version`. Written only by the live gate (`hands/order-gate.ts`), after the Risk Gate said yes. |
 | `order.rejected` | `intent_id`, `reason_code` (Risk Gate codes in docs/08, plus `fill_failed` for a modeled landing failure), `detail` |
 | `strategy.born` | `strategy_id`, `family`, `horizon`, `origin` (seed, mutation, crossover, proposal), `parents[]`, `spec` |
 | `strategy.retired` | `strategy_id`, `reason` (lcb_below_zero, drawdown, markout_60s_negative, idle, pool_cap), `trades`, `lcb` |
@@ -68,14 +68,19 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | Topic | Body |
 |---|---|
 | `order.submitted` | `order_id`, `tx_sig`, `route` (curve, amm), `submitted_at` |
-| `order.filled` | `order_id`, `tx_sig`, `tokens`, `sol`, `fee_sol`, `price_sol`, `slot` |
+| `order.filled` | `order_id`, `intent_id`, `strategy_id`, `mint`, `side`, `tx_sig`, `tokens`, `sol` (spent on buys, received on sells; measured from the transaction), `fee_sol` (pump fees + priority fee + tip + network fee), `price_sol`, `slot`, `rent_sol` (token account rent paid, buys) |
 | `order.failed` | `order_id`, `tx_sig?`, `error`, `retryable` |
-| `position.changed` | `position_id`, `mint`, `tokens`, `cost_basis_sol`, `realized_pnl_sol` |
+| `signer.refused` | `job`, `reason` (a treasury job the Signer refused: sweep, proof, collect; counts toward the kill trigger) |
+| `position.changed` | `order_id`, `strategy_id`, `mint`, `tokens` (held after), `closed` (fully exited), `account_closed` (token account closed, rent back), `rent_back_sol` |
+| `ledger.entry` | `entry_id`, `kind` (deposit, close_account, sweep_collect, sweep_split, memo, fee; fills are journaled by Books itself from `order.filled`), `tx_sig?`, `legs[{account, lamports}]` (debits positive, credits negative, sum 0). Accounts: `sol:<wallet>` (the chain balance), `pos:<mint>` (cost of tokens held), `rent:<wallet>`, `exp:fees`, `inc:creator_fees`, `ext:world`. |
+| `books.reconciled` | `hour`, `ok`, `wallets[{wallet, ledger_lamports, chain_lamports}]`, `degraded?` |
+| `kill.changed` | `on`, `reason`, `by` (owner, daily_loss, signer_refusals, fill_drift, feed_gap, books) |
+| `proof.published` | `n`, `hour`, `sha256`, `prev_sha256`, `memo_sig?` |
 | `thesis.formed` | `thesis_id`, `mint`, `strategy_id`, `position_id`, `kind` (`pre_call`, `post_call`), `claims[{class, text}]`, `prediction{p, horizon_min, what}`, `plan{entry_price_sol, size_sol, ladder[{mult, sell}], stop, max_hold_min}`, `invalidation[]`, `commit_id` |
 | `post.queued` | `post_id`, `kind` (callout, update, reply), `mint`, `house_id` (our callout on the coin), `thesis_id` (null on updates), `text`, `checks[]` (rules passed), `because[]` (fill or position event ids), `paper` |
 | `post.published` | `post_id`, `kind`, `pump_id`, `url`, `published_at` |
 | `post.refused` | `post_id`, `reason` (cooldown, holding_below_threshold, moderation, existing, session) |
-| `fees.swept` | `sweep_id`, `tx_sig`, `sol`, `to_war_chest_sol`, `to_ops_sol` |
+| `fees.swept` | `sweep_id`, `collect_sig?`, `split_sig?`, `collected_lamports` (0 when nothing), `to_trade_lamports`, `to_agent_lamports`, `to_operator_lamports` |
 | `profit.hour_closed` (M5) | `hour`, `realized_pnl_sol`, `high_water_mark_sol`, `distributable_sol` |
 | `distribution.planned` / `distribution.sent` (M5) | `distribution_id`, `hour`, `recipients[{wallet, sol, why}]`, `manifest_sha256`, `tx_sigs[]` |
 | `seat.order_created` (M5) | `deposit_id`, `payout_wallet`, `deposit_address`, `quoted_seat`, `quoted_price_tokens`, `expires_at` |
@@ -99,7 +104,22 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `jev.escalated` | `subject`, `gate_reasons[]`, `job` (synthesis_coin, swarm_run), `voi` |
 | `guard.verdict` | `text_ref`, `destination` (llm:<agent>, post), `verdict` (pass, review, block), `flags{}` |
 | `jevq.proposed` / `jevq.promoted` / `jevq.dropped` | `question_id`, `pack`, `text`, `type`, `lift?` |
-| `job.queued` / `job.started` / `job.done` | `job_id`, `agent`, `trigger_event`, `cost_usd?`, `result_ref?` |
+| `job.queued` / `job.started` / `job.done` | `job_id`, `agent`, `trigger_event`, `cost_usd?`, `result_ref?`, `error?`. Written by the agents runtime through the `job_event` tool |
+| `synthesis.feed` | `synthesis_id`, `window_min`, `preset`, `narratives[{title, summary, cites[]}]`, `coin_stances[{mint, symbol, stance, why, cites[]}]`, `suspicious[{pattern, text, cites[]}]`, `claims_total`, `claims_dropped`. Core refuses a claim whose `cites` is empty or names a callout it has not seen. The Board signal of the same kind is projected from it |
+| `mood.feed` | `synthesis_id`, `mood` (-1 to 1, computed by code from callout text), `label`, `n_callouts` |
+| `synthesis.coin` | `synthesis_id`, `mint`, `stance`, `narrative`, `claims[{text, cites[]}]`, `claims_total`, `claims_dropped`, `preset` |
+| `synthesis.forum_line` | `synthesis_id`, `round`, `agent` (insight, query, media, host), `text`, `cites[]` |
+| `swarm.wave_p` | `swarm_id`, `mint`, `wave_p` (share of branch-A samples reaching 5 or more distinct tracked callers), `samples`, `preset`, `usd`, `truncated` |
+| `swarm.impact` | `swarm_id`, `mint`, `d_callers`, `d_net_sol` (branch B minus A), `samples`, `truncated` |
+| `swarm.post` | `swarm_id`, `mint`, `branch` (A, B), `round`, `agent`, `archetype`, `text`, `simulated` (always true) |
+| `proposal.strategy` | `proposal_id`, `by`, `spec` (a valid DSL spec, docs/08), `why[]`, `because[]` (event ids). A record only; the Strategy Pool decides what to do with it |
+| `jevq.proposed` | `question_id`, `pack`, `text`, `type` (yes_no, probability), `by` |
+| `report.drafted` | `report_id`, `day`, `text`, `checks[]`. A draft; publishing is S9 |
+| `integrity.text` | `finding_id`, `text`, `checks[]`. Prose for `/integrity`; it states data and names no person |
+| `ops.alert` | `severity` (info, warn, page), `text`, `finding` |
+| `ops.restart_requested` | `scope`, `reason`. The Ops agent asks the owner to restart a consumer or sense; a record only, nothing restarts on it |
+| `ops.stop_requested` | `action` (pause, kill), `scope`, `reason`. The kill switch (S6.7) acts on it; thinking agents can stop, never start |
+| `soul.updated` | `version`, `sha256`, `prev_sha256`, `chain_sha256`, `reason`, `by`, `diff_ref` (blob) |
 | `wallet.audit` | `endpoint`, `capability`, `accepted`, `reason?`, `request_sha256` |
 
 ### Firm
@@ -114,7 +134,6 @@ The shapes every part agrees on. Source of truth: the zod schemas in `packages/c
 | `counsel.request` | `request_id`, `action`, `facts_ref` |
 | `counsel.decision` | `request_id`, `decision` (approve, deny, conditions), `signature` |
 | `milestone.changed` | `from`, `to`, `reason`, `evidence[]` |
-| `soul.updated` | `version`, `sha256`, `diff_ref` |
 | `kernel.allocation` | `round`, `hurdle`, `shares[{strategy_id, n, mean, lcb, sample, share, stage}]` (desk level today; venues, social and budget levels reuse the shape) |
 | `forecast.made` / `forecast.resolved` | `market` (venue, id), `question`, `p`, `market_p_at_commit`, `commit_id`; on resolve `outcome`, `brier` |
 | `social.snapshot` | `day`, `followers_pump`, `followers_x`, `engagement{}`, `visitors`, `bounty_participants` |

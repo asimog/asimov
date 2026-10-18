@@ -8,6 +8,7 @@ import { refresh, seed } from "./index/refresh.ts";
 import { RpcPool } from "./lib/rpc.ts";
 import { cheapAnalyzers } from "./analyzers/cheap.ts";
 import { indexSignals } from "./analyzers/index-signals.ts";
+import { slowSignals } from "./analyzers/slow-signals.ts";
 import { precallAnalyzers } from "./analyzers/precall.ts";
 import { memory } from "./memory/projections.ts";
 import { publisher } from "./hands/publisher.ts";
@@ -19,7 +20,11 @@ import { Backfill } from "./senses/backfill.ts";
 import { ChainReader } from "./senses/chain-reader.ts";
 import { FeedReader } from "./senses/feed-reader.ts";
 import { Scout } from "./senses/scout.ts";
+import { startMcp } from "./mcp/server.ts";
+import { parseTokens, Toolbox } from "./mcp/toolbox.ts";
+import { ensureGenesis } from "./soul/soul.ts";
 import { type Consumer, runLive } from "./tape/consumer.ts";
+import { treasuryWiring } from "./treasury/wire.ts";
 import { Tape } from "./tape/tape.ts";
 
 export interface Runtime {
@@ -33,14 +38,15 @@ export interface Runtime {
 /** Consumers in dependency order. Analyzers and mind add themselves here as they are built. */
 export function buildConsumers(tape: Tape): Consumer[] {
   return [
-    memory, cheapAnalyzers(tape.clock), precallAnalyzers(tape.clock), indexSignals(tape.clock), reflexTrigger(tape, tape.clock), reflexSignals(tape.clock),
+    memory, cheapAnalyzers(tape.clock), precallAnalyzers(tape.clock), indexSignals(tape.clock), slowSignals(tape.clock), reflexTrigger(tape, tape.clock), reflexSignals(tape.clock),
     desk(tape, tape.clock), publisher(tape, tape.clock), replies(tape, tape.clock), scorekeeper(tape, tape.clock),
   ];
 }
 
 export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promise<Runtime> {
   const tape = new Tape(sql, clock);
-  const consumers = buildConsumers(tape);
+  const treasury = treasuryWiring(sql, tape, clock); // null without keys: paper runs as before
+  const consumers = [...buildConsumers(tape), ...(treasury?.consumers ?? [])];
   const feed = env.bool("SENSE_FEED", true) ? new FeedReader(tape) : null;
   const pool = new RpcPool();
   const backfill = env.bool("SENSE_BACKFILL", true) && pool.size ? new Backfill(tape, sql, pool) : null;
@@ -55,6 +61,10 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
       })
     : null;
   const timers: NodeJS.Timeout[] = [];
+  // the door for thinking agents (docs/18): off unless MCP_TOKENS names at least one lane
+  const tokens = parseTokens(env.opt("MCP_TOKENS"));
+  const soulFile = `${env.root}/SOUL.md`;
+  let mcp: Awaited<ReturnType<typeof startMcp>> | null = null;
   // the Index (docs/23): seed lists every INDEX_SEED_HOURS, a new score version every INDEX_REFRESH_MIN
   const indexJobs = async (seedToo: boolean) => {
     try {
@@ -69,6 +79,12 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     consumers,
     async start() {
       void runLive(sql, consumers, clock);
+      treasury?.start();
+      if (tokens.size) {
+        await ensureGenesis(sql, soulFile);
+        mcp = await startMcp(new Toolbox({ sql, tape, clock, soulFile }, tokens), Number(env.str("MCP_PORT")));
+        log.info("mcp", { url: mcp.url, lanes: tokens.size });
+      }
       await feed?.start();
       await chain?.start();
       await scout?.start();
@@ -82,6 +98,8 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     },
     async stop() {
       for (const t of timers) clearInterval(t);
+      treasury?.stop();
+      await mcp?.close();
       await feed?.stop();
       await scout?.stop();
       backfill?.stop();

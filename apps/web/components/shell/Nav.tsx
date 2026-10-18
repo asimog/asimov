@@ -11,6 +11,9 @@ const ROOMS = [
   { href: "/lab", label: "Lab" },
   { href: "/ledger", label: "Ledger" },
   { href: "/integrity", label: "Integrity" },
+  { href: "/treasury", label: "Treasury" },
+  { href: "/rewind", label: "Rewind" },
+  { href: "/connectome", label: "Connectome" },
   { href: "/charter", label: "Charter" },
 ] as const;
 

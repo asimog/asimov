@@ -1,0 +1,10 @@
+{
+  "name": "@asimog/bettafish",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@asimog/contracts": "workspace:*",
+    "@asimog/lane": "workspace:*",
+    "zod": "4.6.7"
+  }
+}

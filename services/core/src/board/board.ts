@@ -37,3 +37,12 @@ export async function liveFor(sql: Sql | Tx, subject: string, at: string): Promi
     order by kind, produced_at desc`) as unknown as SignalRow[];
   return Object.fromEntries(rows.map((r) => [r.kind, r]));
 }
+
+/** The whole Board at time `at`: the latest signal per (kind, subject) live at `at` (docs/03 time travel, Rewind). */
+export async function boardAt(sql: Sql | Tx, at: string): Promise<SignalRow[]> {
+  return (await sql`
+    select distinct on (kind, subject) id, kind, subject, value, confidence, produced_at, valid_until, analyzer
+    from board.signals
+    where produced_at <= ${at} and valid_until > ${at}
+    order by kind, subject, produced_at desc, id desc`) as unknown as SignalRow[];
+}

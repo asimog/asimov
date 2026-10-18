@@ -44,12 +44,25 @@ Suites today:
 | Suite | Proves |
 |---|---|
 | `riskgate-refuses` | 20 cases: every one of the 14 reason codes fires on its bad intent; clean intents pass |
+| `signer-refuses` | Real transactions built with test keypairs: each forbidden shape (drain transfer, wrong signer, foreign program, token transfer, over-cap buy, bad token, wrong capability, public bind, kill file) is refused and logged; the allowed shapes sign; the audit chain verifies |
+| `books-reconcile` | A scripted day on a mocked chain (deposit, buys, sells, rent, sweeps) in a fresh database: ledger balances equal chain balances to the lamport; an injected 1-lamport difference fails the hour and trips the kill; FIFO PnL and NAV match hand-computed values; the ledger rebuilds identically from the Tape; proofs chain and verify |
+| `sweep` | Three sweeps (one empty) on the mocked chain: the split matches chain amounts, base capital is not profit, a half-landed split is resumed without paying twice |
+| `kill` | Trading roundtrip works, then each trigger (owner, daily loss, three signer refusals, feed gap, failed reconciliation) stops new orders; senses keep writing; resume needs the admin token |
+| `live-roundtrip` (`live-*`) | Skipped unless `LIVE_TEST=1` and the owner has set keys. 0.01 SOL buy, sell, account closed, rent back, books reconcile |
 | `analyzers-replay` | All 15 signal kinds appear; one Jev signal set per recorded answer; outcomes at 1, 3, 5 min; Brier scores |
 | `strategies-replay` | 30 seeds load; every intent is gated, filled or pending; positions close with rent refunded; markouts; allocation rounds |
 | `commit-reveal` | Every reveal recomputes to its committed hash and came after it (at least `E2E_MIN_REVEALS`, 20 for the 10 min tape) |
 | `evolution-replay` | Offspring are born from parents with trades, all valid, no near-duplicates, lineage recorded |
 | `replay-determinism` | Two replays in two fresh databases hash identically over derived events and signals |
 | `callout-case-replay` | Callout tracking v2 (docs/07). Every outcome is `ov2` with a coverage status. The caller ledger's denominators add up and losing calls are in it. The worst `ok` call's case file (`case.md`, `case.json` in the artifact) has the six evidence sections, fences the callout text, and rebuilds byte-identical. An injected `trades` gap, reported late, marks overlapping outcomes `gap` by supersede and keeps the originals. A consumer restart halfway gives the same derived hash as an uninterrupted replay. Duplicate trades sent through the Tape writer with sense dedupe keys are written once. `E2E_RESTART_AT` (default 0.5) moves the restart point; 0.23, 0.5 and 0.81 were checked on 2026-10-17 |
+| `site-shell` | Nine rooms load on desktop (1440 x 900) and phone (390 x 844): dark, no uncaught error, no sideways scroll; nav lists every room; footer says paper trading |
+| `site-field`, `site-cortex`, `site-lab` | HUD numbers, region captions, caller links, tape lines, lane counters, Lab counters, arc marks and thesis hashes equal the relay API |
+| `site-integrity` | Ledger rows equal the API; a case page prints every fact of `ctl case`, six sections in order, none mixing classes, callout text fenced |
+| `site-treasury` | Balance, net, closed and reconciliation equal `/v1/treasury`; the proof chain recomputes from the Tape in the suite's own code; the page verifies every link |
+| `site-rewind` | The Board at three times T equals an independent query and core's `liveFor`; nothing from after T; the slider shows the same counts |
+| `site-cards` | 20 sample calls render 1200 x 630 PNG cards that differ; no caller named; PAPER position line |
+
+Site suites drive headless Chrome through `tests/e2e/lib/site.ts` (DevTools protocol, no dependency; agent-browser hung on the owner's machine). They read the running relay (7401), web app (7402) and the working database, and write screenshots to `artifacts/e2e/<suite>/screens/` and card PNGs to `artifacts/e2e/site-cards/cards/`.
 
 Fixture: `tests/e2e/fixtures/tapes/discovery-10m.ndjson.gz` (10 min of live feed, pushes and trades, recorded by the real readers on 2026-10-17; 18,062 events, 381 callouts each with a recorded Jev answer, 3.1 MB).
 
@@ -77,7 +90,19 @@ Repeatable means: same tape hash + same commit + same config hash → same `sha2
 | Site | agent-browser drives the website, screenshots, checks shown data against the database | `site-field`, `site-labs` |
 | Money | Tiny real transactions (0.01 SOL), compared to the chain | `live-roundtrip`, `sweep` |
 | Refusal | A list of things that must be refused | `signer-refuses`, `riskgate-refuses` |
-| Golden | Outputs compared to a reference implementation | `amm-golden` (Python curve vs pump-sdk) |
+| Golden | Outputs compared to a reference implementation | `amm-golden` (TypeScript curve port vs pump-sdk) |
+
+### Slow-mind suites (S7)
+
+These need a fresh database but no tape. The LLM is a stub (`StubChat`, scripted per lane), so they run offline in seconds. Real model runs are separate, one short run per lane (`npm run agents:smoke`), and only when the lane's key is in `.env.local`.
+
+| Suite | Proves |
+|---|---|
+| `synthesis-run` | A feed run over fixture callouts: every claim that reaches the Tape cites a callout that exists; invented ids, empty cites and mismatched coins are dropped; presets change the number of forum rounds; a second run during a run is skipped |
+| `amm-golden` | 1,000 buy and 1,000 sell quotes from the TS port equal `@pump-fun/pump-sdk` to the lamport |
+| `swarm-run` | A swarm run writes `swarm.wave_p`, `swarm.impact` and labeled `swarm.post` events; the USD cap truncates a run; the same seed gives the same result |
+| `agent-lanes` | The MCP tool list differs per token; out-of-lane calls and unknown tokens are refused; a no-op agent runs on schedule; the five graphs write only their own topics; a lane over its spend limit is refused; Guard checks refuse a person's name |
+| `soul-update` | Valid updates make versions on a hash chain; protected parts, bad shapes and a tampered chain are refused |
 
 ## Checks that run on every replay
 

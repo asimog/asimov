@@ -64,6 +64,8 @@ Versions are the latest stable release when Phase 1 starts, pinned in lockfiles.
 | LLM access | OpenRouter (OpenAI-compatible base URL), one key per thinking lane | Cheapest models, one bill, per-key spend limits. `LLM_BASE_URL`, `LLM_MODEL_*` in env. |
 | Default LLM | `deepseek/deepseek-v4.1-flash` ($0.032 in, $0.144 out per million tokens) | Cheap and long context. Fallbacks from config. |
 | Agent framework | LangGraph JS (`@langchain/langgraph`), `@langchain/openai`, `@langchain/mcp-adapters`, `@langchain/langgraph-checkpoint-postgres` | The standard agent stack. |
+| Model messages | `@langchain/core` | Message and chat-model base types the lanes and the stub model share (packages/lane). |
+| Agent tool protocol | `@modelcontextprotocol/sdk` | The core MCP server and the lanes' client: the one door thinking agents have to core (docs/18). |
 | Question-bank model | `catboost` (Python) | The autoresearch cookbook's outcome model. |
 | Browser | `agent-browser` 0.39.x | Sessions, refs, boxes, HAR, frame streaming. |
 | X | `xactions` 4.x | Read X posts and profiles, screenshots. Read only. |

@@ -39,3 +39,13 @@
 | 23 | Real risk limits | Defaults sized for 0.2 SOL (docs/08) |
 | 24 | Milestone values | The defaults in #17 |
 | 25 | Coin details (mint, name) | Provided with the creator wallet |
+
+## BettaFish and MiroShark: fork or port (open, 2026-10-18)
+
+The plan (docs/13 S7.1, S7.2) said "fork as a submodule, patch set". What was built is a thin TypeScript slice of each (about 210 and 280 lines) that keeps the docs/07 contract: inputs through the core MCP tools, `synthesis.*` and `swarm.*` outputs, presets and step counts by env, one OpenRouter key per lane. The owner asked for full implementations configured for our use case. Options:
+
+1. **Fork as submodules** (the original plan): upstream Python engines, patched to read our Tape views and write through core MCP. Most features at once; carries the upstream's crawlers, publishers and hard-coded providers, which must be cut (AGENTS.md Boundaries).
+2. **Port the engines we need into the TypeScript services**: the Insight reflection loop, a Query engine on an env-chosen search API, a media engine over our own stored images, a real claim check, coin-run escalation; for MiroShark the Pump.fun platform tables, all actions, personas from real callout text, belief state and graph memory. Fewer moving parts, one language with core.
+
+Never adopted in either: crawlers of other sites, any publisher or notifier outside Publisher, oracle seeding or web enrichment of real people.
+

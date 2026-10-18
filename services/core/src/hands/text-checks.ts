@@ -39,3 +39,17 @@ export function checkText(text: string, o: { kind: PostKind; paper: boolean }): 
   }
   return { ok: failed.length === 0, passed, failed };
 }
+
+/**
+ * Prose Guard for agent-written text that is not a post (reports, integrity findings, soul): same voice and
+ * person rules as posts, no length or position rules. Returns the failed rule names.
+ */
+export function checkProse(text: string, maxLen = 4000): string[] {
+  const failed: string[] = [];
+  if (!text.trim() || text.length > maxLen) failed.push("length");
+  if (/\p{Extended_Pictographic}/u.test(text)) failed.push("no_emoji");
+  if (/[‒-―]/.test(text)) failed.push("no_dash");
+  if (PROMISES.test(text)) failed.push("no_promise");
+  if (!noPerson(text)) failed.push("no_person");
+  return failed;
+}

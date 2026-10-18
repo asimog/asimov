@@ -33,7 +33,7 @@ export type Mode = (typeof MODES)[number];
 
 export const SOURCES = [
   "feedreader", "nats", "rpc", "xreader", "reflex", "guard", "trader", "publisher", "treasurer",
-  "signer", "scorekeeper", "attention", "strategies", "riskgate", "system", "analyzer",
+  "signer", "scorekeeper", "attention", "strategies", "riskgate", "system", "analyzer", "bettafish", "miroshark", "agents", "soul",
 ] as const;
 
 const iso = z.string().datetime({ offset: true });
@@ -356,6 +356,107 @@ export const ScoreUpdated = z.object({
   skill: num.nullable(),
 });
 
+// ---------- slow mind (docs/04: synthesis, swarm, agents, soul) ----------
+const Cites = z.array(z.string()).min(1);
+export const SynthesisFeed = z.object({
+  synthesis_id: z.string(),
+  window_min: num,
+  preset: z.string(),
+  narratives: z.array(z.object({ title: z.string(), summary: z.string(), cites: Cites })),
+  coin_stances: z.array(z.object({ mint: z.string(), symbol: z.string().nullable(), stance: z.enum(["bullish", "bearish", "neutral", "avoid"]), why: z.string(), cites: Cites })),
+  suspicious: z.array(z.object({ pattern: z.string(), text: z.string(), cites: Cites })),
+  claims_total: num,
+  claims_dropped: num,
+});
+export const MoodFeed = z.object({ synthesis_id: z.string(), mood: num.min(-1).max(1), label: z.enum(["fearful", "calm", "greedy"]), n_callouts: num });
+export const SynthesisCoin = z.object({
+  synthesis_id: z.string(),
+  mint: z.string(),
+  stance: z.enum(["bullish", "bearish", "neutral", "avoid"]),
+  narrative: z.string(),
+  claims: z.array(z.object({ text: z.string(), cites: Cites })),
+  claims_total: num,
+  claims_dropped: num,
+  preset: z.string(),
+});
+export const ForumLine = z.object({ synthesis_id: z.string(), round: num, agent: z.enum(["insight", "query", "media", "host"]), text: z.string(), cites: z.array(z.string()) });
+export const SwarmWaveP = z.object({ swarm_id: z.string(), mint: z.string(), wave_p: num.min(0).max(1), samples: num, preset: z.string(), usd: num, truncated: z.boolean() });
+export const SwarmImpact = z.object({ swarm_id: z.string(), mint: z.string(), d_callers: num, d_net_sol: num, samples: num, truncated: z.boolean() });
+export const SwarmPost = z.object({ swarm_id: z.string(), mint: z.string(), branch: z.enum(["A", "B"]), round: num, agent: z.string(), archetype: z.string(), text: z.string(), simulated: z.literal(true) });
+export const ProposalStrategy = z.object({ proposal_id: z.string(), by: z.string(), spec: z.record(z.string(), z.unknown()), why: z.array(z.string()), because: z.array(z.string()) });
+export const JevqProposed = z.object({ question_id: z.string(), pack: z.string(), text: z.string(), type: z.enum(["yes_no", "probability"]), by: z.string() });
+export const ReportDrafted = z.object({ report_id: z.string(), day: z.string(), text: z.string(), checks: z.array(z.string()) });
+export const IntegrityText = z.object({ finding_id: z.string(), text: z.string(), checks: z.array(z.string()) });
+export const OpsAlert = z.object({ severity: z.enum(["info", "warn", "page"]), text: z.string(), finding: z.string() });
+export const OpsRestartRequested = z.object({ scope: z.string(), reason: z.string() });
+export const OpsStopRequested = z.object({ action: z.enum(["pause", "kill"]), scope: z.string(), reason: z.string() });
+export const SoulUpdated = z.object({ version: num, sha256: z.string(), prev_sha256: z.string().nullable(), chain_sha256: z.string(), reason: z.string(), by: z.string(), diff_ref: z.string().nullable() });
+export const JobEvent = z.object({ job_id: z.string(), agent: z.string(), trigger_event: z.string().nullable(), cost_usd: num.optional(), result_ref: z.string().optional(), error: z.string().optional() });
+
+
+// ---------- hands, books, kill (docs/09, 10, 15) ----------
+export const OrderCreated = z.object({
+  order_id: z.string(),
+  intent_id: z.string(),
+  strategy_id: z.string(),
+  mint: z.string(),
+  side: z.enum(["buy", "sell"]),
+  size_sol: num.nullable(),
+  fraction: num.nullable(),
+  max_slippage_bps: num,
+  limits_version: num,
+});
+export const OrderSubmitted = z.object({ order_id: z.string(), tx_sig: z.string(), route: z.enum(["curve", "amm"]), submitted_at: iso });
+export const OrderFilled = z.object({
+  order_id: z.string(),
+  intent_id: z.string(),
+  strategy_id: z.string(),
+  mint: z.string(),
+  side: z.enum(["buy", "sell"]),
+  tx_sig: z.string(),
+  tokens: num,
+  sol: num,
+  fee_sol: num,
+  price_sol: num,
+  slot: num,
+  rent_sol: num,
+});
+export const SignerRefused = z.object({ job: z.string(), reason: z.string() });
+export const OrderFailed = z.object({ order_id: z.string(), tx_sig: z.string().nullable(), error: z.string(), retryable: z.boolean() });
+export const PositionChanged = z.object({
+  order_id: z.string(),
+  strategy_id: z.string(),
+  mint: z.string(),
+  tokens: num,
+  closed: z.boolean(),
+  account_closed: z.boolean(),
+  rent_back_sol: num,
+});
+export const LedgerEntry = z.object({
+  entry_id: z.string(),
+  kind: z.enum(["deposit", "close_account", "sweep_collect", "sweep_split", "memo", "fee"]),
+  tx_sig: z.string().nullable(),
+  legs: z.array(z.object({ account: z.string(), lamports: z.number().int() })),
+});
+export const FeesSwept = z.object({
+  sweep_id: z.string(),
+  collect_sig: z.string().nullable(),
+  split_sig: z.string().nullable(),
+  collected_lamports: z.number().int(),
+  to_trade_lamports: z.number().int(),
+  to_agent_lamports: z.number().int(),
+  to_operator_lamports: z.number().int(),
+});
+export const BooksReconciled = z.object({
+  hour: z.string(),
+  ok: z.boolean(),
+  degraded: z.boolean().optional(),
+  wallets: z.array(z.object({ wallet: z.string(), ledger_lamports: z.number().int(), chain_lamports: z.number().int() })),
+});
+export const KILL_CAUSES = ["owner", "daily_loss", "signer_refusals", "fill_drift", "feed_gap", "books"] as const;
+export const KillChanged = z.object({ on: z.boolean(), reason: z.string(), by: z.enum([...KILL_CAUSES, "admin"]) });
+export const ProofPublished = z.object({ n: z.number().int(), hour: z.string(), sha256: z.string(), prev_sha256: z.string(), memo_sig: z.string().nullable() });
+
 export const TOPICS = {
   "observation.raw": ObservationRaw,
   "coin.seen": CoinSeen,
@@ -372,6 +473,17 @@ export const TOPICS = {
   "intent.created": IntentCreated,
   "intent.ghost_filled": GhostFilled,
   "order.rejected": OrderRejected,
+  "order.created": OrderCreated,
+  "order.submitted": OrderSubmitted,
+  "order.filled": OrderFilled,
+  "order.failed": OrderFailed,
+  "signer.refused": SignerRefused,
+  "position.changed": PositionChanged,
+  "ledger.entry": LedgerEntry,
+  "fees.swept": FeesSwept,
+  "books.reconciled": BooksReconciled,
+  "kill.changed": KillChanged,
+  "proof.published": ProofPublished,
   "markout.measured": MarkoutMeasured,
   "commit.made": CommitMade,
   "commit.revealed": CommitRevealed,
@@ -387,6 +499,24 @@ export const TOPICS = {
   "budget.spent": BudgetSpent,
   "thesis.formed": ThesisFormed,
   "post.queued": PostQueued,
+  "synthesis.feed": SynthesisFeed,
+  "mood.feed": MoodFeed,
+  "synthesis.coin": SynthesisCoin,
+  "synthesis.forum_line": ForumLine,
+  "swarm.wave_p": SwarmWaveP,
+  "swarm.impact": SwarmImpact,
+  "swarm.post": SwarmPost,
+  "proposal.strategy": ProposalStrategy,
+  "jevq.proposed": JevqProposed,
+  "report.drafted": ReportDrafted,
+  "integrity.text": IntegrityText,
+  "ops.alert": OpsAlert,
+  "ops.stop_requested": OpsStopRequested,
+  "ops.restart_requested": OpsRestartRequested,
+  "soul.updated": SoulUpdated,
+  "job.queued": JobEvent,
+  "job.started": JobEvent,
+  "job.done": JobEvent,
   "system.note": SystemNote,
   "system.gap": SystemGap,
   "system.schema_drift": SystemNote,

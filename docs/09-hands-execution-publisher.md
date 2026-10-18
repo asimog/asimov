@@ -28,6 +28,8 @@ Input: `order.created`. Output: `order.submitted`, `order.filled` or `order.fail
 
 Idempotency key: `order_id` is stored in the transaction memo, and the Executor checks for an existing signature with that memo before any resend.
 
+**Built (S6.2), `hands/trader.ts`.** Input is `order.created` from the live gate (`hands/order-gate.ts`): it turns an `intent.created` of a strategy listed in `LIVE_STRATEGIES` (empty by default) into an order, only when `ASIMOG_MODE=live`, after the Risk Gate and the kill flag say yes. Nothing else writes `order.created`. The Trader reads the chain through a `Chain` interface (simulate, send, confirm and parse, find by memo, balance) with one real implementation on the single endpoint `TX_SEND_URL` (the Gatekeeper or the FluxRPC Shield URL; `RpcPool` is never used to send and refuses `send*`). The route builder is the fun-block API (`FUN_BLOCK_URL`), with an adapter interface so tests use a fake. The Trader appends the order memo instruction, asks the Signer, simulates the signed transaction (`simulateTransaction`, `sigVerify: false`, base64), refuses if the simulated SOL change differs from the quote by more than the slippage, sends, confirms at `confirmed`, parses the real SOL and token change from the transaction metadata, and emits `order.filled`, `ledger.entry`, `position.changed`. After a full exit it builds a close-account transaction and emits another `ledger.entry` for the rent. Restart: before any send it looks in `hands.orders` and then searches recent signatures for the memo.
+
 ### Executor: ways it fails
 
 1. The transaction lands but the confirm times out. Before retrying, search our recent signatures for the memo; never resend blindly.
@@ -54,6 +56,18 @@ Payout and seat endpoints (burn, refund, distribution) are added at milestone M5
 | `/sign/login` | A message matching the pump.fun login pattern recorded in Phase 0 (domain, nonce format, expiry). Never a transaction. |
 
 Everything else is refused and logged. The signer rate-limits each endpoint and keeps its own audit log.
+
+**Built (S6.1), `services/signer`.** Details the table above leaves open:
+
+- **Keys.** Only the Signer process reads `SIGNER_KEYPAIR_TRADE`, `SIGNER_KEYPAIR_CREATOR`, `SIGNER_KEYPAIR_AGENT` (each a path to a keypair JSON file the owner puts on the signer host). Public keys come from the files; `WALLET_OPERATOR` (public) is read by the Signer and the Treasurer. A missing key disables its endpoints; the Signer never prints a key.
+- **Tokens.** `SIGNER_TOKENS=cap:sign.swap=<secret>,cap:sign.treasury=<secret>,cap:sign.login=<secret>`. `cap:sign.swap` opens `/sign/swap` and `/sign/close-account`; `cap:sign.treasury` opens `/sign/collect-fees`, `/sign/sweep-split` and `/sign/memo`; `cap:sign.login` opens `/sign/login`. Compared in constant time. Wrong token: 401 and an audit line.
+- **No public route.** The Signer binds `SIGNER_HOST` (default `127.0.0.1`) and refuses to start on a public address. `/sign/bounty`, `/sign/x402` and `/sign/login` answer `endpoint_not_enabled` until S8 and S9.
+- **Request.** `{tx: base64 transaction (unsigned), ctx}`. The Signer reads the transaction itself; `ctx` only supplies caps (`max_lamports`, `order_id`, `total_lamports`, `agent_room_lamports`) and the Signer also holds its own caps (`SIGNER_MAX_ORDER_SOL`, default 0.05, `SIGNER_MAX_PRIORITY_LAMPORTS`). The reply is the signed transaction and its signature. Nothing is sent by the Signer.
+- **Swap checks.** Fee payer and the only required signer is W_trade. Allowed programs: Pump, Pump AMM, Pump Fees, Compute Budget, Associated Token, System, Token, Token-2022, Memo. Pump and AMM instructions must be on a named list (buy, sell and their v2/v3 and exact-in variants, `extend_account`, volume accumulator init and sync); the SOL a buy may spend is read from the instruction data and must be at most `max_lamports`. System: Transfer only, from W_trade, to W_trade or a fee recipient in `SIGNER_FEE_RECIPIENTS`, total within `max_lamports`. Token: CloseAccount (destination and owner W_trade), SyncNative, InitializeAccount3. ATA create only for W_trade. Compute-unit price times limit at most `SIGNER_MAX_PRIORITY_LAMPORTS`. Memo must start with `asimog:`. Anything else: refused with a reason code.
+- **Kill.** If the file `artifacts/KILL` exists (written by `ctl kill`), `/sign/swap` is refused with `kill_switch` even if the core is compromised. Treasury and close-account stay open.
+- **Audit log.** `artifacts/signer-audit.jsonl`, append-only, one line per request (accepted or refused): time, endpoint, capability name, outcome, reason, transaction sha256, signature, and the hash of the previous line. Tokens and keys are never written.
+- **Rate limit.** `SIGNER_RATE_PER_MIN` per endpoint (default 30).
+- **Auto kill input.** The core counts `signer_refused` replies; three in 10 minutes trips the kill switch (docs/15).
 
 ## Thesis
 

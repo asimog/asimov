@@ -27,8 +27,10 @@ One rule shapes the code: **everything meets on the Tape.** Senses write input e
 | `services/core/src/runtime.ts` | The one consumer list (`buildConsumers`), live and replay | built |
 | `services/relay/` | Public SSE fan-out, read-only | built |
 | `apps/web/` | Next.js + R3F site (the Field) | scaffold |
-| `services/signer/`, Trader | Keys and live orders (S6) | planned |
-| `services/bettafish/`, `services/miroshark/`, `services/agents/` | System Two and thinking agents; they write signals and proposals through the Tape | planned |
+| `services/signer/`, `hands/trader.ts`, `treasury/` | Signer (keys, allowlist, capability tokens, audit), Trader, Books, sweep, proofs, kill switch (S6.1 to S6.7) | built on a mocked chain; live needs the owner's keys |
+| `services/core/src/mcp/`, `services/core/src/soul/` | The core MCP server (capability-filtered tools; the only door for thinking agents) and `soul.update` | built |
+| `packages/lane/` | Lane models (OpenRouter or stub), spend limits, core MCP client | built |
+| `services/bettafish/`, `services/miroshark/`, `services/agents/` | System Two (feed synthesis, swarm) and the five LangGraph thinking agents; they write through the core MCP tools only | built (stub LLM; real runs need lane keys) |
 | `tests/e2e/` | Replay suites over recorded tapes (docs/14) | built |
 | `agent/skills/` | Runtime skills for the thinking agents | built |
 | `.upstream/` | Read-only prior art and datasets (gitignored) | reference |

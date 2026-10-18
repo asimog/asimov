@@ -11,6 +11,7 @@ export type Limits = {
   max_impact_bps: number;
   min_real_sol: number;
   max_quote_age_ms: number;
+  max_slippage_bps: number;
   blocklist: string[];
   own_mints: string[];
   // rug and bundle floor (docs/23 section 3): shares of SOL bought; top-10 of the circulating supply
@@ -29,6 +30,7 @@ export const DEFAULT_LIMITS: Limits = {
   max_impact_bps: 300,
   min_real_sol: 3,
   max_quote_age_ms: 3000,
+  max_slippage_bps: 300,
   blocklist: [],
   own_mints: [],
   max_bundle_share: 0.2,

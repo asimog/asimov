@@ -7,6 +7,8 @@ create schema if not exists board;
 create schema if not exists mind;
 create schema if not exists ops;
 create schema if not exists idx;
+create schema if not exists hands;
+create schema if not exists books;
 
 create table if not exists tape.events (
   id          text not null,
@@ -308,6 +310,18 @@ create table if not exists ops.admin_actions (
   detail jsonb
 );
 
+-- soul versions on a hash chain (docs/22): chain = sha256(prev chain + sha256(body))
+create table if not exists ops.soul_versions (
+  version int primary key,
+  sha256 text not null,
+  prev_sha256 text,
+  chain_sha256 text not null,
+  body text not null,
+  reason text not null,
+  by text not null,
+  at timestamptz not null default now()
+);
+
 -- ---------- index (docs/23): rolling 30-day record of wallets and coins from the whole firehose ----------
 create table if not exists idx.wallet_coin (
   wallet text not null,
@@ -360,3 +374,49 @@ create table if not exists idx.seed (
   detail jsonb,
   seen_at timestamptz not null
 );
+
+-- ---------- hands and books (docs/09, 10, 15) ----------
+create table if not exists hands.orders (
+  order_id text primary key,
+  intent_id text not null,
+  state text not null,
+  tx_sig text,
+  memo text not null,
+  mint text,
+  strategy_id text,
+  close_pending boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+create table if not exists books.entries (
+  entry_id text primary key,
+  seen_time timestamptz not null,
+  kind text not null,
+  tx_sig text,
+  legs jsonb not null
+);
+create table if not exists books.balances (account text primary key, lamports bigint not null default 0);
+create table if not exists books.lots (
+  seq bigserial primary key,
+  strategy_id text not null,
+  mint text not null,
+  tokens double precision not null,
+  cost_sol double precision not null
+);
+create index if not exists lots_open on books.lots (strategy_id, mint, seq);
+create table if not exists books.realized (strategy_id text not null, day text not null, realized_sol double precision not null default 0, primary key (strategy_id, day));
+create table if not exists books.proofs (
+  n int primary key,
+  hour text not null unique,
+  sha256 text not null,
+  prev_sha256 text not null,
+  body jsonb not null,
+  memo_sig text
+);
+create table if not exists ops.kill (
+  id int primary key default 1 check (id = 1),
+  on_ boolean not null default false,
+  reason text,
+  by text,
+  at timestamptz
+);
+insert into ops.kill (id) values (1) on conflict do nothing;

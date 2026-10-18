@@ -66,6 +66,12 @@ Roles: `core_writer` may `INSERT` into `tape` and never `UPDATE` or `DELETE` the
 | `positions` | `ps_` id, coin, tokens, cost_basis_sol, realized_pnl_sol, opened_at, closed_at, callout (our post id) |
 | `posts` | id, kind, coin, pump_id, text, media_ref, because text[], state (queued, published, refused), published_at |
 | `fee_sweeps` | `sp_` id, at, tx_sig, sol, to_war_chest_sol, to_ops_sol |
+| `hands.orders` | order_id pk, intent_id, state (created, submitted, filled, failed), tx_sig, memo. The Trader's own idempotency record. |
+| `books.entries` | entry_id pk, seen_time, kind, tx_sig, legs jsonb. Projection of `ledger.entry`. |
+| `books.balances` | account pk, lamports. Sum of legs. |
+| `books.lots` | seq, strategy_id, mint, tokens, cost_sol. FIFO cost basis; `books.realized` holds realized SOL per strategy and day. |
+| `ops.kill` | singleton: on_, reason, by, at. Projection of `kill.changed`; read by the Risk Gate flags and the Trader. |
+| `books.proofs` | n pk, hour, sha256, prev_sha256, body jsonb, memo_sig |
 | `profit_hours` | hour pk, realized_pnl_sol, cumulative_pnl_sol, high_water_mark_sol, distributable_sol, holder_pool_sol |
 | `holder_samples` | hour, sample_n (1..4), taken_at, owner, amount | Four random samples per hour. |
 | `distributions` | `ds_` id, hour, manifest jsonb, manifest_sha256, state, tx_sigs text[] |
@@ -96,7 +102,18 @@ Money tables for payouts and seats (`profit_hours`, `holder_samples`, `distribut
 | `browser_sessions` | session, session_id, state, url, task, started_at, last_frame_at |
 | `scores` | target, metric, window, value, at |
 | `admin_actions` | id, action, by, at, detail | Every human override. |
-| `jobs` | `jb_` id, agent, trigger_event, state (queued, running, done, failed), lease_until, attempts, cost_usd, result_ref | Postgres job queue for thinking agents and System Two runs (`FOR UPDATE SKIP LOCKED`). |
+| `soul_versions` | version, sha256, prev_sha256, chain_sha256, body, reason, by, at | Every `SOUL.md` version. `chain_sha256 = sha256(prev chain + sha256(body))`; version 0 is the genesis file. Written only by `soul.update` in core. |
+
+## agents (own schema, own role)
+
+Thinking agents get no access to `tape`, `mem` or `mind`; they read and write through the core MCP server. The agents process owns the schema `agents`:
+
+| Table | Columns | Notes |
+|---|---|---|
+| `jobs` | `jb_` id, agent, trigger, dedupe (unique), state (queued, running, done, failed), attempts, cost_usd, result, error, created_at, started_at, finished_at | The job queue (`FOR UPDATE SKIP LOCKED`). Triggers are cron slots and Tape events; no agent decides which agent runs. |
+| `cursors` | agent, seen_time, id | Where each event trigger stopped reading. |
+| `spend` | lane, hour, usd | Per-lane spend, checked before every model call. |
+| LangGraph checkpoint tables | made by `@langchain/langgraph-checkpoint-postgres` | One thread per job. |
 
 ## BettaFish schema
 

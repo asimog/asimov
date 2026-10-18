@@ -1,0 +1,11 @@
+{
+  "name": "@asimog/signer",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "tsx src/main.ts" },
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "@solana/web3.js": "^1.99.0",
+    "hono": "4.13.13"
+  }
+}

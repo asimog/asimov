@@ -5,6 +5,7 @@
   "dependencies": {
     "@asimog/contracts": "workspace:*",
     "@hono/node-server": "2.1.5",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@nats-io/nats-core": "3.4.0",
     "@pump-fun/pump-sdk": "4.1.0",
     "@pump-fun/pump-swap-sdk": "2.1.0",

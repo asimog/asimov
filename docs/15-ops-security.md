@@ -15,6 +15,8 @@ Every outside service is chosen by env (for RPC: `RpcPool` in `services/core/src
 | Alerts | `NOTIFY_URL` | Telegram bot | Any webhook |
 | Session count | `SESSIONS` | 8 | 3 on the budget profile |
 
+Lane keys: `LLM_KEY_SYNTH`, `_SWARM`, `_EXTRACT`, `_THINK`, `_OPS`, `_BUILD`, each with its own OpenRouter spend limit and a local limit `LLM_USD_HOUR_<LANE>`. `LLM_STUB=1` replaces every lane with the offline stub. Core MCP: `MCP_PORT`, `MCP_TOKENS` (`cap=token` pairs).
+
 `ctl doctor` prints the active provider for each role and checks it.
 
 ## Deploy profiles
@@ -68,7 +70,11 @@ Never print secrets. Never commit `.env`. Never put a secret in a prompt.
 | `ctl resume` | After kill | Owner (admin token) |
 | Limits or budget caps change | New version in config | Owner (admin token) |
 
-Automatic kill triggers: daily loss stop hit, Signer refuses 3 requests in 10 min, fill-model drift above 3× for an hour, Feed Reader gap longer than 5 min while positions are open.
+Automatic kill triggers: daily loss stop hit, Signer refuses 3 requests in 10 min, fill-model drift above 3× for an hour, Feed Reader gap longer than 5 min while positions are open, a failed reconciliation.
+
+**Built (S6.7), `treasury/kill.ts`.** One state: `ops.kill`, written only by the projection of `kill.changed` events. `ctl kill [reason]` emits `kill.changed {on: true, by: owner}` and also writes `artifacts/KILL` (the Signer reads that file). `ctl resume` needs `ADMIN_TOKEN` and removes it. The kill watcher is a consumer: it reads `order.rejected`, `books.reconciled`, `system.gap`, `order.failed`, `signer.refused` and `ledger.entry` and trips the kill for the listed causes, each with its threshold from env (`KILL_SIGNER_REFUSALS=3`, `KILL_REFUSAL_WINDOW_MIN=10`, `KILL_FEED_GAP_MIN=5`). When on: the live gate rejects every order (`kill_switch`), the Trader fails pending orders as `order.failed` (`killed`, not retryable), senses keep recording.
+
+Send endpoint: `TX_SEND_URL` is the one endpoint used to send and confirm (the Gatekeeper or the FluxRPC Shield URL from `.env.local`). `FUN_BLOCK_URL` defaults to `https://fun-block.pump.fun`. Treasury: `WALLET_TRADE`, `WALLET_CREATOR`, `WALLET_AGENT`, `WALLET_OPERATOR` (public keys), `COIN_MINT`. Signer client tokens (core side): `SIGNER_CLIENT_TOKEN_SWAP`, `SIGNER_CLIENT_TOKEN_TREASURY`. Live gate: `LIVE_STRATEGIES` (comma list of strategy ids), `ASIMOG_MODE=live`.
 
 ## Monitoring
 

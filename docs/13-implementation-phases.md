@@ -16,8 +16,9 @@ Build **stages** (S0 to S11) are engineering order. Financial **milestones** (St
 | S4.9 Pre-call desk | Built, not yet replayed: entries on a known caller's buy, `called_s_gte` exit, `pre_call` seeds | `precall-replay` written |
 | S6.0 Thesis and paper Publisher | Built, not yet replayed: thesis, commit, house callouts and updates as PAPER posts, house row in the caller ledger | `precall-replay` written |
 | S2.10, S3.11, S3.12, S4.10, S6.0b Index and evolving strategy (docs/23) | Built and smoke-run live (3 minutes, paper): Index rollups, copy scores, `risk.state`, `wallets.smart_buying`, rug and bundle floor in the Risk Gate, evolving thresholds, `smart_early` and `launch_scan` families, paper data replies. Replays not run (owner: suites at milestones) | Live smoke 2026-10-17: 40k firehose trades, ~120 promotions, 2,048 intents, 254 paper fills, 0 errors |
-| S5 Instruments v1 | **Built, all rooms dark and uniform (owner, 2026-10-17).** Field v2 after the inspiration audit (docs/inspiration): fibrous clouds in two regions (on the curve, graduated to PumpSwap), strand bundles between coins that share callers, Core filaments to held coins, packets for every real trade, fill, post and caller move, a glow pass, callout boxes with leader lines, region captions, legend; HUD and strip. Cortex (brain, lobes lit per lane), Lab (commit arc, reveal rays, evidence threads per coin, theses), Ledger, Integrity (caller ledger with denominators, copyable wallets, risk floor), Charter, legal pages. Relay: room endpoints, caller links, graduated coins. Open: Treasury, Connectome, Rewind, share cards, `e2e/site-*` suites, deploy (S5.9) | `apps/web`, `npm run relay`, `npm run web`; headless captures in `.impeccable/review/` (not committed) |
-| S6 to S11 | Open | |
+| S5 Instruments v1 | **Built, all rooms dark and uniform (owner, 2026-10-17).** Field v2 after the inspiration audit (docs/inspiration): fibrous clouds in two regions (on the curve, graduated to PumpSwap), strand bundles between coins that share callers, Core filaments to held coins, packets for every real trade, fill, post and caller move, a glow pass, callout boxes with leader lines, region captions, legend; HUD and strip. Cortex (brain, lobes lit per lane), Lab (commit arc, reveal rays, evidence threads per coin, theses), Ledger, Integrity (caller ledger with denominators, copyable wallets, risk floor), Charter, legal pages. Relay: room endpoints, caller links, graduated coins. **Added 2026-10-18:** Treasury (PAPER balance, reconciliation, Tape proof chain verified in the browser), Rewind (`/rewind`, Board at T), Connectome (static SIMULATED stand-in until `fly.action` exists; S11.3 proper stays open), case files (`/case/[id]`), share cards (`/cards/[id]`, `next/og`), and the suites `site-shell`, `site-field`, `site-cortex`, `site-lab`, `site-integrity`, `site-treasury`, `site-rewind`, `site-cards` (all pass). Open: deploy (S5.9), live-stream motion checks (video-frames), phone frame-time budget | `apps/web`, `npm run relay`, `npm run web`; `npm run e2e site-shell site-field site-cortex site-lab site-integrity site-treasury site-rewind site-cards` (needs relay, web and Postgres running) |
+| S6.1 to S6.7 Signer, Trader, Books, sweep, proofs, kill | **Built and tested on a mocked chain (2026-10-18).** `services/signer`, `hands/{trader,order-gate,builder,chain}.ts`, `treasury/{books,sweep,proofs,kill,wire}.ts`. Suites `signer-refuses`, `books-reconcile`, `sweep`, `kill` pass; `live-roundtrip` is skipped until the owner supplies keys. Not done: fill-drift kill trigger (needs live fills), the hourly list-and-close of open empty token accounts, measured-cost runway (env `AGENT_RUNWAY_SOL` for now), S6.3 Publisher live mode. S6.8 (go live) is untouched | `e2e/signer-refuses`, `books-reconcile`, `sweep`, `kill` |
+| S6.8 to S11 | Open | |
 
 **Order now (owner, 2026-10-17).** 1. S5 UI and UX: done to v2 (dark, uniform, network motion); next are Treasury, Rewind and deploy. 2. Deferred: RPC pool tests with several providers, long Index runs (smart wallets), replay suites and recorded tapes; they wait for the next milestone run. 3. Then S6 (live desk), S7 (BettaFish, MiroShark).
 
@@ -139,7 +140,7 @@ Critical path to live trading: S0 → S1 → S2 → S3 → S4 → S6. S5, S7 and
 | S5.1 | Relay service: SSE fan-out, frame WebSocket, cached read endpoints | S2.4, S1.5 | `services/relay` | 500 simulated viewers with no load on core |
 | S5.2 | Web shell: Next.js app, tokens (docs/12), fonts, footer, HUD with real numbers, skeletons | S5.1 | `apps/web` | `e2e/site-shell` screenshots at desktop and phone |
 | S5.3 | Field prototype on a phone first: 40k-point clouds, layout worker, temperature uniform | S5.2 | Field scene | p95 frame time within budget on a mid-range Android |
-| S5.4 | Field complete: 200k points on desktop, filaments, labels, session thumbnail atlas, strip panels | S5.3, S4 | Field | `e2e/site-field`: every visible change maps to a tape event (video-frames check) |
+| S5.4 | Field complete: 200k points on desktop, filaments, labels, session thumbnail atlas, strip panels | S5.3, S4 | Field | `e2e/site-field`: every visible change maps to a tape event. Built as a cue check (2026-10-18): every motion cue the scene draws carries the id of the event that caused it, and the suite finds each id on the Tape. The video-frames check is still open |
 | S5.5 | Cortex: procedural brain, lobe lighting, slices, strip | S5.2 | Cortex | `e2e/site-cortex` |
 | S5.6 | Lab: arc with committed cards, threads, rays, counters | S4.7, S5.2 | Lab | `e2e/site-lab` |
 | S5.7 | Ledger, Charter (constitution, soul timeline, disclosure registry), Treasury (proof chain) | S5.2 | Pages | Numbers on screen equal API values |
@@ -158,7 +159,7 @@ Critical path to live trading: S0 → S1 → S2 → S3 → S4 → S6. S5, S7 and
 | S6.3 | Publisher: S8 login shim, eligibility checks, callout and update templates, Guard on every post, cooldown batching | S6.2, S3.4 | `hands/publisher` | `e2e/publisher-post`: a callout and an update visible on Pump.fun |
 | S6.4 | Books: double-entry ledger projection, hourly reconciliation, NAV, cost attribution | S6.2 | `treasury/books` | `e2e/books-reconcile`: a recorded day reconciles to the lamport |
 | S6.5 | Fee sweep every 10 minutes with the split (docs/10) | S6.1, S6.4 | `treasury/sweep` | `e2e/sweep`: three sweeps match chain amounts |
-| S6.6 | Hourly proofs and on-chain memo | S6.4, S4.7 | Proof chain | Anyone can verify the chain from `/treasury` |
+| S6.6 | Hourly proofs and on-chain memo | S6.4, S4.7 | Proof chain | Anyone can verify the chain from `/treasury`: each `books.proofs` segment is recomputed in the browser (sha256 of the canonical body, linked by `prev_sha256`) and can be downloaded; the memo signature links to the explorer in `NEXT_PUBLIC_EXPLORER_TX_URL` |
 | S6.7 | Kill switch and automatic kill triggers | S6.2 | `ctl kill` | `e2e/kill`: orders stop, senses keep recording |
 | S6.8 | **Go live**: 0.02 SOL trades, max 5 open, callouts on | S6.1 to S6.7 | Live desk | First 20 live trades with markouts on the Ledger |
 
@@ -166,12 +167,12 @@ Critical path to live trading: S0 → S1 → S2 → S3 → S4 → S6. S5, S7 and
 
 | ID | Task | Depends | Output | Done when |
 |---|---|---|---|---|
-| S7.1 | BettaFish fork as a submodule, patch set (docs/07), presets by env, forum mirror, Jev verify on claims | S2.5, S3.4 | `services/bettafish` | `e2e/synthesis-run`: every claim cites an existing callout |
-| S7.2 | MiroShark fork as a submodule, `simulations/pumpfun`, AMM port, presets by env | S3.2 | `services/miroshark` | `e2e/amm-golden` and `e2e/swarm-run` |
-| S7.3 | MCP server in core with capability-filtered tools | S1.7 | `core/mcp` | The tool list differs per token |
-| S7.4 | `services/agents`: LangGraph JS runtime, Postgres checkpoints, job table, OpenRouter per-lane keys | S7.3 | Agents runtime | A no-op agent runs on schedule |
-| S7.5 | Agents: Postmortem, Question Researcher, Ops, Reporter, Integrity writer (docs/18) | S7.4 | Five graphs | `e2e/agent-lanes`: out-of-lane tools refused |
-| S7.6 | `soul.update` with validation, versions and a hash chain | S7.4 | Soul versions | The version shows on `/charter` |
+| S7.1 | **Thin slice only (2026-10-18), not the fork the plan asked for.** A 210-line TypeScript feed synthesis: presets by env, forum lines, a word-overlap claim check (not Jev verify), word-list mood; no Insight reflection loop, no Query or Media engine, coin runs not triggered. Owner wants the full build for our use case; fork-vs-port is the open decision (docs/16). Every claim cites an existing callout | S2.5, S3.4 | `services/bettafish` | `e2e/synthesis-run`: every claim cites an existing callout |
+| S7.2 | **Thin slice only (2026-10-18), not the fork the plan asked for.** A 280-line TypeScript swarm: the AMM port is complete and SDK-tested; personas are caller stats plus fixed follower types; no platform tables, belief state, graph memory or report agent; runs are manual (no escalation trigger). Full build pending (docs/16) | S3.2 | `services/miroshark` | `e2e/amm-golden` and `e2e/swarm-run` |
+| S7.3 | **Built.** MCP server in core with capability-filtered tools | S1.7 | `core/mcp` | The tool list differs per token |
+| S7.4 | **Built.** `services/agents`: LangGraph JS runtime, Postgres checkpoints, job table, OpenRouter per-lane keys | S7.3 | Agents runtime | A no-op agent runs on schedule |
+| S7.5 | **Built (stub LLM; real runs wait for lane keys).** Agents: Postmortem, Question Researcher, Ops, Reporter, Integrity writer (docs/18) | S7.4 | Five graphs | `e2e/agent-lanes`: out-of-lane tools refused |
+| S7.6 | **Built.** `soul.update` with validation, versions and a hash chain | S7.4 | Soul versions | The version shows on `/charter` |
 
 ## S8 · Forecasting desk on paper (minutes at agent speed, parallel)
 
@@ -210,7 +211,7 @@ Critical path to live trading: S0 → S1 → S2 → S3 → S4 → S6. S5, S7 and
 | S11.1 | Milestone engine: NAV and runway checks, the health condition, unlocks and demotion (docs/22) | S6.4 | `milestone.*` | `e2e/milestone-demote`: a reconciliation mismatch drops one milestone |
 | S11.2 | Integrity board and data replies (docs/07) | S3.2, S6.3 | `/integrity` | Findings with evidence |
 | S11.3 | Connectome Lab (wetware, 1% sleeve) | S4.5 | `/connectome` | The fly trades on paper, then live at 1% |
-| S11.4 | Rewind | S5.4 | `/rewind` | The Board at time T equals what was live at T |
+| S11.4 | Rewind | S5.4 | `/rewind` | The Board at time T equals what was live at T. **Built 2026-10-18; `e2e/site-rewind` passes** |
 
 ## Unlocked by milestones later
 
@@ -228,7 +229,7 @@ Critical path to live trading: S0 → S1 → S2 → S3 → S4 → S6. S5, S7 and
 | S2 | `nats.ws`, `@aws-sdk/client-s3` | - |
 | S3 | - | `numpy`, `scipy`, `hmmlearn`, `scikit-learn`, `typesafe-sdk` |
 | S5 | `next`, `react`, `three`, `@react-three/fiber`, `@react-three/drei`, `@react-three/postprocessing`, `zustand`, react-bits and tweenly items | - |
-| S7 | `@langchain/langgraph`, `@langchain/openai`, `@langchain/mcp-adapters`, `@langchain/langgraph-checkpoint-postgres`, `@modelcontextprotocol/sdk` | BettaFish and MiroShark requirements in their own venvs |
+| S7 | `@langchain/core`, `@langchain/openai` (lane models, `packages/lane`), `@langchain/langgraph`, `@langchain/langgraph-checkpoint-postgres`, `@langchain/mcp-adapters` (`services/agents`), `@modelcontextprotocol/sdk` (core MCP server and clients) | None for now: BettaFish and MiroShark are rebuilt in TypeScript (docs/07 "Build choice") |
 | S8 | - | `catboost` (question bank) |
 | S11 | - | `wetware` (pinned git commit) |
 

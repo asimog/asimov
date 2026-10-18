@@ -6,7 +6,14 @@ import { connect, migrate, resetProjections } from "../lib/db.ts";
 import { buildCase, renderCase } from "../hunt/case.ts";
 import { env, redact } from "../lib/env.ts";
 import { RpcPool } from "../lib/rpc.ts";
+import { ensureGenesis, verifyChain, versions } from "../soul/soul.ts";
+import { why } from "../lib/why.ts";
 import { coverage, ledger } from "../scorekeeper/ledger.ts";
+import { liveClock } from "../lib/clock.ts";
+import { Tape } from "../tape/tape.ts";
+import { balances, nav, recordDeposit } from "../treasury/books.ts";
+import { killed, ownerKill, resume } from "../treasury/kill.ts";
+import { verifyProofs } from "../treasury/proofs.ts";
 
 const [cmd = "help", ...args] = process.argv.slice(2);
 const flag = (n: string) => args.includes(`--${n}`);
@@ -27,19 +34,6 @@ async function state() {
                         from mem.coins c where c.first_callout_at > now() - interval '1 hour' order by c.callout_count desc limit 8`;
   const lag = await sql`select consumer, last_seen_time from tape.consumer_offsets order by consumer`;
   return { mode: env.opt("ASIMOG_MODE"), tape, last_hour: topics, memory: mem, hot_coins: hot, consumers: lag };
-}
-
-async function why(id: string, depth = 0, seen = new Set<string>()): Promise<unknown> {
-  if (seen.has(id) || depth > 12) return { id, cycle: true };
-  seen.add(id);
-  const [e] = await sql`select id, topic, source, subject, seen_time, causes, body from tape.events where id = ${id} limit 1`;
-  if (!e) {
-    const [s] = await sql`select id, kind, subject, value, inputs, analyzer from board.signals where id = ${id}`;
-    if (!s) return { id, missing: true };
-    return { ...s, inputs: await Promise.all((s.inputs as string[]).map((c) => why(c, depth + 1, seen))) };
-  }
-  const causes = e.causes as string[];
-  return { id: e.id, topic: e.topic, source: e.source, subject: e.subject, seen_time: e.seen_time, causes: await Promise.all(causes.map((c) => why(c, depth + 1, seen))) };
 }
 
 async function tail(topics: string[]) {
@@ -94,7 +88,7 @@ async function doctor() {
   const rpc = new RpcPool();
   const rpcUsage = rpc.usage();
   for (const [name, health] of Object.entries(await rpc.health())) checks[`rpc:${name}`] = `${health}, units this month ${rpcUsage[name]}`; // names only: URLs hold keys
-  if (env.opt("OPENROUTER_API_KEY")) await probe("openrouter", `${env.str("LLM_BASE_URL", "https://openrouter.ai/api/v1")}/models?limit=1`);
+  if (env.opt("OPENROUTER_API_KEY")) await probe("openrouter", `${env.str("LLM_BASE_URL")}/models?limit=1`);
   checks.jev_key = env.opt("TYPESAFE_API_KEY") ? "set" : "missing";
   checks.config = redact();
   return checks;
@@ -102,7 +96,7 @@ async function doctor() {
 
 const commands: Record<string, () => Promise<unknown>> = {
   state,
-  why: () => why(args[0]!),
+  why: () => why(sql, args[0]!),
   tail: () => tail(args.filter((a) => !a.startsWith("--"))),
   doctor,
   migrate: async () => (await migrate(sql), { ok: true }),
@@ -132,6 +126,32 @@ const commands: Record<string, () => Promise<unknown>> = {
     const posts = await sql`select seen_time, body->>'kind' kind, body->>'house_id' house_id, body->>'text' text from tape.events
       where topic = 'post.queued' order by seen_time desc, id desc limit ${Number(opt("n") ?? 20)}`;
     return { method: L.method, horizon_min: L.horizon_min, house: L.rows.find((r) => r.wallet === "house") ?? null, crowd: L.all, posts };
+  },
+  // soul versions on their hash chain (docs/22); `soul` lists them and recomputes the chain
+  soul: async () => {
+    await ensureGenesis(sql, path.join(env.root, "SOUL.md"));
+    return { chain: await verifyChain(sql), versions: await versions(sql) };
+  },
+  // S6.7: the owner's switch (docs/15). kill writes the Tape; the kill consumer and the Signer do the rest.
+  kill: async () => {
+    const tape = new Tape(sql, liveClock("live"));
+    ownerKill(tape, args.filter((a) => !a.startsWith("--")).join(" ") || "owner");
+    await tape.close();
+    return { ok: true, note: "kill.changed written; core projects it and writes artifacts/KILL" };
+  },
+  resume: async () => {
+    const tape = new Tape(sql, liveClock("live"));
+    resume(tape, opt("token"));
+    await tape.close();
+    return { ok: true };
+  },
+  // S6.4: the books (docs/10)
+  books: async () => ({ killed: await killed(sql), balances: await balances(sql), nav: await nav(sql, {}), proofs: await verifyProofs(sql) }),
+  deposit: async () => {
+    const tape = new Tape(sql, liveClock("live"));
+    await recordDeposit(tape, opt("wallet")!, Number(opt("lamports")), opt("sig")!);
+    await tape.close();
+    return { ok: true };
   },
   help: async () => ({ commands: Object.keys(commands) }),
 };

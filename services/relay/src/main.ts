@@ -7,6 +7,7 @@ import { streamSSE } from "hono/streaming";
 import postgres from "postgres";
 import { env } from "../../core/src/lib/env.ts";
 import { log } from "../../core/src/lib/log.ts";
+import { rooms } from "./rooms.ts";
 
 const sql = postgres(env.str("DATABASE_URL"), { max: env.int("RELAY_DB_POOL", 3), idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } });
 const PORT = env.int("RELAY_PORT", 7401);
@@ -248,6 +249,19 @@ app.get("/v1/snapshot", async (c) => c.json(await snapshot()));
 app.get("/v1/lab", async (c) => c.json(await lab()));
 app.get("/v1/ledger", async (c) => c.json(await ledgerRoom()));
 app.get("/v1/integrity", async (c) => c.json(await integrity()));
+const r = rooms({ sql, cached, sym, line, mandate: MANDATE_SOL });
+app.get("/v1/treasury", async (c) => c.json(await r.treasury()));
+app.get("/v1/board", async (c) => c.json(await r.board(c.req.query("at") ? Number(c.req.query("at")) : null)));
+app.get("/v1/connectome", async (c) => c.json(await r.connectome()));
+app.get("/v1/cards", async (c) => c.json(await r.cardIds()));
+app.get("/v1/card/:id", async (c) => {
+  const x = await r.card(c.req.param("id"));
+  return x ? c.json(x) : c.json({ error: "no such callout" }, 404);
+});
+app.get("/v1/case/:id", async (c) => {
+  const x = await r.caseFile(c.req.param("id"));
+  return x ? c.json(x) : c.json({ error: "no such callout" }, 404);
+});
 app.get("/v1/stream", (c) =>
   streamSSE(c, async (stream) => {
     const client: Client = { send: (lines) => stream.writeSSE({ event: "lines", data: JSON.stringify(lines) }) };

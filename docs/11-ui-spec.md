@@ -81,7 +81,10 @@ Rule zero: **every motion is caused by a real event or a real number changing.**
 
 | Instrument | Key elements |
 |---|---|
-| Treasury | Sweeps every 10 min and their split, balances per wallet, costs by job, hourly reconciliation result, the proof chain (each hour's hash linked to the previous). Payouts and seats appear at M5. |
+| Treasury | Sweeps every 10 min and their split, balances per wallet, costs by job, hourly reconciliation result, the proof chain (each hour's hash linked to the previous). Payouts and seats appear at M5. **Built (paper):** PAPER balance (mandate plus net), reconciliation of closed positions against `position.closed` events, empty sweeps and costs tables that say why, and the Tape proof chain: per hour `sha256(prev | hour | count | ids_hash)`; the page recomputes each link in the browser and shows `verified` or `BROKEN`. |
+| Rewind (`/rewind`) | A time slider over the Tape's range. At time T the page shows the Board as it was live at T (latest signal per kind and subject with `produced_at <= T < valid_until`) and the tape lines up to T. Nothing after T is read. Nothing moves except when the slider moves. |
+| Connectome (`/connectome`) | The fruit-fly sleeve (S11.3). Until `fly.action` events exist the room shows a static point cloud labelled SIMULATED (a stand-in shape, not the real connectome), the count of `fly.*` events (0) and the words "not trading". No spikes without events. |
+| Share card (`/cards/[id]`) | 1200 x 630 PNG for one callout: ticker, mcap at call, opportunity age, key signals at call time, the 5 minute result on the reference trade (net of costs), the house position (PAPER) and the commit hash when a thesis exists. No caller name or wallet. |
 | Charter | `CONSTITUTION.md` with its hash; `SOUL.md` versions as a timeline with diffs; counsel decisions log; the disclosure registry (every wallet) |
 
 ## Mobile (≤ 760 px)

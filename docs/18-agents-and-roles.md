@@ -70,13 +70,30 @@ Only service agents touch money. No LLM ever holds a key, places an order, or ch
 
 Model names live in config, never in code (docs/15 provider profiles).
 
+### Lanes, keys and tools (as built)
+
+| Lane (`LLM_KEY_<LANE>`) | Agents | Capability | Core MCP tools |
+|---|---|---|---|
+| `SYNTH` (A) | BettaFish | `cap:board.synthesis` | read: `callouts_window`, `coin_dossier`; write: `emit_synthesis_feed`, `emit_synthesis_coin`, `emit_forum_line` |
+| `SWARM` (B) | MiroShark | `cap:board.swarm` | read: `coin_dossier`; write: `emit_swarm_result` |
+| `THINK` (D) | Postmortem | `cap:mind.propose` | read: `events_since` (`position.closed`), `why`, `strategies_list`; write: `propose_strategy` |
+| `THINK` (D) | Question Researcher | `cap:jev.propose` | read: `worst_cases`, `scores`; write: `propose_question` |
+| `OPS` (E) | Ops | `cap:ops.stop` | read: `doctor`, `state`, `events_since` (`system.*`); write: `ops_alert`, `ops_stop` (pause or kill only) |
+| `OPS` (E) | Reporter | `cap:report` | read: `state`, `ledger_summary`, `scores`, `soul_read`; write: `draft_report` |
+| `OPS` (E) | Integrity writer | `cap:integrity.write` | read: `board_signals` (`integrity.finding`), `integrity_evidence`; write: `write_integrity_text` |
+| none | Soul editor (the agent's reflection step, S10+) | `cap:soul.update` | `soul_read`, `soul_update` |
+
+Every lane may also call `job_event`. Core checks the token on every call, so a graph that tries a tool outside its list gets `out_of_lane` and the refusal is logged as `system.note`. Each lane's model is limited by `LLM_USD_HOUR_<LANE>` (checked before each call, kept in `agents.spend`) on top of the spend limit set in OpenRouter. Tokens come from `MCP_TOKENS` (`cap=token` pairs, comma-separated, in `.env.local`).
+
+Text that reaches a model is fenced (`<untrusted>`) and trimmed. Text that leaves a model passes the prose Guard in core (`checkProse`: no emoji, no dash, no promise, no person) before it is written; the Jev `guard` and `route` packs replace the deterministic checks when they exist.
+
 ### Graph shapes
 
 | Agent | Trigger | Graph |
 |---|---|---|
-| Postmortem | Each closed position with a loss, or a missed wave the agent did not trade | load why-chain → filter evidence (Jev) → explain (LLM) → draft strategy mutation (LLM, JSON schema) → validate (code) → `ctl propose` |
+| Postmortem | Each closed position with a loss, or a missed wave the agent did not trade (`missed_waves`: a 5 min `outcome.measured` with coverage ok and net multiple at or above `POSTMORTEM_MISSED_MULT`, default 2, on a coin with no position) | load why-chain → filter evidence (Jev) → explain (LLM) → draft strategy mutation (LLM, JSON schema) → validate (code) → `ctl propose` |
 | Question Researcher | Weekly | load worst 60 cases → propose ≤ 18 questions (LLM) → validate shapes (code) → register in shadow |
-| Ops | Every `system.*` event, and every 15 min | `ctl doctor` → route finding (Jev `route` pack) → known fix: run it (pause, restart request); unknown: alert owner |
+| Ops | Every `system.*` event, and every 15 min | `ctl doctor` → route finding (a code table now; the Jev `route` pack later) → known fix: run it (pause on a stalled tape, restart request on consumer lag, `ops.restart_requested`); unknown: alert owner |
 | Reporter | Daily 00:05 UTC | gather ledger, scores, synthesis → write in terse voice (LLM) → Guard → publish to `/reports` |
 | Integrity writer | Each new `integrity.finding` ≥ 0.85 | evidence → plain description (LLM) → Guard (never names a person as a scammer) → `/integrity` |
 | Builder | Each task in the build queue | read task → plan → code in sandbox → run suites → fix until green or give up → open PR with artifacts → Lab entry |
