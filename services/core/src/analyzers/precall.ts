@@ -35,15 +35,15 @@ async function record(tx: Tx, wallet: string | null, nowMs: number) {
   const H = P.horizonMin;
   const rows = await tx`
     with b as (
-      select distinct on (t.body->>'wallet', t.subject) t.body->>'wallet' w, t.subject mint, t.seen_time
+      select distinct on (t.body->>'wallet', t.subject) t.body->>'wallet' w, t.subject mint, (case when t.source = 'rpc' then t.event_time else t.seen_time end) at
       from tape.events t
-      where t.topic = any(${TRADES}) and t.body->>'side' = 'buy' and t.seen_time <= ${iso(nowMs - H * MIN)}
+      where t.topic = any(${TRADES}) and t.body->>'side' = 'buy' and t.seen_time <= ${iso(nowMs)} and (case when t.source = 'rpc' then t.event_time else t.seen_time end) <= ${iso(nowMs - H * MIN)}
         ${wallet ? tx`and t.body->>'wallet' = ${wallet}` : tx``}
-        and exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.seen_at < t.seen_time)
-        and not exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.mint = t.subject and c.seen_at <= t.seen_time)
-      order by t.body->>'wallet', t.subject, t.seen_time)
+        and exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.seen_at < (case when t.source = 'rpc' then t.event_time else t.seen_time end))
+        and not exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.mint = t.subject and c.seen_at <= (case when t.source = 'rpc' then t.event_time else t.seen_time end))
+      order by t.body->>'wallet', t.subject, (case when t.source = 'rpc' then t.event_time else t.seen_time end))
     select extract(epoch from (select min(c.seen_at) from mem.callouts c where c.wallet = b.w and c.mint = b.mint
-      and c.seen_at > b.seen_time and c.seen_at <= b.seen_time + make_interval(mins => ${H})) - b.seen_time)::float lag_s
+      and c.seen_at > b.at and c.seen_at <= b.at + make_interval(mins => ${H}) and c.seen_at <= ${iso(nowMs)}) - b.at)::float lag_s
     from b`;
   const lags = rows.flatMap((r) => (r.lag_s == null ? [] : [r.lag_s as number]));
   return { buys: rows.length, called: lags.length, lags };
@@ -101,8 +101,8 @@ export function precallAnalyzers(clock: Clock): Consumer {
     // every known caller who bought this coin within the horizon and has not called it
     const buyers = await tx`select distinct t.body->>'wallet' w from tape.events t
       where t.subject = ${e.body.mint} and t.topic = any(${TRADES}) and t.body->>'side' = 'buy'
-        and t.seen_time > ${iso(now - H * MIN)} and t.seen_time <= ${e.seen_time}
-        and exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.seen_at < t.seen_time)
+        and (case when t.source = 'rpc' then t.event_time else t.seen_time end) > ${iso(now - H * MIN)} and t.seen_time <= ${e.seen_time}
+        and exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.seen_at < (case when t.source = 'rpc' then t.event_time else t.seen_time end))
         and not exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.mint = t.subject and c.seen_at <= ${e.seen_time})
       order by 1`;
     const rate = await popRate(tx, now);

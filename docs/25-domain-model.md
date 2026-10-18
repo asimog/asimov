@@ -73,8 +73,8 @@ There are three times. Most lookahead bugs come from mixing them.
 
 Rules:
 
-1. **As-of rule.** A decision or a signal made at `now` may read only rows with `seen_at <= now`. SHIPPED in the pre-call analyzer and the desk. PARTIAL elsewhere: `analyzers/cheap.ts` bounds by `created_at`, and reads final-state `mem.callers` fields (section 9).
-2. **Order rule.** To ask "did A happen before B", compare happened-at times, and for backfilled trades (source `rpc`) the happened-at time is `event_time`, not the time we fetched them. PARTIAL: the scorekeeper does this; the pre-call analyzer, the caller ledger and the case file do not.
+1. **As-of rule.** A decision or a signal made at `now` may read only rows with `seen_at <= now`. SHIPPED in the pre-call analyzer, the desk and the callout analyzers (`analyzers/cheap.ts` filters every `mem.callouts` read by `seen_at` and builds caller activity from callouts seen so far, not final-state `mem.callers`). The Board breaks ties by id, so a replay picks the same signal.
+2. **Order rule.** To ask "did A happen before B", compare happened-at times, and for backfilled trades (source `rpc`) the happened-at time is `event_time`, not the time we fetched them. SHIPPED in the scorekeeper, the pre-call analyzer, the caller ledger and the case file (`case when source = 'rpc' then event_time else seen_time end`).
 3. **Final-state rule.** A projection row that is updated in place (followers, last call, engagement counts) is never a feature. Features come from append-only rows filtered by the as-of rule. PLANNED.
 
 The lever for these rules is a `no-lookahead` replay suite: replay one tape whole and again cut at time T, and require every signal produced before T to be identical. PLANNED (fix plan Phase 3).

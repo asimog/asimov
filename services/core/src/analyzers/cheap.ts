@@ -55,7 +55,7 @@ async function echo(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created">>
   const earlier = await tx`
     select callout_id, wallet, text from mem.callouts
     where mint = ${b.mint} and callout_id <> ${b.callout_id} and wallet <> ${b.author_wallet}
-      and created_at < ${b.created_at} and created_at > ${b.created_at}::timestamptz - make_interval(mins => ${p.echoWindowMin})
+      and created_at < ${b.created_at} and created_at > ${b.created_at}::timestamptz - make_interval(mins => ${p.echoWindowMin}) and seen_at <= ${e.seen_time}
     order by created_at desc limit 20`;
   if (!earlier.length) {
     await putSignal(tx, clock, { kind: "echo.score", subject: b.callout_id, value: { score: 0, origin: null, mint: b.mint }, confidence: 0.6, validMs: 30 * MIN, inputs: [e.id], analyzer: "echo@1", at: e.seen_time });
@@ -63,9 +63,9 @@ async function echo(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created">>
   }
   // follow affinity: how often this author called a coin within the window after each earlier caller did (Beta(1,9) prior)
   const aff = await tx`
-    with mine as (select mint, created_at from mem.callouts where wallet = ${b.author_wallet} and created_at < ${b.created_at})
+    with mine as (select mint, created_at from mem.callouts where wallet = ${b.author_wallet} and created_at < ${b.created_at} and seen_at <= ${e.seen_time})
     select o.wallet, count(distinct m.mint)::float as hits, (select count(*) from mine)::float as total
-    from mine m join mem.callouts o on o.mint = m.mint and o.wallet = any(${earlier.map((r) => r.wallet as string)})
+    from mine m join mem.callouts o on o.mint = m.mint and o.seen_at <= ${e.seen_time} and o.wallet = any(${earlier.map((r) => r.wallet as string)})
       and o.created_at < m.created_at and o.created_at > m.created_at - make_interval(mins => ${p.echoWindowMin})
     group by o.wallet`;
   const affBy = new Map(aff.map((r) => [r.wallet as string, ((r.hits as number) + 1) / ((r.total as number) + 10)]));
@@ -131,7 +131,7 @@ async function hawkes(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created"
   const b = e.body;
   const rows = await tx`
     select c.created_at, k.followers from mem.callouts c left join mem.callers k on k.wallet = c.wallet
-    where c.mint = ${b.mint} and c.created_at > ${b.created_at}::timestamptz - interval '6 hours' and c.created_at <= ${b.created_at}
+    where c.mint = ${b.mint} and c.created_at > ${b.created_at}::timestamptz - interval '6 hours' and c.created_at <= ${b.created_at} and c.seen_at <= ${e.seen_time}
     order by c.created_at`;
   const t0 = Date.parse(b.created_at);
   const times = rows.map((r) => ((r.created_at as Date).getTime() - t0) / MIN);
@@ -181,25 +181,28 @@ async function callers(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created
   });
   // tier 1: who calls this coin within the horizon? base rate x affinity to callers already on the coin
   const H = p.waveHorizonMin;
+  // as of now: only callouts we had seen by this event (seen_at), never the final state of mem.callers (fix plan 3.1)
   const active = await tx`
-    with present as (select distinct wallet from mem.callouts where mint = ${b.mint} and created_at <= ${b.created_at})
-    select k.wallet, k.handle, k.followers,
-      (select count(*) from mem.callouts x where x.wallet = k.wallet and x.created_at > ${b.created_at}::timestamptz - interval '24 hours' and x.created_at <= ${b.created_at})::float as calls24,
-      (select count(*) from mem.callouts x join mem.callouts y on y.mint = x.mint and y.wallet in (select wallet from present)
+    with seen as (select * from mem.callouts where seen_at <= ${e.seen_time} and created_at <= ${b.created_at}),
+    present as (select distinct wallet from seen where mint = ${b.mint}),
+    recent as (select wallet, max(created_at) last_call from seen where created_at > ${b.created_at}::timestamptz - interval '24 hours' group by wallet)
+    select r.wallet, k.handle, k.followers,
+      (select count(*) from seen x where x.wallet = r.wallet and x.created_at > ${b.created_at}::timestamptz - interval '24 hours')::float as calls24,
+      (select count(*) from seen x join seen y on y.mint = x.mint and y.wallet in (select wallet from present)
          and y.created_at < x.created_at and y.created_at > x.created_at - interval '30 minutes'
-       where x.wallet = k.wallet and x.created_at <= ${b.created_at})::float as follows
-    from mem.callers k
-    where k.last_call_at > ${b.created_at}::timestamptz - interval '24 hours' and k.wallet not in (select wallet from present)
-    order by k.last_call_at desc limit ${p.activeCallers}`;
+       where x.wallet = r.wallet)::float as follows
+    from recent r left join mem.callers k on k.wallet = r.wallet
+    where r.wallet not in (select wallet from present)
+    order by r.last_call desc limit ${p.activeCallers}`;
   // Population model. Most callers are new wallets (352 of 381 on the first tape), so known callers alone
   // predict nothing. Callouts arrive at the measured rate; each coin's share follows preferential attachment
   // (callers pile onto coins that already have callouts). Known callers are the part we can name.
   const [pop] = await tx`
-    with recent as (select mint, count(*)::float n from mem.callouts
-      where created_at > ${b.created_at}::timestamptz - interval '60 minutes' and created_at <= ${b.created_at} group by 1)
+    with seen as (select mint, created_at from mem.callouts where seen_at <= ${e.seen_time} and created_at <= ${b.created_at}),
+    recent as (select mint, count(*)::float n from seen where created_at > ${b.created_at}::timestamptz - interval '60 minutes' group by 1)
     select coalesce(sum(n + 1), 1)::float weight, coalesce((select n from recent where mint = ${b.mint}), 0)::float here,
-      (select count(*) from mem.callouts where created_at > ${b.created_at}::timestamptz - interval '30 minutes' and created_at <= ${b.created_at})::float n30,
-      (select extract(epoch from (${b.created_at}::timestamptz - min(created_at))) / 60 from mem.callouts
+      (select count(*) from seen where created_at > ${b.created_at}::timestamptz - interval '30 minutes')::float n30,
+      (select extract(epoch from (${b.created_at}::timestamptz - min(created_at))) / 60 from seen
         where created_at > ${b.created_at}::timestamptz - interval '24 hours')::float seen_min
     from recent`;
   const seenMin = Math.max(1, (pop?.seen_min as number) ?? 1); // memory may hold less than the window: rates use what was seen

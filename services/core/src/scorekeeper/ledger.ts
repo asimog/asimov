@@ -69,7 +69,7 @@ export async function ledger(sql: Sql, o: { horizon?: number } = {}) {
     with calls as (
       select e.body->>'callout_id' id, e.body->>'author_wallet' wallet, e.body->>'author_handle' handle, e.body->>'mint' mint,
         e.body->>'quoted_callout_id' quoted, e.body->>'via' via, e.seen_time, e.id ev,
-        row_number() over (partition by e.body->>'author_wallet', e.body->>'mint' order by e.seen_time, e.id) nth
+        row_number() over (partition by e.body->>'author_wallet', e.body->>'mint', coalesce(e.body->>'via', '') = 'history' order by e.seen_time, e.id) nth -- a history row never makes a live call a repeat
       from tape.events e where e.topic = 'callout.created'
       union all -- our own paper callouts (docs/09): the house is one more caller
       select e.body->>'house_id', w, w, e.body->>'mint', null, 'house', e.seen_time, e.id, 1
@@ -115,7 +115,7 @@ export async function coverage(sql: Sql) {
   // callouts announced by their author's own buy on the Tape before the callout (docs/research/pre-call-evidence.md)
   const [announced] = await sql`select count(*)::int calls, count(*) filter (where exists (select 1 from tape.events t
       where t.subject = c.body->>'mint' and t.topic in ('trade.curve', 'trade.amm') and t.body->>'wallet' = c.body->>'author_wallet'
-        and t.body->>'side' = 'buy' and t.seen_time < c.seen_time))::int author_buy_first
+        and t.body->>'side' = 'buy' and (case when t.source = 'rpc' then t.event_time else t.seen_time end) < c.seen_time))::int author_buy_first
     from tape.events c where c.topic = 'callout.created'`;
   const outcomes = await sql`
     select (body->>'horizon_min')::int h, body->>'coverage' coverage, count(*)::int n from (

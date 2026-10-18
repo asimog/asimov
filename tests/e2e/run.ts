@@ -53,7 +53,7 @@ const opened: ReplayResult[] = [];
 const ctx = {
   tape,
   replay: (tag = "main", o: ReplayOpts = {}) => {
-    const key = `${tag}:${o.seed ?? 42}`;
+    const key = JSON.stringify([tag, o.seed ?? 42, o.restartAt ?? null, o.extra ?? null]); // two variants never share a run
     if (!cache.has(key)) cache.set(key, replay(tape, { tag, seed: o.seed ?? 42, extra: o.extra, restartAt: o.restartAt }).then((r) => (opened.push(r), r)));
     return cache.get(key)!;
   },

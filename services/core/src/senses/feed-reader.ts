@@ -1,6 +1,7 @@
 // Feed Reader (docs/06): every Pump.fun callout, push-first with poll as the safety net.
 // Push: NATS followingFeed.user.> (each callout fanned out per follower; dedupe by calloutId).
 // Poll: home-feed/new every FEED_POLL_MS; gap walk with pageToken; startup backfill.
+import { isoOrNull } from "../lib/clock.ts";
 import crypto from "node:crypto";
 import type { Envelope } from "@asimog/contracts";
 import type { NatsConnection } from "@nats-io/nats-core";
@@ -163,7 +164,8 @@ export class FeedReader {
   ingestItem(item: FeedItem, via: Via, causes: string[]): boolean {
     const p = item.position;
     const c = p?.callout;
-    if (!p || !c) return false;
+    const calledAt = isoOrNull(c?.calloutTimestamp);
+    if (!p || !c || !calledAt) return false;
     const isNew = !this.seen.has(c.calloutId);
     if (isNew) {
       this.tape.emit(
@@ -188,21 +190,23 @@ export class FeedReader {
           media_url: c.mediaUrl,
           mcap_at_call_usd: c.calledOutAtMcap,
           price_at_call_usd: c.calloutPrice,
-          created_at: new Date(c.calloutTimestamp).toISOString(),
+          created_at: calledAt,
           chain: c.chain ?? item.chain,
           quoted_callout_id: c.quotedCalloutId,
           author_position: { amount_held: p.amountHeld, cost_basis_usd: p.costBasisUsd, pnl_usd: p.pnlUsd },
           via,
         },
-        { source: "feedreader", subject: c.calloutId, causes, eventTime: new Date(c.calloutTimestamp).toISOString(), dedupe: `callout:${c.calloutId}` },
+        { source: "feedreader", subject: c.calloutId, causes, eventTime: calledAt, dedupe: `callout:${c.calloutId}` },
       );
       this.stats.created++;
     }
     for (const u of c.updates ?? []) {
+      const updatedAt = isoOrNull(u.createdAt);
+      if (!updatedAt) continue;
       this.tape.emit(
         "callout.updated",
-        { callout_id: c.calloutId, mint: item.coinMint, update_id: u.id, text: u.content, created_at: new Date(u.createdAt).toISOString() },
-        { source: "feedreader", subject: c.calloutId, causes, eventTime: new Date(u.createdAt).toISOString(), dedupe: `update:${u.id}` },
+        { callout_id: c.calloutId, mint: item.coinMint, update_id: u.id, text: u.content, created_at: updatedAt },
+        { source: "feedreader", subject: c.calloutId, causes, eventTime: updatedAt, dedupe: `update:${u.id}` },
       );
     }
     const counts = {

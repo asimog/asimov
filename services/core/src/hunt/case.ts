@@ -85,9 +85,9 @@ export async function buildCase(sql: Sql, calloutId: string): Promise<CaseFile |
   // ---------- indicators (observed trades only, up to the longest horizon) ----------
   type T = { id: string; at: number; tx: string; wallet: string; side: string; sol: number };
   const trades: T[] = (
-    await sql`select id, seen_time, body->>'tx' tx, body->>'wallet' wallet, body->>'side' side, (body->>'sol')::float sol
-      from tape.events where subject = ${mint} and topic in ('trade.curve', 'trade.amm') and seen_time <= ${end} order by seen_time, id`
-  ).map((r) => ({ id: r.id as string, at: (r.seen_time as Date).getTime(), tx: r.tx as string, wallet: r.wallet as string, side: r.side as string, sol: r.sol as number }));
+    await sql`select id, (case when t.source = 'rpc' then t.event_time else t.seen_time end) at, body->>'tx' tx, body->>'wallet' wallet, body->>'side' side, (body->>'sol')::float sol
+      from tape.events t where subject = ${mint} and topic in ('trade.curve', 'trade.amm') and seen_time <= ${end} order by 2, id`
+  ).map((r) => ({ id: r.id as string, at: (r.at as Date).getTime(), tx: r.tx as string, wallet: r.wallet as string, side: r.side as string, sol: r.sol as number }));
   const byTx = new Map<string, T[]>();
   for (const t of trades) (byTx.get(t.tx) ?? byTx.set(t.tx, []).get(t.tx)!).push(t);
   const wash = [...byTx.values()].filter((ts) => ts.some((a) => a.side === "buy" && ts.some((b) => b.side === "sell" && b.wallet === a.wallet)));

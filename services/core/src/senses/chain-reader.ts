@@ -1,6 +1,7 @@
 // Chain Reader (docs/06): trades for the watched set from pump.fun NATS.
 // Watched set = coins called or promoted by the Scout in the last WATCH_HOURS (capped at WATCH_MAX_COINS), refreshed
 // every 15 s; a Scout promotion subscribes at once (watchNow).
+import { isoOrNull } from "../lib/clock.ts";
 import type { NatsConnection, Subscription } from "@nats-io/nats-core";
 import type { Trade } from "@asimog/contracts";
 import type { Sql } from "../lib/db.ts";
@@ -20,14 +21,15 @@ const n = (s: string | undefined | null) => (s == null || s === "" ? null : Numb
 
 export function toTrade(p: Partial<Processed>): Trade | null {
   const mint = p.mint ?? p.mintAddress;
-  if (!mint || !p.tx || !p.userAddress || !p.type || !p.timestamp) return null;
+  const ts = isoOrNull(p.timestamp);
+  if (!mint || !p.tx || !p.userAddress || !p.type || !ts) return null;
   const sol = n(p.amountSol);
   if (sol == null) return null;
   return {
     mint,
     tx: p.tx,
     slot_index_id: p.slotIndexId ?? null,
-    ts: new Date(p.timestamp).toISOString(),
+    ts,
     side: p.type,
     wallet: p.userAddress,
     sol,

@@ -51,3 +51,10 @@ export function replayClock(startMs: number, seed = 42): Clock {
     },
   };
 }
+
+/** An outside timestamp as ISO, or null when it is not a real time: one bad field skips its item, never the frame. */
+export function isoOrNull(v: unknown): string | null {
+  if (v == null || v === "") return null;
+  const t = typeof v === "number" ? v : Date.parse(String(v));
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+}

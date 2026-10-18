@@ -34,7 +34,7 @@ export async function liveFor(sql: Sql | Tx, subject: string, at: string): Promi
     select distinct on (kind) id, kind, subject, value, confidence, produced_at, valid_until, analyzer
     from board.signals
     where subject = ${subject} and produced_at <= ${at} and valid_until > ${at}
-    order by kind, produced_at desc`) as unknown as SignalRow[];
+    order by kind, produced_at desc, id desc`) as unknown as SignalRow[]; // id breaks ties, so a replay picks the same signal
   return Object.fromEntries(rows.map((r) => [r.kind, r]));
 }
 

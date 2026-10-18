@@ -45,7 +45,8 @@ export const suite: Suite = {
     const [worst] = await sql`
       select body->>'callout_id' id, (body->>'net_multiple')::float net from (select distinct on (body->>'callout_id') body from tape.events
         where topic = 'outcome.measured' and (body->>'horizon_min')::int = 5 order by body->>'callout_id', seen_time desc, id desc) x
-      where body->>'coverage' = 'ok' order by (body->>'net_multiple')::float, body->>'callout_id' limit 1`;
+      where body->>'coverage' = 'ok' and exists (select 1 from tape.events c where c.topic = 'callout.created' and c.subject = x.body->>'callout_id') -- a stranger's callout, not our own paper post
+      order by (body->>'net_multiple')::float, body->>'callout_id' limit 1`;
     const c1 = worst ? await buildCase(sql, worst.id as string) : null;
     const c2 = worst ? await buildCase(sql, worst.id as string) : null;
     const md = c1 ? renderCase(c1) : "";
