@@ -420,3 +420,77 @@ create table if not exists ops.kill (
   at timestamptz
 );
 insert into ops.kill (id) values (1) on conflict do nothing;
+
+-- ===== slow mind read surface (docs/24 section 4). Read-only views for BettaFish and MiroShark; the role slow_reader
+-- can SELECT here and nowhere else. `SET slow.as_of = '<iso>'` pins a replay's now; nothing seen after it is shown.
+create schema if not exists slow;
+create table if not exists mem.callout_replies (
+  reply_id text primary key, callout_id text not null, wallet text, handle text, text text not null,
+  likes double precision default 0, created_at timestamptz not null, seen_at timestamptz not null
+);
+create table if not exists slow.reports (
+  report_id text primary key, producer text not null, kind text not null, subject text not null,
+  window_from timestamptz, window_to timestamptz, preset text, sha256 text not null, summary text not null,
+  cites text[] not null default '{}', parent_reports text[] not null default '{}', ir jsonb, markdown text,
+  published_at timestamptz not null
+);
+create index if not exists reports_subject on slow.reports (subject, published_at desc);
+create table if not exists slow.jobs (
+  id text primary key, engine text not null, kind text not null, subject text not null, preset text not null,
+  slot text not null, state text not null default 'queued', cost_usd double precision not null default 0,
+  started_at timestamptz, finished_at timestamptz, error text, result jsonb, unique (engine, kind, subject, slot)
+);
+create or replace function slow.as_of() returns timestamptz language sql stable as
+  $$ select coalesce(nullif(current_setting('slow.as_of', true), '')::timestamptz, now()) $$;
+
+create or replace view slow.pumpfun_callout as
+  select c.callout_id note_id, c.text content, '$' || coalesce(k.symbol, left(c.mint, 4)) title,
+         coalesce(r.handle, left(c.wallet, 6)) nickname, c.wallet user_id,
+         c.likes::bigint liked_count, c.replies::bigint comment_count, (c.reposts + c.quotes)::bigint share_count, c.views::bigint viewd_count,
+         (extract(epoch from c.created_at) * 1000)::bigint create_time, 'https://pump.fun/coin/' || c.mint note_url,
+         coalesce(k.symbol, '') || ' ' || c.mint source_keyword,
+         c.mint, c.mcap_at_call, c.opportunity_age_min, c.pre_move_pct, c.first_on_coin, c.media_url, c.created_at, c.seen_at
+  from mem.callouts c left join mem.coins k using (mint) left join mem.callers r on r.wallet = c.wallet
+  where c.seen_at <= slow.as_of();
+
+create or replace view slow.pumpfun_callout_comment as
+  select reply_id comment_id, callout_id note_id, text content, coalesce(handle, left(wallet, 6)) nickname, wallet user_id,
+         likes::bigint like_count, (extract(epoch from created_at) * 1000)::bigint create_time
+  from mem.callout_replies where seen_at <= slow.as_of();
+
+create or replace view slow.pumpfun_update as
+  select u.update_id comment_id, u.callout_id note_id, u.text content, (extract(epoch from u.created_at) * 1000)::bigint create_time
+  from mem.callout_updates u where u.created_at <= slow.as_of();
+
+create or replace view slow.pumpfun_caller as
+  select r.wallet, r.handle, r.followers, r.calls_seen, r.first_seen, r.last_call_at,
+         (select s.value from board.signals s where s.kind = 'caller.dna' and s.subject = r.wallet and s.produced_at <= slow.as_of() order by s.produced_at desc limit 1) dna
+  from mem.callers r where r.first_seen <= slow.as_of();
+
+create or replace view slow.pumpfun_coin as
+  select k.mint, k.symbol, k.name, k.image, k.first_seen, k.last_mcap_usd, k.callout_count, k.first_callout_at,
+         (select s.value from board.signals s where s.kind = 'curve.progress' and s.subject = k.mint and s.produced_at <= slow.as_of() order by s.produced_at desc limit 1) curve,
+         (select s.value from board.signals s where s.kind = 'risk.state' and s.subject = k.mint and s.produced_at <= slow.as_of() order by s.produced_at desc limit 1) risk
+  from mem.coins k where k.first_seen <= slow.as_of();
+
+create or replace view slow.pumpfun_trade_flow as
+  select mint, minute, o, h, l, c, volume_sol, buys, sells, net_flow_sol, unique_buyers, callouts
+  from mem.bars_1m where minute < slow.as_of();
+
+create or replace view slow.media as
+  select 'callout:' || callout_id media_id, media_url url, 'callout' kind, mint, callout_id from mem.callouts where media_url is not null and seen_at <= slow.as_of()
+  union all
+  select 'coin:' || mint, image, 'coin', mint, null from mem.coins where image is not null and first_seen <= slow.as_of();
+
+create or replace view slow.report_feed as
+  select report_id, producer, kind, subject, window_from, window_to, preset, sha256, summary, cites, parent_reports, ir, markdown, published_at
+  from slow.reports where published_at <= slow.as_of();
+
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'slow_reader') then create role slow_reader login; end if;
+end $$;
+grant usage on schema slow to slow_reader;
+grant select on slow.pumpfun_callout, slow.pumpfun_callout_comment, slow.pumpfun_update, slow.pumpfun_caller, slow.pumpfun_coin,
+  slow.pumpfun_trade_flow, slow.media, slow.report_feed to slow_reader;
+grant execute on function slow.as_of() to slow_reader;
+-- views run with their owner's rights, so slow_reader needs nothing on mem or board

@@ -341,7 +341,7 @@ Each phase is shippable alone. Effort is in agent days, as the earlier estimate 
 | Phase | Work | Depends | Effort | Done when |
 |---|---|---|---|---|
 | P0 | Forks on GitHub (owner creates `asimog/BettaFish` and `asimog/MiroShark`, or lets the agent); submodules; uv venvs; Neo4j compose; `ASIMOG_FORK` guard; counsel row; `fork-guard` suite | owner yes | 1 | Both engines start with all env from ours; guard passes |
-| P1 | `slow` schema, views, role, `as_of`; Reply Reader and media cache senses; `slow-views` suite | P0 | 2 | Views serve the fixture; ingestion unchanged |
+| P1 | **Views, role, `as_of`, `slow.reports`, `slow.jobs` and `mem.callout_replies` built; `slow-views` passes (2026-10-18). Reply Reader and media cache still to do.** `slow` schema, views, role, `as_of`; Reply Reader and media cache senses; `slow-views` suite | P0 | 2 | Views serve the fixture; ingestion unchanged |
 | P2 | Slow Bridge skeleton: jobs, scheduler, engine clients, mapper, LLM stub server | P1 | 2 | A stub job round-trips both engines |
 | P3 | BettaFish B1, B2, B8, B9, B10: Insight over our views with the reflection loop; feed runs live | P2 | 3 to 5 | `bettafish-insight` passes; a live `nano` feed run writes `synthesis.feed` |
 | P4 | BettaFish B3, B4, B5, B6, B7: Media, Query (Tavily, X), forum mirror, report templates, multilingual sentiment; Jev `verify` in core | P3, Reflex `verify` pack | 4 to 6 | `bettafish-full` passes |
