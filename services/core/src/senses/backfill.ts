@@ -1,6 +1,7 @@
 // Backfill (S2.7, docs/06): when a coin enters the watched set, read its recent trades from RPC and write the ones
 // the Tape lacks as `trade.curve` with source `rpc`. Pump `TradeEvent`s come from `Program data:` log lines.
 // `event_time` is when the trade happened; `seen_time` is when we learned it, so nothing leaks back.
+import { tradeKey } from "./chain-reader.ts";
 import type { Trade } from "@asimog/contracts";
 import { PublicKey } from "@solana/web3.js";
 import type { Sql } from "../lib/db.ts";
@@ -157,8 +158,8 @@ export class Backfill {
         this.stats.decode_errors++;
         continue;
       }
-      for (const [i, t] of trades.entries()) {
-        this.tape.emit("trade.curve", t, { source: "rpc", subject: mint, eventTime: t.ts, dedupe: `trade:${s.signature}:rpc:${i}` });
+      for (const t of trades) {
+        this.tape.emit("trade.curve", t, { source: "rpc", subject: mint, eventTime: t.ts, dedupe: tradeKey(t) });
         this.stats.trades++;
       }
     }

@@ -148,7 +148,7 @@ export class Rollup {
       bundle_share: Math.min(1, [...c.bundle_wallets].reduce((a, w) => a + Math.max(0, c.bal.get(w) ?? 0), 0) / SUPPLY),
       fresh_share: share(c.fresh_sol),
       sniper_share: share(c.sniper_sol),
-      top_buyer_share: share(Math.max(0, ...c.bought.values())),
+      top_buyer_share: share([...c.bought.values()].reduce((m, v) => Math.max(m, v), 0)), // no spread: a coin can have more buyers than the call stack allows arguments
       creator_sold: c.creator_bought > 0 ? Math.min(1, c.creator_sold / c.creator_bought) : 0,
       smart_buyers: c.smart.size,
     };

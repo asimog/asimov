@@ -83,6 +83,8 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
     await sql`insert into idx.wallet ${sql(out.slice(i, i + 2000) as never, "wallet", "version", "n", "copy_net", "copy_win_lcb", "early_right", "lead_s", "archetype", "seed", "refreshed_at")}
       on conflict (wallet) do update set version = excluded.version, n = excluded.n, copy_net = excluded.copy_net, copy_win_lcb = excluded.copy_win_lcb,
         early_right = excluded.early_right, lead_s = excluded.lead_s, archetype = excluded.archetype, seed = excluded.seed, refreshed_at = excluded.refreshed_at`;
+  // a wallet this version did not score keeps an older version's label: demote it so "smart" means smart now (fix plan 3.10)
+  await sql`update idx.wallet set archetype = 'stale' where version < ${v} and archetype in ('smart', 'sniper')`;
   smart.sort((a, b) => b.copy_win_lcb - a.copy_win_lcb || (a.wallet < b.wallet ? -1 : 1));
   const [coins] = await sql`select count(*)::int n from idx.coin where last_at > ${now}::timestamptz - make_interval(days => ${P.windowDays})`;
   tape.emit("index.refreshed", { version: v, window_days: P.windowDays, wallets: out.length, coins: coins!.n as number, smart: smart.slice(0, P.smartMax) }, { source: "analyzer", subject: `index:${v}` });

@@ -222,7 +222,7 @@ export class FeedReader {
       this.tape.emit(
         "callout.counts",
         { callout_id: c.calloutId, mint: item.coinMint, ...counts, multiple: c.multiple, max_multiple: c.maxMultiplier, mcap_usd: item.marketCap },
-        { source: "feedreader", subject: c.calloutId, causes },
+        { source: "feedreader", subject: c.calloutId, causes, dedupe: `counts:${c.calloutId}:${h}` }, // a restart's re-walk never re-emits the same counts
       );
     }
     this.seen.set(c.calloutId, via === "poll" ? h : (this.seen.get(c.calloutId) ?? -1));

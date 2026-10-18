@@ -134,7 +134,7 @@ When a coin enters the watched set, the Backfill (`senses/backfill.ts`) reads wh
 1. `getSignaturesForAddress(bondingCurvePda(mint), limit: RPC_BACKFILL_SIGS)` (default 200), newest first.
 2. Signatures already on the Tape for that coin (from NATS) are skipped; the overlap is counted for `ctl coverage`.
 3. `getTransaction` for the rest, paced by the `RpcPool` per-endpoint limits and capped by `RPC_BACKFILL_TX_PER_HOUR` (default 3000) per hour. Every call is metered as `budget.spent` (unit `rpc`).
-4. Each `Program data:` log line whose first 8 bytes are the pump `TradeEvent` discriminator is decoded with `PUMP_SDK.decodeTradeEventBc` and written as `trade.curve`: source `rpc`, `event_time` = the event timestamp, `price_sol` from the virtual reserves after the trade, dedupe `trade:<signature>:rpc:<index>`.
+4. Each `Program data:` log line whose first 8 bytes are the pump `TradeEvent` discriminator is decoded with `PUMP_SDK.decodeTradeEventBc` and written as `trade.curve`: source `rpc`, `event_time` = the event timestamp, `price_sol` from the virtual reserves after the trade, dedupe `trade:<tx>:<wallet>:<side>:<tokens>`, the one key every sense uses for a trade.
 
 A backfilled trade has `seen_time` = when we fetched it. Analyzers still read by `seen_time`, so nothing learned late can leak backwards. The Scorekeeper orders `rpc` trades by `event_time` when it measures an outcome after the horizon (docs/07), because by then it knows them.
 

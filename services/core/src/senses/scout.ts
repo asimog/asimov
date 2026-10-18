@@ -1,6 +1,7 @@
 // Scout (docs/06, docs/23): every pump.fun trade, in memory. It feeds the Index rollup and promotes a coin into the
 // watched set when a known caller or a smart wallet buys it, when its flow heats, or when its metrics clear the scan
 // floor. Promotion writes the triggering trade and `coin.watched` with the coin's launch features as seen right then.
+import { tradeKey } from "./chain-reader.ts";
 import type { NatsConnection } from "@nats-io/nats-core";
 import type { BodyOf } from "@asimog/contracts";
 import { Rollup } from "../index/rollup.ts";
@@ -66,8 +67,8 @@ export class Scout {
       this.stats.callers = this.callers.size;
       const [ix] = await this.sql`select max(version) v from idx.wallet`;
       if (ix?.v) {
-        this.rollup.smart = new Set((await this.sql`select wallet from idx.wallet where archetype = 'smart'`).map((r) => r.wallet as string));
-        this.rollup.snipers = new Set((await this.sql`select wallet from idx.wallet where archetype = 'sniper'`).map((r) => r.wallet as string));
+        this.rollup.smart = new Set((await this.sql`select wallet from idx.wallet where archetype = 'smart' and version = ${ix.v}`).map((r) => r.wallet as string));
+        this.rollup.snipers = new Set((await this.sql`select wallet from idx.wallet where archetype = 'sniper' and version = ${ix.v}`).map((r) => r.wallet as string));
       }
     } catch (err) {
       log.warn("scout refresh", { err: String(err) });
@@ -110,7 +111,7 @@ export class Scout {
     this.promoted.set(t.mint, now);
     this.stats[reason]++;
     // the trigger trade first, with the Chain Reader's dedupe key, so analyzers see the buy that caused the watch
-    const te = this.tape.emit(t.on_curve === false ? "trade.amm" : "trade.curve", t, { source: "nats", subject: t.mint, eventTime: t.ts, dedupe: `trade:${t.tx}:${t.slot_index_id ?? ""}` });
+    const te = this.tape.emit(t.on_curve === false ? "trade.amm" : "trade.curve", t, { source: "nats", subject: t.mint, eventTime: t.ts, dedupe: tradeKey(t) });
     const we = this.tape.emit("coin.watched", {
       mint: t.mint, reason, wallet: reason === "caller_buy" || reason === "smart_buy" ? t.wallet : null, buyers_60s: buyers, net_sol_60s: net, trigger_tx: t.tx, features: f,
     }, { source: "nats", subject: t.mint, causes: [te.id], dedupe: `watch:${t.mint}:${Math.floor(now / this.p.repromoteMs)}` });

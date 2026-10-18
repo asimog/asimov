@@ -19,6 +19,9 @@ type Processed = Lite & { mintAddress: string; program?: string; isBondingCurve?
 const subject = (mint: string) => `unifiedTradeEvent.processed.${mint}`;
 const n = (s: string | undefined | null) => (s == null || s === "" ? null : Number(s));
 
+/** One key for one trade whichever sense saw it, so NATS and the RPC backfill never both write it (fix plan 3.14). */
+export const tradeKey = (t: { tx: string; wallet: string; side: string; tokens: number | null }) => `trade:${t.tx}:${t.wallet}:${t.side}:${t.tokens ?? ""}`;
+
 export function toTrade(p: Partial<Processed>): Trade | null {
   const mint = p.mint ?? p.mintAddress;
   const ts = isoOrNull(p.timestamp);
@@ -100,7 +103,7 @@ export class ChainReader {
       source: "nats",
       subject: t.mint,
       eventTime: t.ts,
-      dedupe: `trade:${t.tx}:${t.slot_index_id ?? ""}`,
+      dedupe: tradeKey(t),
     });
   }
 
