@@ -87,7 +87,8 @@ The gate is the core consumer `attention` (`services/core/src/mind/escalate.ts`)
 
 | Risk | Defence |
 |---|---|
-| Engines invent a citation or borrow a real id | Markers are a separate field; feed claims must cite ids inside the window; core drops unsupported claims |
+| Engines invent a citation or borrow a real id | Markers are a separate field (`cites`); the worker strips them from every text and core never parses ids out of prose. A cited callout counts only when it was seen inside the run's window (`window_min` before the Bridge's `as_of`, never after now); core drops unsupported claims and counts them |
+| Engine text names a person or promises | One public-text check (`publicText` in `hands/text-checks.ts`: hidden characters removed, NFKC, the prose Guard) runs on every text field of every MCP write. A refused field drops its claim (feed, coin claims, swarm posts) or refuses the call (forum line, coin narrative, report summary and Markdown, drafts, alerts, job events) |
 | A word like "rugged" marks a coin "avoid" | Stance only when a cited claim supports it |
 | Strangers' text steers prompts | Callout text is fenced as data, trimmed, dropped if it looks like instructions |
 | Simulated content mistaken for real | `simulated: true` everywhere, SIMULATED edges and labels, never mixed into the Index |

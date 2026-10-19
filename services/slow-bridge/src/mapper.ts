@@ -24,9 +24,11 @@ export async function mapOutput(c: Cores, job: Job, out: RunOutput, parents: str
       m.refused.push({ tool: "report_publish", reason: String((err as Error).message ?? err).slice(0, 200) });
     }
   }
-  if (out.synthesis_feed) await write(c.synth, "emit_synthesis_feed", { synthesis_id: job.id, preset: job.preset, ...out.synthesis_feed });
+  // the run's window bounds its citations (core drops a borrowed id): the Bridge's values, never the engine's
+  const run = { as_of: window.to, window_min: Math.round((Date.parse(window.to ?? "") - Date.parse(window.from ?? "")) / 60_000) };
+  if (out.synthesis_feed) await write(c.synth, "emit_synthesis_feed", { synthesis_id: job.id, preset: job.preset, ...out.synthesis_feed, ...run });
   if (out.mood) await write(c.synth, "emit_mood_feed", { synthesis_id: job.id, ...out.mood });
-  if (out.synthesis_coin) await write(c.synth, "emit_synthesis_coin", { synthesis_id: job.id, mint: job.subject, preset: job.preset, ...out.synthesis_coin });
+  if (out.synthesis_coin) await write(c.synth, "emit_synthesis_coin", { synthesis_id: job.id, mint: job.subject, preset: job.preset, ...out.synthesis_coin, ...run });
   for (const [i, f] of (out.forum_lines ?? []).entries()) await write(c.synth, "emit_forum_line", { synthesis_id: job.id, round: i, ...f });
   if (out.swarm) await write(c.swarm, "emit_swarm_result", { swarm_id: job.id, mint: job.subject, preset: job.preset, ...out.swarm });
   if (out.beliefs) await write(c.swarm, "emit_swarm_beliefs", { swarm_id: job.id, mint: job.subject, ...out.beliefs });

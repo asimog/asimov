@@ -26,7 +26,7 @@ export const suite: Suite = {
       const swarm = w.inProc(CAP.swarm);
       const ex = w.inProc(CAP.exchange);
       await synth.call("emit_forum_line", { synthesis_id: "sj_r1", round: 0, agent: "host", text: "PEPE has two early callers [cid:co_a1].", cites: ["co_a1"] });
-      await synth.call("emit_synthesis_coin", { synthesis_id: "sj_r1", mint: MINT_A, stance: "bullish", narrative: "Two early callers.", preset: "lite", claims: [{ text: "Early callers [cid:co_a1]", cites: ["co_a1"] }, { text: "Invented", cites: ["co_FAKE"] }] });
+      await synth.call("emit_synthesis_coin", { synthesis_id: "sj_r1", mint: MINT_A, as_of: w.clock.iso(), window_min: 1440, stance: "bullish", narrative: "Two early callers.", preset: "lite", claims: [{ text: "Early callers [cid:co_a1]", cites: ["co_a1"] }, { text: "Invented", cites: ["co_FAKE"] }] });
       await ex.call("report_publish", { report_id: "sj_r1_0", producer: "bettafish.report", kind: "coin", subject: MINT_A, preset: "lite", summary: "PEPE has two early callers.", cites: ["co_a1", "co_a2", "co_FAKE"], markdown: "# Coin\n\nEarly [cid:co_a1]." });
       await swarm.call("emit_swarm_result", { swarm_id: "sj_s1", mint: MINT_A, preset: "lite", samples: 1, usd: 0, truncated: false, wave_p: 0.4, d_callers: 1, d_net_sol: 0.05, posts: [{ branch: "A", platform: "pumpfun", round: 0, agent: "caller_0001", archetype: "caller", text: "PEPE early" }, { branch: "B", platform: "twitter", round: 0, agent: "sniper_000", archetype: "sniper", text: "watching PEPE" }] });
       await swarm.call("emit_swarm_beliefs", { swarm_id: "sj_s1", mint: MINT_A, topic: "PEPE", branches: { A: [[{ round: 0, stance: { caller: 0.3 } }]], B: [[{ round: 0, stance: { caller: 0.5 } }]] } });

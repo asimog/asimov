@@ -1,5 +1,6 @@
 // Publisher text checks (docs/EXECUTION.md): every post, paper or live, passes these before it is queued. Pure.
 // The voice is terse (agent/skills/voice-terse): no emojis, no em dashes, position disclosed, no promises.
+import { clean } from "../reflex/guard.ts";
 
 export type PostKind = "callout" | "update" | "reply";
 export type CheckResult = { ok: boolean; passed: string[]; failed: string[] };
@@ -52,4 +53,13 @@ export function checkProse(text: string, maxLen = 4000): string[] {
   if (PROMISES.test(text)) failed.push("no_promise");
   if (!noPerson(text)) failed.push("no_person");
   return failed;
+}
+
+/**
+ * The one public-text check for every MCP write (docs/SLOW-MIND.md section 7): hidden characters removed and NFKC (the
+ * same `clean` the Jev fence uses), then the prose Guard. Returns the cleaned text and the failed rule names.
+ */
+export function publicText(text: string, maxLen = 4000): { text: string; failed: string[] } {
+  const t = clean(text);
+  return { text: t, failed: checkProse(t, maxLen) };
 }

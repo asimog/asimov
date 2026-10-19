@@ -63,7 +63,7 @@ export const suite: Suite = {
       const callAt = at((grantMs - t0) / 1000 + 10);
       await db.sql`insert into mem.callouts (callout_id, mint, wallet, text, created_at, seen_at, first_on_coin) values ('co_1', ${UNSURE}, 'Caller1', 'call', ${callAt}, ${callAt}, true)`;
       const box = new Toolbox({ sql: db.sql, tape, clock, soulFile: "" }, new Map([["tok", CAP.synth]]));
-      const r = await box.call("tok", "emit_synthesis_coin", { synthesis_id: "sj_1", mint: UNSURE, stance: "bullish", narrative: "Callers see a fresh launch.", preset: "nano", claims: [{ text: "One caller bought early.", cites: ["co_1"] }] });
+      const r = await box.call("tok", "emit_synthesis_coin", { synthesis_id: "sj_1", mint: UNSURE, as_of: new Date(grantMs).toISOString(), window_min: 60, stance: "bullish", narrative: "Callers see a fresh launch.", preset: "nano", claims: [{ text: "One caller bought early.", cites: ["co_1"] }] });
       const slow = slowSignals(clock);
       while (await step(db.sql, slow)) { /* drain */ }
       const [b] = await db.sql`select produced_at from board.signals where kind = 'synthesis.coin' and subject = ${UNSURE}`;

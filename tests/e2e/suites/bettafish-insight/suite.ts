@@ -57,6 +57,7 @@ export const suite: Suite = {
     try {
       await w.seed();
       // the run is pinned 20 minutes back; a PEPE callout seen after that (but before the database's now) must stay unseen
+      // (a 1-minute feed period keeps the slot at that as-of: the seeded callouts sit inside the run window, as core requires)
       const asOfMs = Date.now() - 20 * 60_000;
       await w.sql`insert into mem.callouts (callout_id, mint, wallet, text, created_at, seen_at, first_on_coin, likes, replies)
         values ('co_late', ${MINT_A}, ${WALLETS[0]!}, 'PEPE late call from the future', ${new Date(asOfMs + 5 * 60_000).toISOString()}, ${new Date(asOfMs + 5 * 60_000).toISOString()}, false, 99, 0)`;
@@ -65,7 +66,7 @@ export const suite: Suite = {
       for (let i = 0; i < 120 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the worker starts with every provider value from our env", await eng.healthy(), log.slice(-300));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => asOfMs, newId: () => "sj_bf1", cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 120, pollMs: 300 } });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => asOfMs, newId: () => "sj_bf1", cfg: { feedEveryMin: 1, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 120, pollMs: 300 } });
       await bridge.schedule();
       await bridge.drain();
       const [job] = await w.sql`select state, error, result from slow.jobs where id = 'sj_bf1'`;

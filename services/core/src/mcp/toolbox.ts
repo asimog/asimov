@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { canonical, type Source, SwarmPlatform } from "@asimog/contracts";
 import { z } from "zod";
 import { liveFor } from "../board/board.ts";
-import { checkProse } from "../hands/text-checks.ts";
+import { publicText } from "../hands/text-checks.ts";
 import type { Clock } from "../lib/clock.ts";
 import { configValues } from "../lib/config.ts";
 import type { Sql } from "../lib/db.ts";
@@ -79,12 +79,44 @@ export function parseTokens(s: string | undefined): Map<string, string> {
   return m;
 }
 
-// ---------- citation rule: a claim stands only if every callout it cites exists and was seen already ----------
-async function citedCallouts(c: ToolCtx, ids: string[]): Promise<Map<string, string>> {
+// ---------- citation rule: a claim stands only if every callout it cites exists and was seen inside the run's window ----------
+type Window = { from: string; to: string };
+/** The run's window: `window_min` before its `as_of` (the Bridge's slot). An `as_of` after now is refused. */
+function windowOf(c: ToolCtx, a: { as_of: string; window_min: number }): Window {
+  const to = Date.parse(a.as_of);
+  if (to > c.clock.now()) throw new Refusal("future_as_of", `as_of ${a.as_of} is after now`);
+  return { from: new Date(to - a.window_min * 60_000).toISOString(), to: new Date(to).toISOString() };
+}
+async function citedCallouts(c: ToolCtx, ids: string[], w: Window): Promise<Map<string, string>> {
   if (!ids.length) return new Map();
-  const rows = await c.sql`select callout_id, mint from mem.callouts where callout_id = any(${ids}) and seen_at <= ${c.clock.iso()}`;
+  const rows = await c.sql`select callout_id, mint from mem.callouts where callout_id = any(${ids}) and seen_at >= ${w.from} and seen_at <= ${w.to} and seen_at <= ${c.clock.iso()}`;
   return new Map(rows.map((r) => [r.callout_id as string, r.mint as string]));
 }
+
+// ---------- one public-text check (publicText) on every text field of every write ----------
+/** The claim with its text fields cleaned, or null when one is refused (the claim is dropped and counted). */
+function keepText<T extends Record<string, unknown>>(x: T, fields: (keyof T & string)[]): T | null {
+  const out: Record<string, unknown> = { ...x };
+  for (const f of fields) {
+    const v = x[f];
+    if (typeof v !== "string") continue;
+    const r = publicText(v);
+    if (r.failed.length) return null;
+    out[f] = r.text;
+  }
+  return out as T;
+}
+/** A field whose refusal refuses the whole call. */
+function mustText(what: string, text: string): string {
+  const r = publicText(text);
+  if (r.failed.length) throw new Refusal("guard", `${what} refused: ${r.failed.join(", ")}`);
+  return r.text;
+}
+const keepAll = <T extends Record<string, unknown>>(xs: T[], fields: (keyof T & string)[], ok: (x: T) => boolean) =>
+  xs.flatMap((x) => {
+    const t = keepText(x, fields);
+    return t && ok(x) ? [t] : [];
+  });
 const cited = (found: Map<string, string>, cites: string[], mint?: string) => cites.length > 0 && cites.every((id) => found.has(id) && (!mint || found.get(id) === mint));
 
 const Cites = z.array(z.string()).max(12);
@@ -231,16 +263,16 @@ export const TOOLS: Tool[] = [
   }),
 
   // ----- writes: synthesis and swarm -----
-  tool("emit_synthesis_feed", [CAP.synth], "Write a feed synthesis. Claims that cite nothing, or a callout core has not seen, are dropped.", {
-    synthesis_id: z.string(), window_min: z.number(), preset: z.string(), dropped_before: z.number().int().min(0).default(0),
+  tool("emit_synthesis_feed", [CAP.synth], "Write a feed synthesis. Claims that cite nothing, cite a callout outside the run's window, or fail the text check are dropped.", {
+    synthesis_id: z.string(), as_of: iso, window_min: z.number().min(1).max(1440), preset: z.string(), dropped_before: z.number().int().min(0).default(0),
     narratives: z.array(z.object({ title: z.string().max(120), summary: z.string().max(600), cites: Cites })).max(12),
     coin_stances: z.array(z.object({ mint: z.string(), symbol: z.string().nullable(), stance: Stance, why: z.string().max(400), cites: Cites })).max(30),
     suspicious: z.array(z.object({ pattern: z.string().max(40), text: z.string().max(400), cites: Cites })).max(12),
   }, async (a, c) => {
-    const found = await citedCallouts(c, [...a.narratives, ...a.coin_stances, ...a.suspicious].flatMap((x) => x.cites));
-    const narratives = a.narratives.filter((x) => cited(found, x.cites));
-    const coin_stances = a.coin_stances.filter((x) => cited(found, x.cites, x.mint));
-    const suspicious = a.suspicious.filter((x) => cited(found, x.cites));
+    const found = await citedCallouts(c, [...a.narratives, ...a.coin_stances, ...a.suspicious].flatMap((x) => x.cites), windowOf(c, a));
+    const narratives = keepAll(a.narratives, ["title", "summary"], (x) => cited(found, x.cites));
+    const coin_stances = keepAll(a.coin_stances, ["symbol", "why"], (x) => cited(found, x.cites, x.mint));
+    const suspicious = keepAll(a.suspicious, ["pattern", "text"], (x) => cited(found, x.cites));
     const kept = narratives.length + coin_stances.length + suspicious.length;
     const total = a.narratives.length + a.coin_stances.length + a.suspicious.length + a.dropped_before;
     c.tape.emit("synthesis.feed", { synthesis_id: a.synthesis_id, window_min: a.window_min, preset: a.preset, narratives, coin_stances, suspicious, claims_total: total, claims_dropped: total - kept }, { source: source(c), subject: "global", dedupe: `synthesis.feed:${a.synthesis_id}` });
@@ -254,23 +286,23 @@ export const TOOLS: Tool[] = [
     return { ok: true };
   }),
 
-  tool("emit_synthesis_coin", [CAP.synth], "Write a coin synthesis. Claims must cite callouts on that coin.", {
-    synthesis_id: z.string(), mint: z.string(), stance: Stance, narrative: z.string().max(600), preset: z.string(), dropped_before: z.number().int().min(0).default(0),
+  tool("emit_synthesis_coin", [CAP.synth], "Write a coin synthesis. Claims must cite callouts on that coin seen inside the run's window and pass the text check.", {
+    synthesis_id: z.string(), mint: z.string(), as_of: iso, window_min: z.number().min(1).max(1440), stance: Stance, narrative: z.string().max(600), preset: z.string(), dropped_before: z.number().int().min(0).default(0),
     claims: z.array(z.object({ text: z.string().max(400), cites: Cites })).max(20),
   }, async (a, c) => {
-    const found = await citedCallouts(c, a.claims.flatMap((x) => x.cites));
-    const claims = a.claims.filter((x) => cited(found, x.cites, a.mint));
+    const narrative = mustText("narrative", a.narrative);
+    const found = await citedCallouts(c, a.claims.flatMap((x) => x.cites), windowOf(c, a));
+    const claims = keepAll(a.claims, ["text"], (x) => cited(found, x.cites, a.mint));
     const total = a.claims.length + a.dropped_before;
-    c.tape.emit("synthesis.coin", { synthesis_id: a.synthesis_id, mint: a.mint, stance: a.stance, narrative: a.narrative, claims, claims_total: total, claims_dropped: total - claims.length, preset: a.preset }, { source: source(c), subject: a.mint, dedupe: `synthesis.coin:${a.synthesis_id}` });
+    c.tape.emit("synthesis.coin", { synthesis_id: a.synthesis_id, mint: a.mint, stance: a.stance, narrative, claims, claims_total: total, claims_dropped: total - claims.length, preset: a.preset }, { source: source(c), subject: a.mint, dedupe: `synthesis.coin:${a.synthesis_id}` });
     await c.tape.flush();
     return { claims_kept: claims.length, claims_dropped: total - claims.length };
   }),
 
   tool("emit_forum_line", [CAP.synth], "Write one forum line (the live debate shown on /synthesis).", { synthesis_id: z.string(), round: z.number().int(), agent: z.enum(["insight", "query", "media", "host"]), text: z.string().max(600), cites: Cites }, async (a, c) => {
-    const found = await citedCallouts(c, a.cites);
-    const bad = checkProse(a.text, 600);
-    if (bad.length) throw new Refusal("guard", `forum line refused: ${bad.join(", ")}`);
-    c.tape.emit("synthesis.forum_line", { ...a, cites: a.cites.filter((id) => found.has(id)) }, { source: source(c), subject: a.synthesis_id });
+    const text = mustText("forum line", a.text);
+    const found = await citedCallouts(c, a.cites, { from: new Date(0).toISOString(), to: c.clock.iso() }); // a forum line cites what was seen by now
+    c.tape.emit("synthesis.forum_line", { ...a, text, cites: a.cites.filter((id) => found.has(id)) }, { source: source(c), subject: a.synthesis_id });
     await c.tape.flush();
     return { ok: true };
   }),
@@ -285,11 +317,12 @@ export const TOOLS: Tool[] = [
     c.tape.emit("swarm.impact", { swarm_id: a.swarm_id, mint: a.mint, d_callers: a.d_callers, d_net_sol: a.d_net_sol, samples: a.samples, truncated: a.truncated }, { source: source(c), subject, dedupe: `swarm.impact:${a.swarm_id}` });
     let refused = 0;
     a.posts.forEach((p, i) => {
-      if (checkProse(p.text, 280).length) {
+      const kept = keepText(p, ["agent", "archetype", "text"]);
+      if (!kept) {
         refused++;
         return;
       }
-      c.tape.emit("swarm.post", { swarm_id: a.swarm_id, mint: a.mint, ...p, simulated: true }, { source: source(c), subject, dedupe: `swarm.post:${a.swarm_id}:${i}` });
+      c.tape.emit("swarm.post", { swarm_id: a.swarm_id, mint: a.mint, ...kept, simulated: true }, { source: source(c), subject, dedupe: `swarm.post:${a.swarm_id}:${i}` });
     });
     await c.tape.flush();
     return { posts_written: a.posts.length - refused, posts_refused: refused };
@@ -299,7 +332,7 @@ export const TOOLS: Tool[] = [
     swarm_id: z.string(), mint: z.string(), topic: z.string().max(40),
     branches: z.record(z.string(), z.array(z.array(z.object({ round: z.number().int(), stance: z.record(z.string(), z.number().min(-1).max(1)) })).max(50)).max(10)),
   }, async (a, c) => {
-    c.tape.emit("swarm.beliefs", { ...a, simulated: true }, { source: source(c), subject: a.mint, dedupe: `swarm.beliefs:${a.swarm_id}` });
+    c.tape.emit("swarm.beliefs", { ...a, topic: mustText("topic", a.topic), simulated: true }, { source: source(c), subject: a.mint, dedupe: `swarm.beliefs:${a.swarm_id}` });
     await c.tape.flush();
     return { ok: true };
   }),
@@ -308,46 +341,47 @@ export const TOOLS: Tool[] = [
   tool("propose_strategy", [CAP.propose], "Propose a strategy spec. Core validates it; a valid proposal is only a record.", { spec: z.record(z.string(), z.unknown()), why: z.array(z.string().max(300)).min(1).max(8), because: z.array(z.string()).max(12).default([]) }, async (a, c) => {
     const v = validateSpec(a.spec);
     if (!v.ok) throw new Refusal("bad_spec", v.reasons.join("; "));
+    const why = a.why.map((w) => mustText("why", w));
     const proposal_id = c.clock.id("strategy");
-    c.tape.emit("proposal.strategy", { proposal_id, by: source(c), spec: v.spec as unknown as Record<string, unknown>, why: a.why, because: a.because }, { source: source(c), subject: proposal_id, causes: a.because });
+    c.tape.emit("proposal.strategy", { proposal_id, by: source(c), spec: v.spec as unknown as Record<string, unknown>, why, because: a.because }, { source: source(c), subject: proposal_id, causes: a.because });
     await c.tape.flush();
     return { proposal_id };
   }),
 
   tool("propose_question", [CAP.jev], "Propose a Jev question; it starts in shadow.", { pack: z.enum(["callout", "coin", "callers", "entry", "exit", "reply", "link"]), text: z.string().min(10).max(200), type: z.enum(["yes_no", "probability"]) }, async (a, c) => {
-    const bad = checkProse(a.text, 200);
-    if (bad.length || !a.text.trim().endsWith("?")) throw new Refusal("guard", `question refused: ${[...bad, ...(a.text.trim().endsWith("?") ? [] : ["not_a_question"])].join(", ")}`);
+    const text = mustText("question", a.text);
+    if (!text.trim().endsWith("?")) throw new Refusal("guard", "question refused: not_a_question");
     const question_id = c.clock.id("task");
-    c.tape.emit("jevq.proposed", { question_id, pack: a.pack, text: a.text, type: a.type, by: source(c) }, { source: source(c), subject: question_id });
+    c.tape.emit("jevq.proposed", { question_id, pack: a.pack, text, type: a.type, by: source(c) }, { source: source(c), subject: question_id });
     await c.tape.flush();
     return { question_id };
   }),
 
   tool("ops_alert", [CAP.ops], "Alert the owner.", { severity: z.enum(["info", "warn", "page"]), text: z.string().min(5).max(500), finding: z.string().max(120) }, async (a, c) => {
-    const bad = checkProse(a.text, 500);
-    if (bad.length) throw new Refusal("guard", `alert refused: ${bad.join(", ")}`);
-    c.tape.emit("ops.alert", a, { source: source(c), subject: a.finding });
+    const b = { ...a, text: mustText("alert", a.text), finding: mustText("finding", a.finding) };
+    c.tape.emit("ops.alert", b, { source: source(c), subject: b.finding });
     await c.tape.flush();
     return { ok: true };
   }),
 
   tool("ops_stop", [CAP.ops], "Ask for a pause or a kill. Stopping only; nothing here can start anything.", { action: z.enum(["pause", "kill"]), scope: z.string().max(60), reason: z.string().min(5).max(300) }, async (a, c) => {
-    c.tape.emit("ops.stop_requested", a, { source: source(c), subject: a.scope });
+    const b = { ...a, scope: mustText("scope", a.scope), reason: mustText("reason", a.reason) };
+    c.tape.emit("ops.stop_requested", b, { source: source(c), subject: b.scope });
     await c.tape.flush();
     return { ok: true };
   }),
 
   tool("ops_restart_request", [CAP.ops], "Ask the owner to restart one consumer or sense. A request only: nothing here restarts anything.", { scope: z.string().max(60), reason: z.string().min(5).max(300) }, async (a, c) => {
-    c.tape.emit("ops.restart_requested", a, { source: source(c), subject: a.scope });
+    const b = { scope: mustText("scope", a.scope), reason: mustText("reason", a.reason) };
+    c.tape.emit("ops.restart_requested", b, { source: source(c), subject: b.scope });
     await c.tape.flush();
     return { ok: true };
   }),
 
   tool("draft_report", [CAP.report], "Store the daily report draft after the prose Guard.", { day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), text: z.string().min(20).max(4000) }, async (a, c) => {
-    const bad = checkProse(a.text, 4000);
-    if (bad.length) throw new Refusal("guard", `report refused: ${bad.join(", ")}`);
+    const text = mustText("report", a.text);
     const report_id = c.clock.id("task");
-    c.tape.emit("report.drafted", { report_id, day: a.day, text: a.text, checks: ["length", "no_emoji", "no_dash", "no_promise", "no_person"] }, { source: source(c), subject: report_id, dedupe: `report:${a.day}` });
+    c.tape.emit("report.drafted", { report_id, day: a.day, text, checks: ["length", "no_emoji", "no_dash", "no_promise", "no_person"] }, { source: source(c), subject: report_id, dedupe: `report:${a.day}` });
     await c.tape.flush();
     return { report_id };
   }),
@@ -356,9 +390,8 @@ export const TOOLS: Tool[] = [
     const [s] = await c.sql`select confidence from board.signals where id = ${a.finding_id} and kind = 'integrity.finding'`;
     if (!s) throw new Refusal("not_found", `no finding ${a.finding_id}`);
     if ((s.confidence as number) < 0.85) throw new Refusal("below_threshold", "findings under 0.85 are not written up");
-    const bad = checkProse(a.text, 1200);
-    if (bad.length) throw new Refusal("guard", `text refused: ${bad.join(", ")}`);
-    c.tape.emit("integrity.text", { finding_id: a.finding_id, text: a.text, checks: ["length", "no_emoji", "no_dash", "no_promise", "no_person"] }, { source: source(c), subject: a.finding_id, dedupe: `integrity.text:${a.finding_id}` });
+    const text = mustText("text", a.text);
+    c.tape.emit("integrity.text", { finding_id: a.finding_id, text, checks: ["length", "no_emoji", "no_dash", "no_promise", "no_person"] }, { source: source(c), subject: a.finding_id, dedupe: `integrity.text:${a.finding_id}` });
     await c.tape.flush();
     return { ok: true };
   }),
@@ -370,8 +403,8 @@ export const TOOLS: Tool[] = [
     summary: z.string().min(10).max(600), cites: z.array(z.string()).max(200).default([]), parent_reports: z.array(z.string()).max(20).default([]),
     ir: z.record(z.string(), z.unknown()).nullable().default(null), markdown: z.string().max(400_000).nullable().default(null), simulated: z.boolean().default(false),
   }, async (a, c) => {
-    const bad = checkProse(a.summary, 600);
-    if (bad.length) throw new Refusal("guard", `summary refused: ${bad.join(", ")}`);
+    a.summary = mustText("summary", a.summary);
+    if (a.markdown !== null) a.markdown = mustText("markdown", a.markdown);
     const now = c.clock.iso();
     const callouts = a.cites.length ? new Set((await c.sql`select callout_id from mem.callouts where callout_id = any(${a.cites}) and seen_at <= ${now}`).map((r) => r.callout_id as string)) : new Set<string>();
     const events = a.cites.length ? new Set((await c.sql`select id from tape.events where id = any(${a.cites}) and seen_time <= ${now}`).map((r) => r.id as string)) : new Set<string>();
@@ -401,7 +434,8 @@ export const TOOLS: Tool[] = [
   }),
 
   tool("job_event", ANY_LANE, "Record that a job was queued, started or done.", { kind: z.enum(["queued", "started", "done"]), job_id: z.string(), agent: z.string().max(40), trigger_event: z.string().nullable().default(null), cost_usd: z.number().min(0).optional(), error: z.string().max(300).optional() }, async (a, c) => {
-    const { kind, ...body } = a;
+    const { kind, ...rest } = a;
+    const body = { ...rest, agent: mustText("agent", rest.agent), ...(rest.error === undefined ? {} : { error: mustText("error", rest.error) }) };
     c.tape.emit(`job.${kind}`, body, { source: source(c), subject: a.job_id });
     await c.tape.flush();
     return { ok: true };

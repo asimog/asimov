@@ -46,6 +46,11 @@ def cites(text: str) -> list[str]:
     return list(dict.fromkeys(CID.findall(text or "")))[:12]
 
 
+def plain(text: str, n: int) -> str:
+    """Prose for core: citation markers removed (they travel only as the separate `cites` field), whitespace folded."""
+    return re.sub(r"\s+", " ", CID.sub("", text or "")).strip()[:n]
+
+
 def query_for(req: dict) -> str:
     w = int(req.get("window_min") or 60)
     if req["kind"] == "feed":
@@ -103,7 +108,7 @@ class Forum:
             return
         with self.lock:
             self.mon.write_to_forum_log(text, source.upper())
-            self.lines.append({"agent": source, "text": re.sub(r"\s+", " ", text)[:600], "cites": cites(text)})
+            self.lines.append({"agent": source, "text": plain(text, 600), "cites": cites(text)})
             self.pending += 1
             due = self.host and self.pending >= self.every and self.hosts < self.max_host
             if due:
@@ -114,7 +119,7 @@ class Forum:
             if speech:
                 with self.lock:
                     self.mon.write_to_forum_log(speech, "HOST")
-                    self.lines.append({"agent": "host", "text": re.sub(r"\s+", " ", speech)[:600], "cites": cites(speech)})
+                    self.lines.append({"agent": "host", "text": plain(speech, 600), "cites": cites(speech)})
 
 
 TEMPLATES = {"feed": "asimog_callout_feed_synthesis.md", "coin": "asimog_coin_synthesis.md"}
@@ -171,7 +176,7 @@ def to_output(req: dict, results: list) -> dict:
     if req["kind"] == "feed":
         out["synthesis_feed"] = {
             "window_min": int(req.get("window_min") or 60),
-            "narratives": [{"title": t[:120], "summary": re.sub(r"\s+", " ", x)[:600], "cites": cites(x)} for t, x in paragraphs][:12],
+            "narratives": [{"title": plain(t, 120), "summary": plain(x, 600), "cites": cites(x)} for t, x in paragraphs][:12],
             "coin_stances": [], "suspicious": [],
         }
     else:
