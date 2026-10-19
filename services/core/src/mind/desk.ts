@@ -62,7 +62,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   const realized = new Map<string, number>();
   const pending = new Map<string, Intent[]>(); // mint -> intents
   const fills = new Map<string, Fill[]>(); // mint -> fills awaiting markouts
-  const market = new Map<string, Market & { real_sol: number | null }>();
+  const market = new Map<string, Market & { real_sol: number | null }>(); // pool_sol carries over trades that lack it
   const coinCallout = new Map<string, { callout_id: string; author: string | null; at_ms: number }>();
   const calloutMint = new Map<string, string>();
   const coinPrecall = new Map<string, { caller: string; at_ms: number; bought: number; sold: number }>(); // a known caller bought, before their callout (docs/STRATEGY.md)
@@ -130,11 +130,11 @@ export function desk(tape: Tape, clock: Clock): Desk {
     if (upto && upto.getTime() > 0) {
       clockRow.sweep_bucket = Math.floor(upto.getTime() / D.sweepMs);
       const mints = [...new Set([...coinCallout.keys(), ...coinPrecall.keys(), ...coinWatch.keys(), ...open.keys(), ...pending.keys()])];
-      for (const r of await tx`select distinct on (subject) subject, topic, seen_time, (body->>'price_sol')::float p from tape.events
+      for (const r of await tx`select distinct on (subject) subject, topic, seen_time, (body->>'price_sol')::float p, (body->>'pool_sol')::float pool from tape.events
           where subject = any(${mints}) and topic in ('trade.curve', 'trade.amm') and seen_time <= ${upto} and body->>'price_sol' is not null and (body->>'price_sol')::float > 0
           order by subject, seen_time desc, id desc`) {
         const graduated = r.topic === "trade.amm";
-        market.set(r.subject as string, { price_sol: r.p as number, at_ms: (r.seen_time as Date).getTime(), graduated, real_sol: graduated ? null : curveFromPrice(r.p as number).realSol });
+        market.set(r.subject as string, { price_sol: r.p as number, at_ms: (r.seen_time as Date).getTime(), graduated, pool_sol: r.pool as number | null, real_sol: graduated ? null : curveFromPrice(r.p as number).realSol });
       }
     }
     const [cl] = await tx`select at, round from mind.desk_clock where name = 'next_alloc'`;
@@ -585,7 +585,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
             if (!t.price_sol) continue;
             const prev = market.get(t.mint);
             const graduated = e.topic === "trade.amm";
-            const m = { price_sol: t.price_sol, at_ms: now, graduated, real_sol: graduated ? null : curveFromPrice(t.price_sol).realSol };
+            const m = { price_sol: t.price_sol, at_ms: now, graduated, pool_sol: t.pool_sol ?? prev?.pool_sol ?? null, real_sol: graduated ? null : curveFromPrice(t.price_sol).realSol };
             if (Math.floor(now / 60_000) > clockRow.last_minute) {
               clockRow.last_minute = Math.floor(now / 60_000);
               clockRow.active_min++;

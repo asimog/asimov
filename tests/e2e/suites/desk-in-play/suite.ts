@@ -18,7 +18,7 @@ const features: BodyOf<"coin.watched">["features"] = {
   bundle_share: 0, dev_buy_sol: 1, block0_sniper_share: 0, sniper_share: 0, top_buyer_share: 0.1, creator_sold: 0, smart_buyers: 1,
 };
 const trade = (mint: string, n: number, price: number): Trade => ({
-  mint, tx: `t${mint.slice(0, 4)}${n}`, slot_index_id: null, ts: "2026-10-19T12:00:00.000Z", side: "buy", wallet: `W${n}`, sol: 0.5, usd: null, tokens: 0.5 / price, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null,
+  mint, tx: `t${mint.slice(0, 4)}${n}`, slot_index_id: null, ts: "2026-10-19T12:00:00.000Z", side: "buy", wallet: `W${n}`, sol: 0.5, usd: null, tokens: 0.5 / price, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null,
 });
 
 export const suite: Suite = {

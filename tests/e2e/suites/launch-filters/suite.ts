@@ -185,7 +185,7 @@ export const suite: Suite = {
         await e.scout.resolve();
         const chain: Trade[] = [{
           mint: MINTS[2]!, tx: "rpc1", slot_index_id: "000000000100000000000000", ts: new Date(Date.UTC(2026, 9, 19, 12)).toISOString(), side: "buy" as const, wallet: CREATOR,
-          sol: 100, usd: null, tokens: 1000, price_sol: 7e-8, price_usd: null, mcap_usd: null, on_curve: true, program: "pump",
+          sol: 100, usd: null, tokens: 1000, price_sol: 7e-8, price_usd: null, mcap_usd: null, on_curve: true, program: "pump", pool_sol: null,
         }];
         e.scout.recheck(MINTS[2]!, chain);
         await e.tape.flush();

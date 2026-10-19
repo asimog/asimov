@@ -15,7 +15,7 @@ import type { Suite } from "../../lib/suite.ts";
 const MINT = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const MIN = 60_000;
 const trade = (n: number): Trade => ({
-  mint: MINT, tx: `t${n}`, slot_index_id: null, ts: "2026-10-19T12:00:00.000Z", side: "buy", wallet: `W${n}`, sol: 0.1, usd: null, tokens: 0.1 / 3e-8, price_sol: 3e-8, price_usd: null, mcap_usd: null, on_curve: true, program: null,
+  mint: MINT, tx: `t${n}`, slot_index_id: null, ts: "2026-10-19T12:00:00.000Z", side: "buy", wallet: `W${n}`, sol: 0.1, usd: null, tokens: 0.1 / 3e-8, price_sol: 3e-8, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null,
 });
 const niche = (s: { family: string; horizon: string }) => `${s.family}|${s.horizon}`;
 

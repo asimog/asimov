@@ -99,7 +99,7 @@ export async function world(tag: string, o: { live?: boolean; strategies?: strin
     if (o2.risk !== false) // the rug checks the Index would have run: a clean coin
       await putSignal(db.sql as unknown as Tx, clock, { kind: "risk.state", subject: mint, value: { bundle_share: 0, top10_share: 0.1, creator_sold: 0 }, confidence: 0.9, validMs: 3_600_000, inputs: [], analyzer: "test" });
     const price = chain.prices.get(mint)!;
-    tape.emit("trade.curve", { mint, tx: `t${chain.next()}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: keys.stranger.publicKey.toBase58(), sol: 1, usd: null, tokens: 1e6, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null }, { source: "nats", subject: mint });
+    tape.emit("trade.curve", { mint, tx: `t${chain.next()}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: keys.stranger.publicKey.toBase58(), sol: 1, usd: null, tokens: 1e6, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null }, { source: "nats", subject: mint });
     await tape.flush();
     const id = clock.id("intent");
     const strategy_id = o2.strategy ?? "sr_live";

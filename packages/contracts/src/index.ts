@@ -144,6 +144,8 @@ export const Trade = z.object({
   mcap_usd: num.nullable(),
   on_curve: z.boolean().nullable(),
   program: z.string().nullable(),
+  /** the AMM pool's SOL reserve after the trade (NATS `quoteReserves` on a `pump_amm` trade); null on the curve or when unknown */
+  pool_sol: num.nullable(),
 });
 export type Trade = z.infer<typeof Trade>;
 

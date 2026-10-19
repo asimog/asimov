@@ -2,6 +2,7 @@
 import type { Suite } from "./lib/suite.ts";
 import { suite as agentLanes } from "./suites/agent-lanes/suite.ts";
 import { suite as ammGolden } from "./suites/amm-golden/suite.ts";
+import { suite as ammImpact } from "./suites/amm-impact/suite.ts";
 import { suite as analyzers } from "./suites/analyzers-replay/suite.ts";
 import { suite as archiveTargets } from "./suites/archive-targets/suite.ts";
 import { suite as backfillRollup } from "./suites/backfill-rollup/suite.ts";
@@ -57,4 +58,4 @@ import { suite as tapeArchive } from "./suites/tape-archive/suite.ts";
 import { suite as tapeDurable } from "./suites/tape-durable/suite.ts";
 import { suite as tapePartitions } from "./suites/tape-partitions/suite.ts";
 
-export const ALL: Suite[] = [riskgate, ownerConfig, deskInPlay, evolveFloor, promoteHonest, markoutFees, calibration, exitRules, configLoad, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, archiveTargets, backfillRollup, feedCursor, feedFilters, followWallets, launchFilters, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexCompact, indexRows, tapeDurable, tapePartitions, tapeArchive];
+export const ALL: Suite[] = [riskgate, ownerConfig, deskInPlay, evolveFloor, promoteHonest, markoutFees, calibration, exitRules, ammImpact, configLoad, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, archiveTargets, backfillRollup, feedCursor, feedFilters, followWallets, launchFilters, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexCompact, indexRows, tapeDurable, tapePartitions, tapeArchive];

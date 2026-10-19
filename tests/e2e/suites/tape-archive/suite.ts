@@ -33,7 +33,7 @@ export const suite: Suite = {
       const hotIds: string[] = [];
       for (let i = 0; i < 3; i++) {
         const e = tape.emit("trade.curve", {
-          mint: `M${i}`, tx: `tx${i}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: "W1", sol: 1, usd: null, tokens: 1, price_sol: 1, price_usd: null, mcap_usd: 1, on_curve: true, program: "pump",
+          mint: `M${i}`, tx: `tx${i}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: "W1", sol: 1, usd: null, tokens: 1, price_sol: 1, price_usd: null, mcap_usd: 1, on_curve: true, program: "pump", pool_sol: null,
         }, { source: "nats", subject: `M${i}` });
         hotIds.push(e.id);
       }

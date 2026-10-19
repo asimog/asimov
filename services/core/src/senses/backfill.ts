@@ -58,7 +58,7 @@ export function tradesFromLogs(mint: string, sig: string, slot: number, logs: st
       price_usd: null,
       mcap_usd: null,
       on_curve: true,
-      program: "pump",
+      program: "pump", pool_sol: null,
     });
   }
   return out;

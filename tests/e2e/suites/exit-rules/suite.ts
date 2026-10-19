@@ -17,7 +17,7 @@ const MINT = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const CALLER = "CaLLer1111111111111111111111111111111111111";
 const P0 = 1e-7;
 const trade = (n: number, price: number, o: Partial<Trade> = {}): Trade => ({
-  mint: MINT, tx: `t${n}`, slot_index_id: null, ts: "2026-10-19T12:00:00.000Z", side: "buy", wallet: `W${n}`, sol: 0.5, usd: null, tokens: 0.5 / price, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null, ...o,
+  mint: MINT, tx: `t${n}`, slot_index_id: null, ts: "2026-10-19T12:00:00.000Z", side: "buy", wallet: `W${n}`, sol: 0.5, usd: null, tokens: 0.5 / price, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null, ...o,
 });
 
 export const suite: Suite = {

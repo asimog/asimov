@@ -64,7 +64,7 @@ export const suite: Suite = {
       const out = Number(probe.pumpMintInfo?.expectedOutAmount ?? 0) / 1e6;
       check("fun-block quoted the coin", out > 0, `${out} tokens for 0.01 SOL`);
       const send = (side: "buy" | "sell") => {
-        tape.emit("trade.curve", { mint, tx: `live-quote-${side}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: trade, sol: 0.01, usd: null, tokens: out, price_sol: 0.01 / out, price_usd: null, mcap_usd: null, on_curve: !probe.pumpMintInfo?.hasGraduated, program: null }, { source: "nats", subject: mint });
+        tape.emit("trade.curve", { mint, tx: `live-quote-${side}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: trade, sol: 0.01, usd: null, tokens: out, price_sol: 0.01 / out, price_usd: null, mcap_usd: null, on_curve: !probe.pumpMintInfo?.hasGraduated, program: null, pool_sol: null }, { source: "nats", subject: mint });
         const id = clock.id("intent");
         tape.emit("intent.created", { strategy_id: "sr_live", mint, side, size_sol: side === "buy" ? 0.01 : null, fraction: side === "sell" ? 1 : null, reason: ["live test"], in_play: null, score: 1, board: {} }, { source: "strategies", subject: id });
         tape.emit("intent.ghost_filled", { intent_id: id, strategy_id: "sr_live", mint, side, sol: 0.01, tokens: out, price_sol: 0.01 / out, fee_sol: 0, rent_sol: 0, slippage_bps: 0 }, { source: "strategies", subject: id });

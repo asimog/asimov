@@ -42,11 +42,11 @@ export function orderGate(tape: Tape, clock: Clock, wallets: { trade: string }, 
       and c.seen_time > ${new Date(now - 600_000).toISOString()} and not exists (select 1 from hands.orders h where h.order_id = c.subject and h.state in ('filled', 'failed'))`;
     let quote = null;
     if (b.side === "buy") {
-      const [t] = await tx`select topic, seen_time, (body->>'price_sol')::float p from tape.events where subject = ${b.mint} and topic in ('trade.curve', 'trade.amm')
+      const [t] = await tx`select topic, seen_time, (body->>'price_sol')::float p, (body->>'pool_sol')::float pool from tape.events where subject = ${b.mint} and topic in ('trade.curve', 'trade.amm')
         and seen_time <= ${e.seen_time} and body->>'price_sol' is not null order by seen_time desc, id desc limit 1`;
       if (t) {
         const graduated = t.topic === "trade.amm";
-        const q = quoteFor({ price_sol: t.p as number, at_ms: (t.seen_time as Date).getTime(), graduated })(b.size_sol ?? 0);
+        const q = quoteFor({ price_sol: t.p as number, at_ms: (t.seen_time as Date).getTime(), graduated, pool_sol: t.pool as number | null })(b.size_sol ?? 0);
         const board = await liveFor(tx, b.mint, e.seen_time);
         quote = { at_ms: (t.seen_time as Date).getTime(), impact_bps: q.impact_bps, real_sol: graduated ? null : curveFromPrice(t.p as number).realSol, graduated, risk: (board["risk.state"]?.value as GateRisk | undefined) ?? null };
       }

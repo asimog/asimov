@@ -73,7 +73,7 @@ export const suite: Suite = {
       const failed = (await w.topic("order.failed")).filter((e) => e.body.order_id === "or_pending");
       check("a pending buy is failed as killed and nothing is sent", failed.length === 1 && failed[0]!.body.error === "killed" && failed[0]!.body.retryable === false && w.chain.sends === sendsBefore, `${failed[0]?.body.error}, sends +${w.chain.sends - sendsBefore}`);
       const trades = await count(w, "trade.curve");
-      w.tape.emit("trade.curve", { mint: w.mint, tx: "during-kill", slot_index_id: null, ts: w.clock.iso(), side: "buy", wallet: w.wallets.creator, sol: 1, usd: null, tokens: 1, price_sol: 4e-8, price_usd: null, mcap_usd: null, on_curve: true, program: null }, { source: "nats", subject: w.mint });
+      w.tape.emit("trade.curve", { mint: w.mint, tx: "during-kill", slot_index_id: null, ts: w.clock.iso(), side: "buy", wallet: w.wallets.creator, sol: 1, usd: null, tokens: 1, price_sol: 4e-8, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null }, { source: "nats", subject: w.mint });
       await w.settle();
       check("senses keep recording while killed", (await count(w, "trade.curve")) === trades + 1, "trade written during the kill");
 

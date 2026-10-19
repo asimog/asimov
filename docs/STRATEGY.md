@@ -156,7 +156,7 @@ costs     = protocol fees (from the SDK) + priority fee + rent (refunded when th
 fail      = measured landing failure rate (start 5%); failed exits retry
 ```
 
-After graduation the AMM model adds price impact; until it does, AMM families stay ghost. Live fills are compared to their ghost twin; a drift past `KILL_FILL_DRIFT_X` moves the kill state to `exit_only` and pauses promotions.
+After graduation the AMM is a constant-product pool: its SOL reserve comes from the last trade (`pool_sol`, NATS `quoteReserves`), its token reserve is that over the price, and our size moves the price both ways. A graduated coin with no known reserve cannot be bought (infinite impact); an exit still runs at the last price minus fees. The desk does not enter graduated coins yet. Live fills are compared to their ghost twin; a drift past `KILL_FILL_DRIFT_X` moves the kill state to `exit_only` and pauses promotions.
 
 ## 9. One coin, one callout
 

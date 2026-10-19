@@ -12,7 +12,7 @@ const WALLETS = 10;
 const mint = (i: number) => `M${String(i).padStart(8, "0")}1111111111111111111111111111111`;
 const trade = (m: string, wallet: string, n: number) => ({
   mint: m, tx: `tx${n}`, slot_index_id: null, ts: new Date(0).toISOString(), side: "buy" as const, wallet, sol: 0.1, usd: null, tokens: 1e6,
-  price_sol: 4e-8, price_usd: null, mcap_usd: null, on_curve: true, program: null,
+  price_sol: 4e-8, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null,
 });
 
 export const suite: Suite = {

@@ -22,7 +22,7 @@ const snapshot = (f: ReturnType<typeof features>) => ({ mint: MINT, supply: 1e9,
 
 const MIN = 60_000;
 const tr = (wallet: string, mint: string, side: "buy" | "sell", tokens: number, price: number): Trade => ({
-  mint, tx: `${wallet}${mint}${tokens}${price}`, slot_index_id: null, ts: "2026-10-18T12:00:00.000Z", side, wallet, sol: tokens * price, usd: null, tokens, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null,
+  mint, tx: `${wallet}${mint}${tokens}${price}`, slot_index_id: null, ts: "2026-10-18T12:00:00.000Z", side, wallet, sol: tokens * price, usd: null, tokens, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null,
 });
 
 export const suite: Suite = {

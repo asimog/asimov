@@ -14,7 +14,7 @@ import type { Suite } from "../../lib/suite.ts";
 const MINT_HIT = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const MINT_MISS = "9wFFyRfZBsuAha4YcuxcXLKwMxJR43S7fPfQLusDBzvT";
 const MINT_QUIET = "4Nd1mYQq9jN5vYw3fR8kZ2sT6uXbLpH7cGaE1dKoV9Mq";
-const trade = (mint: string, price: number, at: string, tx: string) => ({ mint, tx, slot_index_id: null, ts: at, side: "buy" as const, wallet: "W0", sol: 0.1, usd: null, tokens: 1e6, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null });
+const trade = (mint: string, price: number, at: string, tx: string) => ({ mint, tx, slot_index_id: null, ts: at, side: "buy" as const, wallet: "W0", sol: 0.1, usd: null, tokens: 1e6, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null });
 const callout = (id: string, mint: string, wallet: string, at: string) => ({
   callout_id: id, mint, symbol: null, name: null, author_wallet: wallet, author_user_id: null, author_handle: null, author_x: null, author_followers: null, author_total_callouts: null,
   text: "call", media_url: null, mcap_at_call_usd: null, price_at_call_usd: null, created_at: at, chain: null, quoted_callout_id: null, author_position: null, via: "history" as const,

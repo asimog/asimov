@@ -62,7 +62,7 @@ export const suite: Suite = {
     const sense = (async () => {
       while (!stop) {
         const t0 = Date.now();
-        w.tape.emit("trade.curve", { mint: MINT_A, tx: `fan${i++}`, slot_index_id: null, ts: w.clock.iso(), side: "buy", wallet: WALLETS[0]!, sol: 0.1, usd: null, tokens: 1e6, price_sol: 3e-8, price_usd: null, mcap_usd: null, on_curve: true, program: null }, { source: "nats", subject: MINT_A });
+        w.tape.emit("trade.curve", { mint: MINT_A, tx: `fan${i++}`, slot_index_id: null, ts: w.clock.iso(), side: "buy", wallet: WALLETS[0]!, sol: 0.1, usd: null, tokens: 1e6, price_sol: 3e-8, price_usd: null, mcap_usd: null, on_curve: true, program: null, pool_sol: null }, { source: "nats", subject: MINT_A });
         if (i % 5 === 0) {
           const f0 = Date.now();
           await w.tape.flush();

@@ -15,8 +15,8 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `callout.counts` | `callout_id`, `mint`, `likes`, `replies`, `comments`, `reposts`, `quotes`, `views`, `multiple`, `max_multiple`, `mcap_usd` |
 | `filter.sampled` | `reason`, `source`, `chain`, `callout`, `launch` |
 | `caller.position` | `callout_id`, `mint`, `wallet`, `is_exited`, `amount_held`, `realized_pnl_sol`, `at` |
-| `trade.curve` | `mint`, `tx`, `slot_index_id`, `ts`, `side`, `wallet`, `sol`, `usd`, `tokens`, `price_sol`, `price_usd`, `mcap_usd`, `on_curve`, `program` |
-| `trade.amm` | `mint`, `tx`, `slot_index_id`, `ts`, `side`, `wallet`, `sol`, `usd`, `tokens`, `price_sol`, `price_usd`, `mcap_usd`, `on_curve`, `program` |
+| `trade.curve` | `mint`, `tx`, `slot_index_id`, `ts`, `side`, `wallet`, `sol`, `usd`, `tokens`, `price_sol`, `price_usd`, `mcap_usd`, `on_curve`, `program`, `pool_sol` |
+| `trade.amm` | `mint`, `tx`, `slot_index_id`, `ts`, `side`, `wallet`, `sol`, `usd`, `tokens`, `price_sol`, `price_usd`, `mcap_usd`, `on_curve`, `program`, `pool_sol` |
 | `session.task` | `session`, `task_id`, `url`, `state`, `facts`, `boxes` |
 | `session.read` | `session`, `task_id`, `url`, `state`, `facts`, `boxes` |
 | `session.health` | `session`, `task_id`, `url`, `state`, `facts`, `boxes` |

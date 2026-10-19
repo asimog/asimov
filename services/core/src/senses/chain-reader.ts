@@ -15,7 +15,7 @@ type Lite = {
   mint: string; tx: string; slotIndexId?: string; userAddress: string; type: "buy" | "sell";
   baseAmount?: string; amountSol?: string; amountUsd?: string; priceUsd?: string; priceSol?: string; marketCap?: string; timestamp: string;
 };
-type Processed = Lite & { mintAddress: string; program?: string; isBondingCurve?: boolean; marketCapUsd?: string };
+type Processed = Lite & { mintAddress: string; program?: string; isBondingCurve?: boolean; marketCapUsd?: string; quoteReserves?: string };
 
 const subject = (mint: string) => `unifiedTradeEvent.processed.${mint}`;
 const n = (s: string | undefined | null) => (s == null || s === "" ? null : Number(s));
@@ -44,6 +44,7 @@ export function toTrade(p: Partial<Processed>): Trade | null {
     mcap_usd: n(p.marketCapUsd ?? p.marketCap),
     on_curve: p.isBondingCurve ?? (p.program ? p.program === "pump" : null),
     program: p.program ?? null,
+    pool_sol: p.isBondingCurve === false ? n(p.quoteReserves) : null,
   };
 }
 

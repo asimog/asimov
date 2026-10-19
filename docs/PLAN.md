@@ -65,7 +65,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | C5 | Done 2026-10-19 (`docs/tasks/C5.md`). Fee-adjusted markouts drive retirement | `markout-fees` passed: raw +175 bps, fee-adjusted -150 bps; the strategy retires |
 | C6 | Done 2026-10-19 (`docs/tasks/C6.md`). Every exit gets the Board; trailing stop and caller-sold exits | `exit-rules` passed: caller-sold fires at 0.01 not 0.25; trailing stop fires from the peak |
 | C7 | Done 2026-10-19. Refuse buys with no `risk.state` (4.7) (`docs/tasks/C7.md`) | `riskgate-refuses`, `owner-config` passed: no risk state refused, clean rug checks still trade |
-| C8 | AMM impact term; graduated coins stay ghost until then | AMM fills move price with size |
+| C8 | Done 2026-10-19 (`docs/tasks/C8.md`). AMM impact term; graduated coins stay ghost until then | `amm-impact` passed on the real slice: +127 bps at 0.01 SOL, +599 bps at 10 SOL; gate refuses past 300 bps |
 | C9 | Index features: creator launches and rug rate, funder links, bundler and copier archetypes | Mass deployer refused with its reason |
 | C10 | Rebuilt `pre_call` score and caller record fields | Hand-checked records for three callers |
 | C11 | Jev guard pack, fenced symbols, `budget.exhausted` | Guard refuses a test injection |

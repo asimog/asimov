@@ -10,7 +10,7 @@ import type { Suite } from "../../lib/suite.ts";
 const FIXTURE = path.join(import.meta.dirname, "..", "..", "fixtures", "tapes", "graduated-2m.ndjson.gz");
 const CALLED = "24N8Fg6DFFGpoUcUmCD3VLeqdKjJ3sEvgWr12kLDpump"; // called 12:48:47, 278 curve trades, first AMM trade 12:49:55
 const trade = (mint: string, tx: string, at: string, onCurve: boolean) => ({
-  mint, tx, slot_index_id: null, ts: at, side: "buy" as const, wallet: "W0", sol: 0.1, usd: null, tokens: 1e6, price_sol: 4e-8, price_usd: null, mcap_usd: null, on_curve: onCurve, program: null,
+  mint, tx, slot_index_id: null, ts: at, side: "buy" as const, wallet: "W0", sol: 0.1, usd: null, tokens: 1e6, price_sol: 4e-8, price_usd: null, mcap_usd: null, on_curve: onCurve, program: null, pool_sol: null,
 });
 
 export const suite: Suite = {
