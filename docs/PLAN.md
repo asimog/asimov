@@ -75,13 +75,13 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 
 | # | Work | Check |
 |---|---|---|
-| D1 | Escalation gate, stages 0 to 3, hot set, control split; slow kinds in the catalog | Stage 1 lands on the Board within 15 s in a short run |
-| D2 | Per-run, per-stage, per-day USD caps; engines report real cost | A run over its cap stops `truncated` |
-| D3 | One public-text check in core for every MCP write; citation markers as a separate field | A borrowed id does not survive; 0 text violations |
-| D4 | Prompt fencing, worker hardening, required env per engine | Worker suites refuse bad requests |
-| D5 | Bridge on its own timer, deferred escalations, empty swarms fail, real round numbers | Bridge suite passes |
-| D6 | Core recomputes swarm and mood numbers; mood emitted or removed; Brier readers fixed | Board values equal raw-count recompute |
-| D7 | Re-run 5.5 and 5.14 checks | Their suites pass |
+| D1 | Escalation gate, stages 0 to 3, hot set, control split; slow kinds in the catalog (`docs/tasks/D1.md`) | Stage 1 lands on the Board within 15 s in a short run |
+| D2 | Per-run, per-stage, per-day USD caps; engines report real cost (`docs/tasks/D2.md`) | A run over its cap stops `truncated` |
+| D3 | One public-text check in core for every MCP write; citation markers as a separate field (`docs/tasks/D3.md`) | A borrowed id does not survive; 0 text violations |
+| D4 | Prompt fencing, worker hardening, required env per engine (`docs/tasks/D4.md`) | Worker suites refuse bad requests |
+| D5 | Bridge on its own timer, deferred escalations, empty swarms fail, real round numbers (`docs/tasks/D5.md`) | Bridge suite passes |
+| D6 | Core recomputes swarm and mood numbers; mood emitted or removed; Brier readers fixed (`docs/tasks/D6.md`) | Board values equal raw-count recompute |
+| D7 | Re-run 5.5 and 5.14 checks (`docs/tasks/D7.md`) | Their suites pass |
 
 ### E. Public features
 
