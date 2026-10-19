@@ -2,6 +2,13 @@
 
 Dated decisions with their reason. The newest are first. Open questions for the owner are at the end. A decision changes only by a new row here.
 
+## 2026-10-19 (owner, C phase)
+
+| Decision | Why |
+|---|---|
+| The Scout's watch reasons map to in-play reasons: `caller_buy` to `precall`, `smart_buy` and `follow` to `smart_buy`, `heat` and `metrics` to `scout`; no fifth reason | A followed wallet is a wallet we chose to copy, the same idea as the smart set; four reasons keep each family's results large enough to read |
+| `KELLY_CAP=0.25` and `CALIB_MIN_PER_BIN=20` are env settings in `.env.example` | Quarter Kelly bounds a wrong calibration; 20 decisions per bin is the least that gives a usable win rate |
+
 ## 2026-10-19 (owner, after B1: real data first, small runs, disposable tapes)
 
 | Decision | Why |

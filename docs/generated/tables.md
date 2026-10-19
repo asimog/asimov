@@ -2,7 +2,7 @@
 
 Generated from `services/core/src/sql/schema.sql` by `npm run docs:gen`. Do not edit by hand.
 
-62 objects.
+63 objects.
 
 | Name | Kind | Line |
 |---|---|---|
@@ -26,45 +26,46 @@ Generated from `services/core/src/sql/schema.sql` by `npm run docs:gen`. Do not 
 | `mind.strategies` | table | 198 |
 | `mind.stats` | table | 209 |
 | `mind.positions` | table | 225 |
-| `mind.intents` | table | 247 |
-| `mind.fills` | table | 261 |
-| `mind.coin_callout` | table | 273 |
-| `mind.commits` | table | 280 |
-| `mind.desk_clock` | table | 288 |
-| `mind.outcome_watch` | table | 294 |
-| `mind.score_days` | table | 309 |
-| `mind.prob_watch` | table | 321 |
-| `mind.coin_precall` | table | 332 |
-| `mind.house` | table | 339 |
-| `mind.limits` | table | 349 |
-| `mind.lists` | table | 356 |
-| `ops.soul_versions` | table | 367 |
-| `idx.wallet_coin` | table | 379 |
-| `idx.wallet_coin_all` | table | 402 |
-| `idx.wallet_day` | table | 421 |
-| `idx.leaderboard` | table | 435 |
-| `idx.coin` | table | 447 |
-| `idx.wallet` | table | 461 |
-| `idx.scout_wallet` | table | 474 |
-| `idx.seed` | table | 479 |
-| `hands.orders` | table | 487 |
-| `hands.dead_letters` | table | 503 |
-| `books.entries` | table | 509 |
-| `books.balances` | table | 516 |
-| `books.lots` | table | 517 |
-| `books.realized` | table | 525 |
-| `books.proofs` | table | 526 |
-| `ops.kill` | table | 534 |
-| `ops.kill_counts` | table | 544 |
-| `mem.callout_replies` | table | 553 |
-| `slow.reports` | table | 557 |
-| `slow.jobs` | table | 564 |
-| `slow.cursors` | table | 569 |
-| `slow.pumpfun_callout` | view | 573 |
-| `slow.pumpfun_callout_comment` | view | 583 |
-| `slow.pumpfun_update` | view | 588 |
-| `slow.pumpfun_caller` | view | 592 |
-| `slow.pumpfun_coin` | view | 597 |
-| `slow.pumpfun_trade_flow` | view | 603 |
-| `slow.media` | view | 607 |
-| `slow.report_feed` | view | 616 |
+| `mind.intents` | table | 248 |
+| `mind.fills` | table | 263 |
+| `mind.coin_callout` | table | 275 |
+| `mind.commits` | table | 282 |
+| `mind.desk_clock` | table | 290 |
+| `mind.outcome_watch` | table | 296 |
+| `mind.score_days` | table | 311 |
+| `mind.prob_watch` | table | 323 |
+| `mind.coin_watch` | table | 335 |
+| `mind.coin_precall` | table | 341 |
+| `mind.house` | table | 348 |
+| `mind.limits` | table | 358 |
+| `mind.lists` | table | 365 |
+| `ops.soul_versions` | table | 376 |
+| `idx.wallet_coin` | table | 388 |
+| `idx.wallet_coin_all` | table | 411 |
+| `idx.wallet_day` | table | 430 |
+| `idx.leaderboard` | table | 444 |
+| `idx.coin` | table | 456 |
+| `idx.wallet` | table | 470 |
+| `idx.scout_wallet` | table | 483 |
+| `idx.seed` | table | 488 |
+| `hands.orders` | table | 496 |
+| `hands.dead_letters` | table | 512 |
+| `books.entries` | table | 518 |
+| `books.balances` | table | 525 |
+| `books.lots` | table | 526 |
+| `books.realized` | table | 534 |
+| `books.proofs` | table | 535 |
+| `ops.kill` | table | 543 |
+| `ops.kill_counts` | table | 553 |
+| `mem.callout_replies` | table | 562 |
+| `slow.reports` | table | 566 |
+| `slow.jobs` | table | 573 |
+| `slow.cursors` | table | 578 |
+| `slow.pumpfun_callout` | view | 582 |
+| `slow.pumpfun_callout_comment` | view | 592 |
+| `slow.pumpfun_update` | view | 597 |
+| `slow.pumpfun_caller` | view | 601 |
+| `slow.pumpfun_coin` | view | 606 |
+| `slow.pumpfun_trade_flow` | view | 612 |
+| `slow.media` | view | 616 |
+| `slow.report_feed` | view | 625 |

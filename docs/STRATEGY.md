@@ -49,14 +49,16 @@ Rules:
 
 ## 3. In play and families
 
-A coin is in play for a reason, recorded on every decision so results split by why we looked.
+A coin is in play for a reason, recorded on every decision so results split by why we looked. The desk keeps the latest reason that started within `ENTRY_WINDOW_MIN`; each `intent.created` carries it as `in_play` (a sell carries its position's), and `mind.positions.in_play` keeps it for the scorecard.
 
 | Reason | Starts when |
 |---|---|
 | `callout` | A callout lands on the coin |
 | `precall` | `precall.detected`: a known caller bought a coin they have not called |
-| `smart_buy` | A wallet in the current smart set buys |
+| `smart_buy` | A wallet in the current smart set buys, or a followed wallet buys (`coin.watched` reason `smart_buy` or `follow`) |
 | `scout` | The Scout promotes the coin on heat or metrics |
+
+A `coin.watched` with reason `caller_buy` starts `precall` too.
 
 | Family | Idea | Reason |
 |---|---|---|

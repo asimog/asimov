@@ -211,6 +211,9 @@ export const SessionEvent = z.object({
     .nullable(),
 });
 
+/** Why a coin is in play (docs/STRATEGY.md section 3), recorded on every decision so results split by it. */
+export const IN_PLAY = ["callout", "precall", "smart_buy", "scout"] as const;
+export type InPlay = (typeof IN_PLAY)[number];
 export const IntentCreated = z.object({
   strategy_id: z.string(),
   mint: z.string(),
@@ -218,6 +221,8 @@ export const IntentCreated = z.object({
   size_sol: num.nullable(),
   fraction: num.nullable(),
   reason: z.array(z.string()),
+  /** the in-play reason of the entry; a sell carries its position's */
+  in_play: z.enum(IN_PLAY).nullable(),
   score: num.nullable(),
   board: z.record(z.string(), z.unknown()),
 });

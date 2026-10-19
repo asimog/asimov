@@ -21,7 +21,7 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `session.read` | `session`, `task_id`, `url`, `state`, `facts`, `boxes` |
 | `session.health` | `session`, `task_id`, `url`, `state`, `facts`, `boxes` |
 | `jev.answer` | `pack`, `pack_version`, `model`, `subject`, `state_sha256`, `answers`, `latency_ms`, `input_tokens` |
-| `intent.created` | `strategy_id`, `mint`, `side`, `size_sol`, `fraction`, `reason`, `score`, `board` |
+| `intent.created` | `strategy_id`, `mint`, `side`, `size_sol`, `fraction`, `reason`, `in_play`, `score`, `board` |
 | `intent.ghost_filled` | `intent_id`, `strategy_id`, `mint`, `side`, `sol`, `tokens`, `price_sol`, `fee_sol`, `rent_sol`, `slippage_bps` |
 | `order.rejected` | `intent_id`, `reason_code`, `detail` |
 | `order.created` | `order_id`, `intent_id`, `strategy_id`, `mint`, `side`, `size_sol`, `fraction`, `max_slippage_bps`, `limits_version` |

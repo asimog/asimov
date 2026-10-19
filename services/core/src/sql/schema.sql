@@ -239,7 +239,8 @@ create table if not exists mind.positions (
   commit_id text,
   closed_at timestamptz,
   net_sol double precision,
-  exit_reason text
+  exit_reason text,
+  in_play text
 );
 create index if not exists positions_open on mind.positions (mint) where closed_at is null;
 create index if not exists positions_strategy on mind.positions (strategy_id, opened_at);
@@ -255,7 +256,8 @@ create table if not exists mind.intents (
   reason text not null,
   created_at timestamptz not null,
   fill_after timestamptz not null,
-  event_id text not null
+  event_id text not null,
+  in_play text
 );
 create index if not exists intents_mint on mind.intents (mint, fill_after);
 create table if not exists mind.fills (
@@ -328,6 +330,13 @@ create table if not exists mind.prob_watch (
   horizon_min int not null,
   done boolean not null default false,
   hit int
+);
+-- coins the Scout promoted (coin.watched), in play as precall, smart_buy or scout (docs/STRATEGY.md section 3)
+create table if not exists mind.coin_watch (
+  mint text primary key,
+  in_play text not null,
+  at timestamptz not null,
+  last_eval timestamptz
 );
 create table if not exists mind.coin_precall (
   mint text primary key,
