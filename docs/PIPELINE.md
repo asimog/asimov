@@ -18,7 +18,7 @@ All senses write the Tape and nothing else. None decides anything.
 
 ### Feed Reader
 
-Reads the callout feed JSON the web client reads, for each configured source. `recent` is `/home-feed/new`; `hot` is the ranked `/home-feed`; `follow` is the NATS `followingFeed` push. Each HTTP source keeps its own cursor in `tape.feed_cursors` (`recent`, `hot`), so a restart resumes that source: the startup walk stops at the newest callout already read, and the history walk resumes from its saved page or stays done. The door runs before any write; a refused callout is counted by reason and chain and a hash sample is written as `filter.sampled`. A bot challenge (403) or a 429 skips that source for that poll, is counted with its status, and is tried again on the next poll; nothing gets around the check.
+Reads the callout feed JSON the web client reads, for each configured source. `recent` is `/home-feed/new`; `hot` is the ranked `/home-feed`; `follow` is the NATS `followingFeed` push, kept to the wallets on the owner's `follow_wallets` list. A list load notifies `lists` and the reader reloads it in place. Each HTTP source keeps its own cursor in `tape.feed_cursors` (`recent`, `hot`), so a restart resumes that source: the startup walk stops at the newest callout already read, and the history walk resumes from its saved page or stays done. The door runs before any write; a refused callout is counted by reason and chain and a hash sample is written as `filter.sampled`. A bot challenge (403) or a 429 skips that source for that poll, is counted with its status, and is tried again on the next poll; nothing gets around the check.
 - Dedupe by callout and update id. Changed counts write `callout.counts` with a dedupe key.
 - When page 1 is all new, it walks older pages until it meets a known callout; if it runs out, it writes `system.gap` (source `feed`).
 - One honest user agent naming the firm. Backoff per path prefix; `Retry-After` honoured, including date values.
@@ -45,7 +45,7 @@ Reads the whole trade firehose (about 232 trades/s) in memory. The firehose does
 |---|---|
 | `caller_buy` | A known caller wallet (or one on `caller_wallets`) buys a coin not yet watched |
 | `smart_buy` | A wallet in the current Index smart set buys |
-| `follow` | A wallet on `follow_wallets` buys |
+| `follow` | A wallet on `follow_wallets` buys; a load of the list applies at once through the `lists` notify. A followed wallet the Index marks sniper, bundler or dev keeps the role and its `coin.watched` carries a note, so the owner can prune the list. Until the Index has its own trades the wallet has no score |
 | `heat` | At least `SCOUT_HEAT_BUYERS` unique buyers and `SCOUT_HEAT_NET_SOL` net SOL in 60 s |
 | `metrics` | The launch passes the launch filters and the scan floor (`SCOUT_MIN_MCAP_USD`, `SCOUT_MIN_BUYERS`) |
 

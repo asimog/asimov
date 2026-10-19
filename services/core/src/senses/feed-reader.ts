@@ -67,6 +67,7 @@ export class FeedReader {
   private exitSeen = new Set<string>();
   private nc: NatsConnection | null = null;
   private stopped = false;
+  private follows = new Set<string>(); // the owner's follow_wallets list: the follow source reads callouts by these wallets
   private lastGoodPoll: Record<string, number> = {};
   readonly stats = {
     polls: 0, pushes: 0, created: 0, gaps: 0, errors: 0, filtered: 0,
@@ -87,7 +88,21 @@ export class FeedReader {
     // the Index's callout history (docs/PIPELINE.md): 30 days, paged slowly in the background so live polling keeps its turn
     const days = env.num("INDEX_CALLOUT_DAYS");
     if (days > 0) void this.history(days * 1440);
-    if (this.config.feeds.sources.includes("follow") && env.bool("FEED_PUSH")) await this.startPush();
+    if (this.config.feeds.sources.includes("follow")) {
+      await this.loadFollows();
+      void this.watchLists();
+      if (env.bool("FEED_PUSH")) await this.startPush();
+    }
+  }
+
+  /** The owner's follow list, newest version. A list update notifies `lists` and reloads it in place. */
+  private async loadFollows() {
+    const [r] = await this.tape.sql`select items from mind.lists where kind = 'follow_wallets' order by version desc limit 1`;
+    this.follows = new Set((r?.items as string[] | undefined) ?? []);
+  }
+
+  watchLists() {
+    return this.tape.sql.listen("lists", () => void this.loadFollows());
   }
 
   /** Newest callout read by this source; only moves forward. */
@@ -219,6 +234,7 @@ export class FeedReader {
     const c = p?.callout;
     const calledAt = isoOrNull(c?.calloutTimestamp);
     if (!p || !c || !calledAt) return false;
+    if (source === "follow" && !this.follows.has(p.walletAddress)) return false;
     const isNew = !this.seen.has(c.calloutId);
     if (!isNew) return false;
     const positionUsd = p.costBasisUsd ?? (p.amountHeld != null && c.calloutPrice != null ? p.amountHeld * c.calloutPrice : null);

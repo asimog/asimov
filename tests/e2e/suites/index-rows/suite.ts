@@ -41,7 +41,7 @@ export const suite: Suite = {
       // ---- A5: risk.state moves with every snapshot
       const at = (min: number) => clock.advance!(t0 + min * MIN);
       at(0);
-      tape.emit("coin.watched", { mint: MINT, reason: "heat", wallet: null, buyers_60s: 5, net_sol_60s: 3, trigger_tx: null, features: features() }, { source: "nats", subject: MINT });
+      tape.emit("coin.watched", { mint: MINT, reason: "heat", wallet: null, note: null, buyers_60s: 5, net_sol_60s: 3, trigger_tx: null, features: features() }, { source: "nats", subject: MINT });
       at(1);
       tape.emit("holders.snapshot", snapshot(features({ bundle_share: 0.1, sniper_share: 0.05 })), { source: "rpc", subject: MINT });
       at(2);

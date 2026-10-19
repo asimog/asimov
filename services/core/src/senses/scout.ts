@@ -19,7 +19,7 @@ const WINDOW_MS = 60_000;
 type Tick = { at: number; wallet: string; buy: boolean; sol: number };
 type Reason = BodyOf<"coin.watched">["reason"];
 type Features = BodyOf<"coin.watched">["features"];
-type Role = "caller" | "smart";
+type Role = "caller" | "smart" | "follow";
 type Trade = NonNullable<ReturnType<typeof toTrade>>;
 
 export class Scout {
@@ -47,7 +47,7 @@ export class Scout {
     repromoteMs: env.num("WATCH_HOURS") * 3_600_000,
   };
   stats = {
-    trades: 0, callers: 0, hot_wallets: 0, live_coins: 0, launches: 0, caller_buy: 0, smart_buy: 0, heat: 0, metrics: 0,
+    trades: 0, callers: 0, hot_wallets: 0, live_coins: 0, launches: 0, caller_buy: 0, smart_buy: 0, follow: 0, heat: 0, metrics: 0,
     launch_refused: 0, unknown: {} as Record<string, number>,
   };
 
@@ -61,6 +61,7 @@ export class Scout {
 
   async start() {
     await this.refresh();
+    void this.watchLists();
     await this.rollup.load(this.sql);
     const gap = (from: number, to: number) => this.tape.emit("system.note", { kind: "scout_gap", detail: { from: new Date(from).toISOString(), to: new Date(to).toISOString() } }, { source: "nats" });
     this.nc = await natsConnect("trades", () => this.tape.clock.now(), gap);
@@ -87,7 +88,12 @@ export class Scout {
     try {
       const at = new Date(this.tape.clock.now()).toISOString();
       const [ix] = await this.sql`select max(version) v from idx.wallet`;
-      await this.sql.begin(async (tx) => { // smart first, so a wallet that is both ends as a caller
+      const lists = await this.sql`select distinct on (kind) kind, items from mind.lists order by kind, version desc`;
+      const set = (kind: string) => new Set((lists.find((l) => l.kind === kind)?.items as string[] | undefined) ?? []);
+      const follow = set("follow_wallets");
+      await this.sql.begin(async (tx) => { // follow first, then smart, then caller, so the stronger role wins
+        if (follow.size) await tx`insert into idx.scout_wallet select unnest(${[...follow]}::text[]), 'follow', ${at}::timestamptz
+          on conflict (wallet) do update set role = 'follow', at = excluded.at`;
         if (ix?.v) await tx`insert into idx.scout_wallet select wallet, 'smart', ${at}::timestamptz from idx.wallet where archetype = 'smart' and version = ${ix.v}
           on conflict (wallet) do update set role = 'smart', at = excluded.at`;
         await tx`insert into idx.scout_wallet select wallet, 'caller', ${at}::timestamptz from mem.callers
@@ -101,8 +107,6 @@ export class Scout {
       const [n] = await this.sql`select count(*)::int n from idx.scout_wallet where role = 'caller'`;
       this.stats.callers = n!.n as number;
       // the owner lists as of now: the door checks the creator, the mint and the triggering wallet
-      const lists = await this.sql`select distinct on (kind) kind, items from mind.lists order by kind, version desc`;
-      const set = (kind: string) => new Set((lists.find((l) => l.kind === kind)?.items as string[] | undefined) ?? []);
       this.blocked = { creators: set("blocked_creators"), mints: set("blocked_mints"), wallets: set("blocked_wallets") };
       this.hot.clear();
       for (const r of await this.sql`select wallet, role from idx.scout_wallet order by role, wallet limit ${this.hotMax}`) this.hot.set(r.wallet as string, r.role as Role);
@@ -195,6 +199,7 @@ export class Scout {
     }
     const reason: Reason | null = buy && role === "caller" ? "caller_buy"
       : buy && role === "smart" ? "smart_buy"
+      : buy && role === "follow" ? "follow"
       : buyers >= this.p.heatBuyers && net >= this.p.heatNetSol ? "heat"
       : f && (f.mcap_usd ?? 0) >= this.p.minMcapUsd && f.buyers >= this.p.minBuyers ? "metrics"
       : null;
@@ -238,8 +243,9 @@ export class Scout {
     // the trigger trade first, with the Chain Reader's dedupe key, so analyzers see the buy that caused the watch
     const te = this.tape.emit(t.on_curve === false ? "trade.amm" : "trade.curve", t, { source: "nats", subject: t.mint, eventTime: t.ts, dedupe: tradeKey(t) });
     const features = { ...f, creator: resolved.creator ?? f.creator, dev_buy_sol: resolved.dev_buy_sol, block0_sniper_share: resolved.block0_sniper_share };
+    const note = reason === "follow" ? await this.followNote(t.wallet) : null;
     const we = this.tape.emit("coin.watched", {
-      mint: t.mint, reason, wallet: reason === "caller_buy" || reason === "smart_buy" ? t.wallet : null, buyers_60s: q.buyers, net_sol_60s: q.net, trigger_tx: t.tx, features,
+      mint: t.mint, reason, wallet: reason === "caller_buy" || reason === "smart_buy" || reason === "follow" ? t.wallet : null, note, buyers_60s: q.buyers, net_sol_60s: q.net, trigger_tx: t.tx, features,
     }, { source: "nats", subject: t.mint, causes: [te.id], dedupe: `watch:${t.mint}:${Math.floor(now / this.p.repromoteMs)}` });
     this.onPromote(t.mint, resolved.curve_account ?? this.rollup.curveAccount(t.mint), we.id, () => this.rollup.features(t.mint, this.tape.clock.now()));
   }
@@ -286,6 +292,18 @@ export class Scout {
       this.tape.emit("system.note", { kind: "coin.demoted", detail: { mint, reason: verdict.reason, source: "rpc" } }, { source: "rpc", subject: mint });
       log.info("coin demoted after chain recheck", { mint, reason: verdict.reason });
     }
+  }
+
+  /** A followed wallet the Index already marks sniper, bundler or dev keeps its follow role and gets a note. */
+  private async followNote(wallet: string): Promise<string | null> {
+    const [r] = await this.sql`select archetype from idx.wallet where wallet = ${wallet}`;
+    const a = r?.archetype as string | undefined;
+    return a && ["sniper", "bundler", "dev"].includes(a) ? `follow wallet is marked ${a}` : null;
+  }
+
+  /** The owner loaded a list: reload the hot set now, never on the next timer. */
+  watchLists() {
+    return this.sql.listen("lists", () => void this.refresh());
   }
 
   private cfg(): Config {

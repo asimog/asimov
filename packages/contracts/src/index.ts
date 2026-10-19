@@ -336,8 +336,10 @@ export const CoinFeatures = z.object({
 /** The Scout promotes a coin into the watched set (docs/PIPELINE.md, docs/PIPELINE.md). */
 export const CoinWatched = z.object({
   mint: z.string(),
-  reason: z.enum(["caller_buy", "smart_buy", "heat", "metrics"]),
+  reason: z.enum(["caller_buy", "smart_buy", "follow", "heat", "metrics"]),
   wallet: z.string().nullable(),
+  /** set when a followed wallet is also marked sniper, bundler or dev by the Index, so the owner can prune the list */
+  note: z.string().nullable().default(null),
   buyers_60s: num,
   net_sol_60s: num,
   trigger_tx: z.string().nullable(),
@@ -535,7 +537,7 @@ export const KILL_STATES = ["running", "exit_only", "halted"] as const;
 export type KillState = (typeof KILL_STATES)[number];
 export const KillChanged = z.object({ state: z.enum(KILL_STATES), reason: z.string(), by: z.enum([...KILL_CAUSES, "admin"]) });
 /** Owner lists (docs/SYSTEM.md section 6), loaded with `ctl lists load`; the Risk Gate reads the blocked and own ones. */
-export const LIST_KINDS = ["smart_wallets", "caller_wallets", "blocked_creators", "blocked_wallets", "blocked_mints", "own_mints"] as const;
+export const LIST_KINDS = ["smart_wallets", "caller_wallets", "follow_wallets", "blocked_creators", "blocked_wallets", "blocked_mints", "own_mints"] as const;
 export type ListKind = (typeof LIST_KINDS)[number];
 export const LimitsChanged = z.object({ version: z.number().int(), key: z.string(), value: z.unknown(), by: z.literal("admin") });
 export const ListsLoaded = z.object({ kind: z.enum(LIST_KINDS), version: z.number().int(), count: z.number().int(), sha256: z.string(), by: z.literal("admin") });
@@ -658,7 +660,7 @@ export const SCHEMA_VERSION: Record<Topic, number> = {
   ...(Object.fromEntries(Object.keys(TOPICS).map((t) => [t, 1])) as Record<Topic, number>),
   "outcome.measured": 2,
   "system.gap": 2,
-  "coin.watched": 3,
+  "coin.watched": 4,
 };
 
 /** Canonical JSON (sorted keys, recursively): the only form commit hashes are computed over. */

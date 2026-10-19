@@ -37,6 +37,7 @@ export async function loadList(sql: Sql, tape: Tape, token: string | undefined, 
   const sha256 = crypto.createHash("sha256").update(items.join("\n")).digest("hex");
   tape.emit("lists.loaded", { kind: kind as ListKind, version, count: items.length, sha256, by: "admin" }, { source: "system", subject: kind });
   await tape.flush();
+  await sql`select pg_notify('lists', ${kind})`; // the Scout and the Feed Reader reload now, without a restart
   return { kind, version, count: items.length, sha256 };
 }
 
