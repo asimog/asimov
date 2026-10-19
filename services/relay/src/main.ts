@@ -7,6 +7,7 @@ import { streamSSE } from "hono/streaming";
 import postgres from "postgres";
 import { env } from "../../core/src/lib/env.ts";
 import { log } from "../../core/src/lib/log.ts";
+import { scoresAsOf } from "../../core/src/scorekeeper/scorekeeper.ts";
 import { rooms } from "./rooms.ts";
 import { slowRooms } from "./slow-rooms.ts";
 
@@ -115,7 +116,7 @@ async function snapshot() {
   const families = await sql`
     select s.family, count(*) filter (where s.retired_at is null)::int alive, coalesce(sum(st.trades), 0)::int trades, coalesce(sum(st.equity), 0)::float net
     from mind.strategies s left join mind.stats st on st.strategy_id = s.id group by 1 order by 1`;
-  const scores = await sql`select kind, horizon_min, n, brier_sum / nullif(n, 0) brier, hits::float / nullif(n, 0) base from mind.scores order by kind`;
+  const scores = (await scoresAsOf(sql, new Date(now).toISOString())).map((r) => ({ kind: r.kind, horizon_min: r.horizon_min, n: r.n, brier: r.brier_sum / r.n, base: r.hits / r.n }));
   // the caller network: two coins are linked when the same caller called both in the last 6 hours (the Field's strands)
   const edges = await sql`
     select a.mint a, b.mint b, count(distinct a.wallet)::int n from mem.callouts a join mem.callouts b on b.wallet = a.wallet and b.mint > a.mint

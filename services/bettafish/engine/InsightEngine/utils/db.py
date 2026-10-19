@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy import text
 from InsightEngine.utils.config import settings
+import asimog_db  # asimog A11: every read is pinned to the run's as-of
 
 __all__ = [
     "get_async_engine",
@@ -108,6 +109,8 @@ async def fetch_all(query: str, params: Optional[Union[Iterable[Any], Dict[str, 
     """
     engine: AsyncEngine = get_async_engine()
     async with engine.connect() as conn:
+        if os.getenv("ASIMOG_FORK") == "1":  # asimog A11: transaction-local, so a pooled connection never carries it to the next run
+            await conn.execute(text("select set_config('slow.as_of', :t, true)"), {"t": asimog_db.as_of()})
         result = await conn.execute(text(query), params or {})
         rows = result.mappings().all()
         # 将 RowMapping 转换为普通字典

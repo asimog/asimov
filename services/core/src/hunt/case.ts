@@ -60,6 +60,11 @@ export async function buildCase(sql: Sql, calloutId: string): Promise<CaseFile |
   const end = new Date(t0.getTime() + MAX_H * 60_000).toISOString();
   const text = b.text as string;
 
+  // a callout first seen by push carries no handle: use the newest one this wallet had by the case's end
+  const [h] = await sql`select body->>'author_handle' handle from tape.events where topic = 'callout.created' and body->>'author_wallet' = ${author}
+    and body->>'author_handle' is not null and seen_time <= ${end} order by seen_time desc, id desc limit 1`;
+  const handle = (h?.handle as string | undefined) ?? null;
+
   const updates = await sql`select id, seen_time, body from tape.events where topic = 'callout.updated' and subject = ${calloutId} and seen_time <= ${end} order by seen_time, id`;
 
   const outs = await sql`select id, seen_time, body from tape.events where topic = 'outcome.measured' and subject = ${calloutId} order by seen_time, id`;
@@ -79,7 +84,7 @@ export async function buildCase(sql: Sql, calloutId: string): Promise<CaseFile |
       return { event: o.id as string, supersedes: now.supersedes!, horizon_min: now.horizon_min, was: byId.get(now.supersedes!)?.coverage ?? "unknown", now: now.coverage, reason_event: now.gaps[0] ?? "" };
     });
 
-  const sigs = await sql`select id, kind, value, confidence, analyzer from board.signals where subject = ${calloutId} and kind like 'jev.callout.%' order by kind, produced_at, id`;
+  const sigs = await sql`select id, kind, value, confidence, analyzer from board.signals where subject = ${calloutId} and kind like 'jev.callout.%' and produced_at <= ${end} order by kind, produced_at, id`;
   const ai_judgments = sigs.map((s) => ({ kind: s.kind as string, value: s.value, confidence: s.confidence as number, analyzer: s.analyzer as string, signal: s.id as string }));
 
   // ---------- indicators (observed trades only, up to the longest horizon) ----------
@@ -178,7 +183,7 @@ export async function buildCase(sql: Sql, calloutId: string): Promise<CaseFile |
       mint,
       symbol: (b.symbol as string | null) ?? null,
       author_wallet: author,
-      author_handle: (b.author_handle as string | null) ?? null,
+      author_handle: (b.author_handle as string | null) ?? handle,
       author_followers: (b.author_followers as number | null) ?? null,
       created_at: b.created_at as string,
       seen_at: t0iso,

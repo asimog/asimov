@@ -111,7 +111,7 @@ const commands: Record<string, () => Promise<unknown>> = {
     if (!flag("md")) return c;
     console.log(renderCase(c));
   },
-  callers: () => ledger(sql, { horizon: Number(opt("h") ?? 5) }),
+  callers: () => ledger(sql, { horizon: Number(opt("h") ?? 5), at: opt("at") }),
   coverage: () => coverage(sql),
   // the Index (docs/PIPELINE.md): size, latest version, archetypes, the strongest copyable wallets, recent promotions
   index: async () => {

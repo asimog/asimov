@@ -11,6 +11,7 @@ import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { why } from "../lib/why.ts";
 import { validate as validateSpec } from "../mind/dsl.ts";
+import { scoresAsOf } from "../scorekeeper/scorekeeper.ts";
 import { latest as latestSoul, updateSoul } from "../soul/soul.ts";
 import type { Tape } from "../tape/tape.ts";
 
@@ -168,7 +169,7 @@ export const TOOLS: Tool[] = [
   })),
 
   tool("scores", [CAP.jev, CAP.report], "Brier scores per probability signal and horizon.", {}, async (_a, c) => ({
-    scores: await c.sql`select kind, horizon_min, n, round((brier_sum / nullif(n, 0))::numeric, 4)::float brier, round((hits::float / nullif(n, 0))::numeric, 4)::float hit_rate from mind.scores order by kind, horizon_min`,
+    scores: (await scoresAsOf(c.sql, c.clock.iso())).map((r) => ({ kind: r.kind, horizon_min: r.horizon_min, n: r.n, brier: r.brier_sum / r.n, hit_rate: r.hits / r.n })),
   })),
 
   tool("state", [CAP.ops, CAP.report], "Tape head, event counts in the last hour and consumer offsets.", {}, async (_a, c) => {

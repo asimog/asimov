@@ -13,29 +13,27 @@ Checks per unit follow `OPS.md` section 9: typecheck, lint, `docs:check` and sho
 | Fix plan Phase 2: the owner owns the config (99 defaults moved to `.env.example`, `ctl limits`, `ctl lists`) | 76fb5b4 |
 | Phase 3 rows 3.1, 3.2, 3.4, 3.6, 3.10, 3.14, 3.17 (as-of reads, trade timing, tie breaks, history repeats, smart demotion, one trade key, timestamp checks) | c697309, 98d65c7 |
 | Slow-mind phases P0 to P9: both engines inside the repo, Slow Bridge, report exchange, rooms | docs/.archive (24) |
-| Docs converged into this set; catalogs generated (`npm run docs:gen`) | this change |
+| Docs converged into this set; catalogs generated (`npm run docs:gen`) | ca65ab1 |
+| A2 score day buckets and trailing window; A3 feed cursor table; A4 pre-call hit only on the buying caller's own call, one sample per coin and caller; A5 `risk.state` on every holder snapshot, creator restored; A6 `early_right`, copy price, copy value at a fixed horizon; A9 `Retry-After` dates; A11 `slow.as_of` pinned on every BettaFish run. Each passed its check (`precall-replay`, `feed-cursor`, `index-rows`, `pump-http`, `bettafish-insight`) | Section A commit |
 
-Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (stub model refused in live mode). Partly done: 3.7 (count dedupe; the cursor table is open) and 3.13 (one crash risk removed; the Scout wallet set still grows).
+Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (stub model refused in live mode).
 
 ## Next, in order
 
 ### A. Finish as-of reads (fix plan Phase 3)
 
-| # | Work | Check |
-|---|---|---|
-| A1 | Pre-call analyzer emits `precall.detected`; the desk consumes it; no lost wakes | A replay shows the same pre-call entries whatever the consumer order |
-| A2 | Scores in day buckets with a trailing window | Brier rows carry a bucket; old rows leave the window |
-| A3 | Feed cursor in a table | A restart does not re-walk the feed |
-| A4 | A pre-call hit counts only when the buying caller calls; one sample per coin and caller | Hand-checked table for three callers |
-| A5 | `risk.state` recomputed on every holder snapshot; creator restored after restart | Two snapshots give two risk values |
-| A6 | Index numbers: `early_right` from the peak after the first buy, copy price survives a flush, copy value at a fixed horizon | Hand-computed wallet table matches |
-| A7 | Small measurement mismatches (caller.dna exclusions, push-first handles, case file as-of, one median helper) | Ledger and dna agree on one fixture |
-| A8 | Scout wallet set persisted, bounded hot set | Memory flat over a 30 min smoke |
-| A9 | `Retry-After` dates honoured | Unit through `pump-http` |
-| A10 | `coin.graduated` on the first AMM trade | Graduated fixture shows the event |
-| A11 | `slow.as_of` on every engine run | A replay run reads no row after the replay clock |
-| A12 | A second short fixture with a graduated called coin; trim fixtures to 1 to 2 minutes; keep one long fixture for milestones | Replays under 60 s |
-| A13 | Replay steps every consumer to the same time (1.17) | Live-leg replay is deterministic |
+Every row is built and pushed. The rows below still wait for their check to be run (or re-run) on the final code.
+
+| # | Work | Check | State |
+|---|---|---|---|
+| A1 | Pre-call analyzer emits `precall.detected`; the desk consumes it; no lost wakes | A replay shows the same pre-call entries whatever the consumer order | Order check passed (95 vs 95 entries, same hash). The restart check failed once because a rebuild re-seeded each consumer's random stream; fixed (`Clock.fork` remembers its forks), re-run pending |
+| A7 | Small measurement mismatches (caller.dna exclusions, push-first handles, case file as-of, one median helper) | Ledger and dna agree on one fixture | Built; `analyzers-replay` check written, not run |
+| A8 | Scout wallet set persisted, bounded hot set | Memory flat over a 30 min smoke | Scout bounded (`scout-bounded` passed; hot set flat at about 10k). The first smoke showed RSS rising 251 to 369 MB; the rollup's wallet memory is now bounded too (`INDEX_KNOWN_WALLETS`) and stats log heap; the second smoke's numbers are in `artifacts/smoke/a8b/core.log` |
+| A10 | `coin.graduated` on the first AMM trade | Graduated fixture shows the event | Derived by the flow analyzer; on `graduated-2m` exactly one, the called coin. The rollup's `idx.coin.graduated` write was restored after a merge collision; re-run `coin-graduated` |
+| A12 | A second short fixture with a graduated called coin; trim fixtures to 1 to 2 minutes; keep one long fixture for milestones | Replays under 60 s | Fixtures `discovery-2m` (default, with 1-minute horizons in `discovery-2m.env`) and `graduated-2m` cut; the replay now runs one read and one transaction per Tape time. Timing not yet measured on an idle machine (the last run was 109 s under load) |
+| A13 | Replay steps every consumer to the same time (1.17) | Live-leg replay is deterministic | Lockstep replay built; `replay-determinism` gained a live-leg pair (gate, Trader, books, kill on the mock chain, seeded keys), not run |
+
+**Successor prompt (resume here).** Main holds Section A built. Read `AGENTS.md`, this file, `docs/DECISIONS.md` and `docs/OPS.md` section 9 first. Then, on an idle machine (no smoke running): `npm run e2e -- precall-replay analyzers-replay replay-determinism coin-graduated` on the default 2-minute fixture. Fix what fails, note each replay's time against the 60 s check, move the passing rows above to Done, then go on with section B in order, under the `/ra-mode` instructions of 2026-10-19 (sections A to G, H out of scope). Known follow-ups: the Scout's trigger trade has an unknown phase (`program: null`), so the desk may treat an AMM trigger as a curve trade (fold into C8); other replay suites (`strategies-replay`, `commit-reveal`, `evolution-replay`, `callout-case-replay`, the site suites) have not run on the 2-minute fixture and may need their thresholds tied to the fixture's settings.
 
 ### B. Filter at the door and data tiers
 

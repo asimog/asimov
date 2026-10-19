@@ -4,13 +4,15 @@
 import type { BodyOf, Envelope } from "@asimog/contracts";
 import { liveFor } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
+import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { fillBuy, fillSell } from "../mind/fill.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 
-const HORIZONS = (env.opt("OUTCOME_HORIZONS_MIN") ?? "1,3,5").split(",").map(Number);
+export const HORIZONS = (env.opt("OUTCOME_HORIZONS_MIN") ?? "1,3,5").split(",").map(Number);
 const SCORE_EVERY_MS = env.int("SCORE_EVERY_S") * 1000;
+const WINDOW_DAYS = env.int("SCORE_WINDOW_DAYS");
 const STALE_MS = env.int("ENTRY_STALE_S") * 1000;
 const GRACE_MS = env.int("OUTCOME_GRACE_S") * 1000;
 export const REF_SOL = env.num("OUTCOME_REF_SOL");
@@ -33,9 +35,29 @@ type Prob = { kind: string; p: number; n: number; horizon_min: number };
 type Watch = { callout_id: string; event_id: string; mint: string; author: string | null; created_ms: number; t0_ms: number; probs: Prob[]; done: number[] };
 type Outcome = BodyOf<"outcome.measured">;
 type Pt = { id: string; at: number; p: number; amm: boolean };
-type Pre = { signal_id: string; kind: string; mint: string; at_ms: number; p: number; horizon_min: number };
+/** A probability waiting for its horizon. Pre-call: one per coin and buying caller (`caller` set). Slow kinds: one per signal. */
+type Pre = { id: string; kind: string; mint: string; caller: string | null; at_ms: number; p: number; horizon_min: number };
+const LATE_MS = 5 * 60_000; // a slow signal written late (its projection lagged) is still picked up
 
 const iso = (ms: number) => new Date(ms).toISOString();
+
+export type ScoreRow = { kind: string; horizon_min: number; n: number; brier_sum: number; hits: number; p_sum: number };
+
+/** Score sums over the trailing SCORE_WINDOW_DAYS days ending on the day of `at`: old days leave the window. */
+export async function scoresAsOf(sql: Sql | Tx, at: string, kinds?: string[]): Promise<ScoreRow[]> {
+  const to = at.slice(0, 10);
+  const from = iso(Date.parse(to) - (WINDOW_DAYS - 1) * 86_400_000).slice(0, 10);
+  return (await sql`select kind, horizon_min, sum(n)::int n, sum(brier_sum)::float brier_sum, sum(hits)::int hits, sum(p_sum)::float p_sum
+    from mind.score_days where day between ${from} and ${to} ${kinds ? sql`and kind = any(${kinds})` : sql``}
+    group by 1, 2 having sum(n) > 0 order by 1, 2`) as unknown as ScoreRow[];
+}
+
+/** One resolved sample, in the bucket of the day it resolved. */
+async function addScore(tx: Tx, kind: string, h: number, at: string, brier: number, hit: number, p: number) {
+  await tx`insert into mind.score_days (kind, horizon_min, day, n, brier_sum, hits, p_sum) values (${kind}, ${h}, ${at.slice(0, 10)}, 1, ${brier}, ${hit}, ${p})
+    on conflict (kind, horizon_min, day) do update set n = mind.score_days.n + 1, brier_sum = mind.score_days.brier_sum + excluded.brier_sum,
+      hits = mind.score_days.hits + excluded.hits, p_sum = mind.score_days.p_sum + excluded.p_sum`;
+}
 
 /** Gaps known at `nowIso` that overlap [fromMs, toMs] for this coin. */
 /** Trade gaps only (a callout-feed gap does not hide trades). A gap reported again with a `to` closes the open one. */
@@ -90,7 +112,7 @@ async function measure(tx: Tx, w: Watch, h: number, nowIso: string): Promise<Out
 export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Record<string, number> } {
   const stats = { watched: 0, outcomes: 0, corrected: 0, scored: 0, precall: 0 };
   let pre: Pre[] = [];
-  let preCursor = { at: new Date(0).toISOString(), id: "" };
+  let preCursor = new Date(0).toISOString();
   let preSec = -1; // pre-call watches tick once per second of Tape time
   let loaded = false;
   const watches = new Map<string, Watch[]>();
@@ -102,9 +124,9 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
       const w: Watch = { callout_id: r.callout_id as string, event_id: r.event_id as string, mint: r.mint as string, author: r.author as string | null, created_ms: (r.created_at as Date).getTime(), t0_ms: (r.at as Date).getTime(), probs: r.probs as Prob[], done: r.done as number[] };
       (watches.get(w.mint) ?? watches.set(w.mint, []).get(w.mint)!).push(w);
     }
-    pre = (await tx`select * from mind.precall_watch where not done order by at, signal_id`).map((r) => ({ signal_id: r.signal_id as string, kind: r.kind as string, mint: r.mint as string, at_ms: (r.at as Date).getTime(), p: r.p as number, horizon_min: r.horizon_min as number }));
-    const [c] = await tx`select at, signal_id from mind.precall_watch order by at desc, signal_id desc limit 1`;
-    preCursor = c ? { at: (c.at as Date).toISOString(), id: c.signal_id as string } : { at: new Date(0).toISOString(), id: "" };
+    pre = (await tx`select * from mind.prob_watch where not done order by at, id`).map((r) => ({ id: r.id as string, kind: r.kind as string, mint: r.mint as string, caller: r.caller as string | null, at_ms: (r.at as Date).getTime(), p: r.p as number, horizon_min: r.horizon_min as number }));
+    const [c] = await tx`select max(at) at from mind.prob_watch where caller is null`;
+    preCursor = c?.at ? (c.at as Date).toISOString() : new Date(0).toISOString();
     const [s] = await tx`select max(seen_time) at from tape.events where topic = 'score.updated'`;
     scoredBucket = s?.at ? Math.floor((s.at as Date).getTime() / SCORE_EVERY_MS) : -1;
     loaded = true;
@@ -119,9 +141,7 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
       if (o.coverage !== "gap")
         for (const pr of w.probs.filter((x) => x.horizon_min === h)) {
           const hit = o.new_callouts >= pr.n ? 1 : 0;
-          await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${pr.kind}, ${h}, 1, ${(pr.p - hit) ** 2}, ${hit}, ${pr.p})
-            on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, brier_sum = mind.scores.brier_sum + excluded.brier_sum,
-              hits = mind.scores.hits + excluded.hits, p_sum = mind.scores.p_sum + excluded.p_sum`;
+          await addScore(tx, pr.kind, h, e.seen_time, (pr.p - hit) ** 2, hit, pr.p);
           stats.scored++;
         }
       w.done.push(h);
@@ -150,61 +170,62 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
     }
   }
 
-  /** Brier for precall.callout_p (docs/PIPELINE.md precall): hit = any callout on the coin within the horizon after the signal.
-   * And for swarm.wave_p (docs/SLOW-MIND.md P8): hit = SWARM_WAVE distinct callers call the coin within SWARM_H after the run. */
+  async function watch(tx: Tx, w: Pre) {
+    const ins = await tx`insert into mind.prob_watch (id, kind, mint, caller, at, p, horizon_min) values (${w.id}, ${w.kind}, ${w.mint}, ${w.caller}, ${iso(w.at_ms)}, ${w.p}, ${w.horizon_min})
+      on conflict do nothing returning 1`;
+    if (ins.length) pre.push(w);
+  }
+
+  /** Brier for precall.callout_p (docs/PIPELINE.md precall): hit = the caller who bought calls the coin within the horizon.
+   * For swarm.wave_p (docs/SLOW-MIND.md P8): hit = SWARM_WAVE distinct callers call the coin within SWARM_H after the run. */
   async function precallTick(tx: Tx, nowIso: string) {
     const now = Date.parse(nowIso);
     const fresh = await tx`select id, kind, subject, produced_at,
-        case when kind = ${SYNTH} then (case value->>'stance' when 'bullish' then 1 when 'neutral' then 0.5 else 0 end) else coalesce(value->>'p', value->>'wave_p')::float end p,
+        case when kind = ${SYNTH} then (case value->>'stance' when 'bullish' then 1 when 'neutral' then 0.5 else 0 end) else (value->>'wave_p')::float end p,
         case when kind = ${SYNTH} then ${STANCE_H} else coalesce((value->>'horizon_min')::int, ${SWARM_H}) end h from board.signals
-      where kind in (${PRECALL}, ${SWARM}, ${SYNTH}) and (produced_at, id) > (${preCursor.at}, ${preCursor.id}) and produced_at <= ${nowIso} order by produced_at, id`;
+      where kind in (${SWARM}, ${SYNTH}) and produced_at > ${iso(Date.parse(preCursor) - LATE_MS)} and produced_at <= ${nowIso} order by produced_at, id`;
     for (const r of fresh) {
-      const w: Pre = { signal_id: r.id as string, kind: r.kind as string, mint: r.subject as string, at_ms: (r.produced_at as Date).getTime(), p: r.p as number, horizon_min: r.h as number };
-      await tx`insert into mind.precall_watch (signal_id, kind, mint, at, p, horizon_min) values (${w.signal_id}, ${w.kind}, ${w.mint}, ${iso(w.at_ms)}, ${w.p}, ${w.horizon_min}) on conflict do nothing`;
-      pre.push(w);
-      preCursor = { at: iso(w.at_ms), id: w.signal_id };
+      await watch(tx, { id: r.id as string, kind: r.kind as string, mint: r.subject as string, caller: null, at_ms: (r.produced_at as Date).getTime(), p: r.p as number, horizon_min: r.h as number });
+      if (iso((r.produced_at as Date).getTime()) > preCursor) preCursor = iso((r.produced_at as Date).getTime());
     }
     for (const w of pre.filter((x) => now >= x.at_ms + x.horizon_min * 60_000)) {
-      const [c] = await tx`select count(*)::int n, count(distinct body->>'author_wallet')::int callers from tape.events where topic = 'callout.created' and body->>'mint' = ${w.mint}
+      const [c] = await tx`select count(*)::int n, count(distinct body->>'author_wallet')::int callers,
+          count(*) filter (where body->>'author_wallet' = ${w.caller ?? ""})::int own from tape.events where topic = 'callout.created' and body->>'mint' = ${w.mint}
         and seen_time > ${iso(w.at_ms)} and seen_time <= ${iso(w.at_ms + w.horizon_min * 60_000)}`;
-      let hit = w.kind === SWARM ? ((c!.callers as number) >= SWARM_WAVE ? 1 : 0) : (c!.n as number) > 0 ? 1 : 0;
+      let hit = w.kind === SWARM ? ((c!.callers as number) >= SWARM_WAVE ? 1 : 0) : (c!.own as number) > 0 ? 1 : 0;
       if (w.kind === SYNTH) {
         const px = async (t: number) => (await tx`select (body->>'price_sol')::float p from tape.events where subject = ${w.mint} and topic in ('trade.curve', 'trade.amm')
           and seen_time <= ${iso(t)} and (body->>'price_sol')::float > 0 order by seen_time desc, id desc limit 1`)[0]?.p as number | undefined;
         const [p0, p1] = [await px(w.at_ms), await px(w.at_ms + w.horizon_min * 60_000)];
         if (p0 == null || p1 == null) {
-          await tx`update mind.precall_watch set done = true where signal_id = ${w.signal_id}`;
+          await tx`update mind.prob_watch set done = true where id = ${w.id}`;
           pre.splice(pre.indexOf(w), 1);
           continue;
         }
         hit = p1 > p0 ? 1 : 0;
         if (w.p !== 0.5) // accuracy counts decisive stances only: right when bullish rose or bearish/avoid did not
-          await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${STANCE_RIGHT}, ${w.horizon_min}, 1, 0, ${Number((w.p > 0.5) === (hit === 1))}, 0)
-            on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, hits = mind.scores.hits + excluded.hits`;
+          await addScore(tx, STANCE_RIGHT, w.horizon_min, nowIso, 0, Number((w.p > 0.5) === (hit === 1)), 0);
       }
-      await tx`insert into mind.scores (kind, horizon_min, n, brier_sum, hits, p_sum) values (${w.kind}, ${w.horizon_min}, 1, ${(w.p - hit) ** 2}, ${hit}, ${w.p})
-        on conflict (kind, horizon_min) do update set n = mind.scores.n + 1, brier_sum = mind.scores.brier_sum + excluded.brier_sum,
-          hits = mind.scores.hits + excluded.hits, p_sum = mind.scores.p_sum + excluded.p_sum`;
-      await tx`update mind.precall_watch set done = true where signal_id = ${w.signal_id}`;
+      await addScore(tx, w.kind, w.horizon_min, nowIso, (w.p - hit) ** 2, hit, w.p);
+      await tx`update mind.prob_watch set done = true, hit = ${hit} where id = ${w.id}`;
       pre.splice(pre.indexOf(w), 1);
       stats.precall++;
     }
   }
 
   async function publishScores(tx: Tx, e: Envelope) {
-    for (const r of await tx`select * from mind.scores where n > 0 and kind <> ${STANCE_RIGHT} order by kind, horizon_min`) {
-      const n = r.n as number;
-      const base = (r.hits as number) / n;
-      const brier = (r.brier_sum as number) / n;
+    for (const r of (await scoresAsOf(tx, e.seen_time)).filter((x) => x.kind !== STANCE_RIGHT)) {
+      const base = r.hits / r.n;
+      const brier = r.brier_sum / r.n;
       const ref = base * (1 - base);
-      await tape.emitIn(tx, "score.updated", { kind: r.kind as string, horizon_min: r.horizon_min as number, n, brier, base_rate: base, skill: ref > 0 ? 1 - brier / ref : null }, { source: "scorekeeper", subject: r.kind as string, causes: [e.id], after: e.seen_time });
+      await tape.emitIn(tx, "score.updated", { kind: r.kind, horizon_min: r.horizon_min, n: r.n, brier, base_rate: base, skill: ref > 0 ? 1 - brier / ref : null }, { source: "scorekeeper", subject: r.kind, causes: [e.id], after: e.seen_time });
     }
   }
 
   return {
     name: "scorekeeper",
     startAtHead: true,
-    topics: ["callout.created", "post.queued", "trade.curve", "trade.amm", "system.gap"],
+    topics: ["callout.created", "precall.detected", "post.queued", "trade.curve", "trade.amm", "system.gap"],
     batch: 1000,
     stats,
     async handle(events, tx) {
@@ -256,6 +277,10 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
             }
           } else if (e.topic === "system.gap") {
             await correct(tx, e);
+          } else if (e.topic === "precall.detected") {
+            // one sample per coin and buying caller: the first detection, scored on that caller's own call
+            const b = e.body as BodyOf<"precall.detected">;
+            await watch(tx, { id: `${b.mint}:${b.caller}`, kind: PRECALL, mint: b.mint, caller: b.caller, at_ms: now, p: b.p, horizon_min: b.horizon_min });
           } else {
             for (const w of [...(watches.get((e.body as BodyOf<"trade.curve">).mint) ?? [])])
               if (HORIZONS.some((h) => !w.done.includes(h) && now >= w.t0_ms + h * 60_000)) await resolve(tx, w, now, e);

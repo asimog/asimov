@@ -310,6 +310,14 @@ export const CoinWatched = z.object({
   features: CoinFeatures,
 });
 
+/** A coin's first AMM trade: it left the bonding curve (docs/PIPELINE.md, Chain Reader). One per coin. */
+export const CoinGraduated = z.object({
+  mint: z.string(),
+  tx: z.string(),
+  price_sol: num.nullable(),
+  at: iso,
+});
+
 /** Largest token accounts of a coin, the bonding curve's own account excluded (docs/PIPELINE.md). */
 export const HoldersSnapshot = z.object({
   mint: z.string(),
@@ -317,6 +325,7 @@ export const HoldersSnapshot = z.object({
   top: z.array(z.object({ account: z.string(), amount: num })),
   excluded: z.array(z.string()),
   top10_share: num,
+  features: CoinFeatures.nullish(), // the Index's launch features as of the snapshot, so risk.state moves with it
 });
 
 /** A new version of Index scores (docs/PIPELINE.md 2.4). `smart` carries the wallets strategies may follow. */
@@ -353,6 +362,16 @@ export const PostQueued = z.object({
   checks: z.array(z.string()),
   because: z.array(z.string()),
   paper: z.boolean(),
+});
+
+/** A known caller bought a coin they have not called (docs/SYSTEM.md pre-call watch). `trade_id` is the buy's event. */
+export const PrecallDetected = z.object({
+  mint: z.string(),
+  caller: z.string(),
+  trade_id: z.string(),
+  buy_sol: num,
+  p: num,
+  horizon_min: num,
 });
 
 export const ScoreUpdated = z.object({
@@ -525,7 +544,9 @@ export const TOPICS = {
   "kernel.allocation": KernelAllocation,
   "outcome.measured": OutcomeMeasured,
   "score.updated": ScoreUpdated,
+  "precall.detected": PrecallDetected,
   "coin.watched": CoinWatched,
+  "coin.graduated": CoinGraduated,
   "holders.snapshot": HoldersSnapshot,
   "index.refreshed": IndexRefreshed,
   "budget.spent": BudgetSpent,

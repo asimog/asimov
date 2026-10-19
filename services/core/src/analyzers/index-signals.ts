@@ -5,6 +5,7 @@ import type { BodyOf, Envelope } from "@asimog/contracts";
 import { putSignal } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
+import { median } from "../lib/stats.ts";
 import { loadLimits } from "../mind/risk.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 
@@ -12,7 +13,6 @@ const TRADES = ["trade.curve", "trade.amm"];
 const MIN = 60_000;
 const SMART_WINDOW_MIN = env.num("SMART_WINDOW_MIN");
 type Smart = BodyOf<"index.refreshed">["smart"][number];
-const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[(xs.length - 1) >> 1]! : null);
 
 export function indexSignals(clock: Clock): Consumer {
   let smart: Map<string, Smart> | null = null;
@@ -25,12 +25,13 @@ export function indexSignals(clock: Clock): Consumer {
     version = b?.version ?? 0;
   }
 
-  /** The coin's latest launch features and holder snapshot, its creator's sells since, against the owner's floor. */
+  /** The coin's latest features (the newer of the watch and the holder snapshot, which carries them fresh), its creator's sells since, against the owner's floor. */
   async function risk(tx: Tx, mint: string, e: Envelope) {
     const [w] = await tx`select id, seen_time, body from tape.events where topic = 'coin.watched' and subject = ${mint} and seen_time <= ${e.seen_time} order by seen_time desc, id desc limit 1`;
     if (!w) return;
-    const f = (w.body as BodyOf<"coin.watched">).features;
-    const [h] = await tx`select id, body from tape.events where topic = 'holders.snapshot' and subject = ${mint} and seen_time <= ${e.seen_time} order by seen_time desc, id desc limit 1`;
+    const [h] = await tx`select id, seen_time, body from tape.events where topic = 'holders.snapshot' and subject = ${mint} and seen_time <= ${e.seen_time} order by seen_time desc, id desc limit 1`;
+    const hb = h?.body as BodyOf<"holders.snapshot"> | undefined;
+    const f = hb?.features && new Date(h!.seen_time as string).getTime() >= new Date(w.seen_time as string).getTime() ? hb.features : (w.body as BodyOf<"coin.watched">).features;
     let creatorSold = f.creator_sold;
     if (f.creator) {
       const [s] = await tx`select coalesce(sum((body->>'tokens')::float) filter (where body->>'side' = 'sell'), 0) sold,
@@ -39,7 +40,7 @@ export function indexSignals(clock: Clock): Consumer {
       if ((s!.bought as number) > 0) creatorSold = Math.max(creatorSold, Math.min(1, (s!.sold as number) / (s!.bought as number)));
     }
     const L = await loadLimits(tx, e.seen_time);
-    const top10 = h ? (h.body as BodyOf<"holders.snapshot">).top10_share : null;
+    const top10 = hb ? hb.top10_share : null;
     const ratios = [f.bundle_share / L.max_bundle_share, (top10 ?? 0) / L.max_top10_share, f.fresh_share / L.max_fresh_share, creatorSold / L.max_creator_sold];
     await putSignal(tx, clock, {
       kind: "risk.state",

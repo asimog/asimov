@@ -1,8 +1,9 @@
 // How well the slow mind did (docs/SLOW-MIND.md P8), one read for `ctl slow` and the site. Swarm Brier, the stance Brier and
-// stance accuracy (share of decisive stances that were right) come from the Scorekeeper's mind.scores; claim survival
+// stance accuracy (share of decisive stances that were right) come from the Scorekeeper's trailing window (scoresAsOf); claim survival
 // is counted from report.published (cites kept against cites the core dropped), per engine, over the window.
 // Read-only, bounded by `at`.
 import type { Sql } from "../lib/db.ts";
+import { scoresAsOf } from "./scorekeeper.ts";
 
 export type SlowScores = {
   swarm: { n: number; brier: number; base_rate: number; horizon_min: number } | null;
@@ -11,7 +12,7 @@ export type SlowScores = {
 };
 
 export async function slowScores(sql: Sql, at: string, windowH = 24): Promise<SlowScores> {
-  const rows = await sql`select kind, horizon_min::int h, n::int, brier_sum::float b, hits::int from mind.scores where kind in ('swarm.wave_p', 'synthesis.coin', 'synthesis.coin.right') and n > 0`;
+  const rows = (await scoresAsOf(sql, at, ["swarm.wave_p", "synthesis.coin", "synthesis.coin.right"])).map((r) => ({ kind: r.kind, h: r.horizon_min, n: r.n, b: r.brier_sum, hits: r.hits }));
   const one = (k: string) => rows.find((r) => r.kind === k) as { h: number; n: number; b: number; hits: number } | undefined;
   const [sw, st, right] = [one("swarm.wave_p"), one("synthesis.coin"), one("synthesis.coin.right")];
   const claims = await sql`select body->>'producer' producer, count(*)::int reports, coalesce(sum(jsonb_array_length(body->'cites')), 0)::int kept,

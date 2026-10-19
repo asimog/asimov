@@ -82,6 +82,6 @@ Every stage also stops at `SLOW_USD_PER_DAY`. A run over its cap stops and retur
 | A word like "rugged" marks a coin "avoid" | Stance only when a cited claim supports it |
 | Strangers' text steers prompts | Callout text is fenced as data, trimmed, dropped if it looks like instructions |
 | Simulated content mistaken for real | `simulated: true` everywhere, SIMULATED edges and labels, never mixed into the Index |
-| Replays leak today's date into engines | `slow.as_of` on every run |
+| Replays leak today's date into engines | The Bridge sends `as_of` (the job's slot) with every run; every BettaFish read pins `slow.as_of` to it, and a read without one fails. MiroShark reads only through core tools, which use core's Clock |
 | Cost overrun | Per-run, per-stage and per-day caps; lane key limits as the hard stop |
 | Upstream moves | Small named patches; suites after each merge |

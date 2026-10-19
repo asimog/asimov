@@ -9,7 +9,7 @@ import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
 import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
 import type { Check } from "../../lib/checks.ts";
 import { llmStub } from "../../lib/llm-stub.ts";
-import { CAP, slowEnv } from "../../lib/slow.ts";
+import { CAP, MINT_A, slowEnv, WALLETS } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const ENGINE = path.join(env.root, "services", "bettafish", "engine");
@@ -54,12 +54,16 @@ export const suite: Suite = {
     worker.stderr.on("data", (d) => (log += d));
     try {
       await w.seed();
+      // the run is pinned 20 minutes back; a PEPE callout seen after that (but before the database's now) must stay unseen
+      const asOfMs = Date.now() - 20 * 60_000;
+      await w.sql`insert into mem.callouts (callout_id, mint, wallet, text, created_at, seen_at, first_on_coin, likes, replies)
+        values ('co_late', ${MINT_A}, ${WALLETS[0]!}, 'PEPE late call from the future', ${new Date(asOfMs + 5 * 60_000).toISOString()}, ${new Date(asOfMs + 5 * 60_000).toISOString()}, false, 99, 0)`;
       const base = `http://127.0.0.1:${port}`;
       const eng = new EngineClient("bettafish", base);
       for (let i = 0; i < 120 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the worker starts with every provider value from our env", await eng.healthy(), log.slice(-300));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => Date.now(), newId: () => "sj_bf1", cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 120, pollMs: 300 } });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => asOfMs, newId: () => "sj_bf1", cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 120, pollMs: 300 } });
       await bridge.schedule();
       await bridge.drain();
       const [job] = await w.sql`select state, error, result from slow.jobs where id = 'sj_bf1'`;
@@ -70,6 +74,7 @@ export const suite: Suite = {
       add("each paragraph ran MAX_REFLECTIONS=1 reflection rounds", nodes("深化舆情报告的内容") === 2 && nodes("内容深化专家") === 2, `reflection ${nodes("深化舆情报告的内容")}, rewrite ${nodes("内容深化专家")}`);
       const sawCallouts = llm.calls.some((c) => c.user.includes("[cid:co_a1]") || c.user.includes("cid:co_a"));
       add("the model was shown our callouts from slow.* with their ids", sawCallouts, `${llm.calls.length} model calls`);
+      add("nothing seen after the run's as-of reached the model (slow.as_of pinned)", llm.calls.length > 0 && !llm.calls.some((c) => c.user.includes("co_late") || c.user.includes("from the future")), `${llm.calls.length} model calls`);
       add("every prompt carried our English and voice rules", llm.calls.length > 0 && llm.calls.every((c) => c.system.includes("[Asimog rules]")), `${llm.calls.length} calls`);
       const [feed] = await w.sql`select body from tape.events where topic = 'synthesis.feed'`;
       const b = feed?.body as { narratives?: { cites: string[] }[]; claims_dropped?: number } | undefined;

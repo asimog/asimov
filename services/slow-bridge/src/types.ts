@@ -4,7 +4,7 @@ export type Engine = "bettafish" | "miroshark";
 export type Kind = "feed" | "coin" | "swarm";
 export type Job = { id: string; engine: Engine; kind: Kind; subject: string; preset: string; slot: string };
 
-export type RunRequest = { job_id: string; kind: Kind; subject: string; preset: string; window_min: number; started_at: string; parent_reports: string[]; dossier?: unknown; parent_texts?: { report_id: string; producer: string; summary: string; markdown: string | null }[] };
+export type RunRequest = { job_id: string; kind: Kind; subject: string; preset: string; window_min: number; started_at: string; as_of: string; parent_reports: string[]; dossier?: unknown; parent_texts?: { report_id: string; producer: string; summary: string; markdown: string | null }[] };
 export type ReportOut = { producer: string; kind: Kind; subject: string; summary: string; cites: string[]; ir?: Record<string, unknown> | null; markdown?: string | null; simulated?: boolean };
 export type RunOutput = {
   reports?: ReportOut[];

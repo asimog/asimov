@@ -103,7 +103,7 @@ export class Bridge {
       const extra = job.engine === "miroshark"
         ? { dossier: await this.d.cores.swarm.call("coin_dossier", { mint: job.subject }), parent_texts: (await this.d.cores.exchange.call<{ reports: { report_id: string; producer: string; summary: string; markdown: string | null }[] }>("reports_for", { subject: job.subject, producer_prefix: "bettafish.", limit: 3 })).reports }
         : {};
-      const runId = await engine.start({ job_id: job.id, kind: job.kind, subject: job.subject, preset: job.preset, window_min: windowMin, started_at: this.iso(), parent_reports: parents, ...extra });
+      const runId = await engine.start({ job_id: job.id, kind: job.kind, subject: job.subject, preset: job.preset, window_min: windowMin, started_at: this.iso(), as_of: job.slot, parent_reports: parents, ...extra });
       const until = this.d.now() + this.d.cfg.runTimeoutS * 1000;
       for (;;) {
         const s = await engine.status(runId);

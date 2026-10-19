@@ -49,20 +49,20 @@ export const suite: Suite = {
       tape.emit("callout.created", callout("c_mid", MINT_MISS, "W9", at(60)), { source: "feedreader", subject: MINT_MISS });
       await tape.flush();
       while (await step(db.sql, sk)) { /* drain */ }
-      const [early] = await db.sql`select count(*)::int n from mind.scores where kind = 'swarm.wave_p'`;
+      const [early] = await db.sql`select count(*)::int n from mind.score_days where kind = 'swarm.wave_p'`;
       add("nothing is scored before the horizon passes", early!.n === 0, `${early!.n} rows at 60 min`);
       tape.emit("callout.created", callout("c_late", MINT_MISS, "W8", at(125)), { source: "feedreader", subject: MINT_MISS });
       await tape.flush();
       while (await step(db.sql, sk)) { /* drain */ }
-      const [s] = await db.sql`select n, hits, brier_sum, p_sum from mind.scores where kind = 'swarm.wave_p'`;
+      const [s] = await db.sql`select sum(n)::int n, sum(hits)::int hits, sum(brier_sum)::float brier_sum, sum(p_sum)::float p_sum from mind.score_days where kind = 'swarm.wave_p'`;
       add("both swarm runs are scored after the horizon", s?.n === 2, JSON.stringify(s));
       add("five distinct callers is a hit, four is a miss", s?.hits === 1, `hits ${s?.hits}`);
       const want = (0.8 - 1) ** 2 + (0.6 - 0) ** 2;
       add("the Brier sum is (0.8-1)^2 + (0.6-0)^2", Math.abs(Number(s?.brier_sum) - want) < 1e-9, `${s?.brier_sum} vs ${want}`);
-      const [st] = await db.sql`select n, hits, brier_sum from mind.scores where kind = 'synthesis.coin' and horizon_min = 60`;
+      const [st] = await db.sql`select sum(n)::int n, sum(hits)::int hits, sum(brier_sum)::float brier_sum from mind.score_days where kind = 'synthesis.coin' and horizon_min = 60`;
       add("stances are scored at one hour; the coin with no trades is skipped", st?.n === 2, JSON.stringify(st));
       add("bullish on a rising coin is right and bearish on it is wrong (Brier sum 1)", st?.hits === 2 && Number(st?.brier_sum) === 1, JSON.stringify(st));
-      const [right] = await db.sql`select n, hits from mind.scores where kind = 'synthesis.coin.right'`;
+      const [right] = await db.sql`select sum(n)::int n, sum(hits)::int hits from mind.score_days where kind = 'synthesis.coin.right'`;
       add("stance accuracy counts decisive stances right: bullish rose (right), bearish rose (wrong)", right?.n === 2 && right.hits === 1, JSON.stringify(right));
       return { checks, metrics: { brier: Number(s?.brier_sum) / Number(s?.n || 1), stance_brier: Number(st?.brier_sum) / Number(st?.n || 1) } };
     } finally {

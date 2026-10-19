@@ -3,6 +3,7 @@ import type { BodyOf, Envelope } from "@asimog/contracts";
 import { putSignal } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
+import { median } from "../lib/stats.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import { curveFromPrice, quoteBuy } from "./curve-math.ts";
 
@@ -160,8 +161,12 @@ async function callers(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created
       select distinct on (body->>'callout_id') id, body from tape.events
       where topic = 'outcome.measured' and seen_time <= ${e.seen_time} and body->>'author_wallet' = ${b.author_wallet} and (body->>'horizon_min')::int = ${p.dnaHorizonMin}
       order by body->>'callout_id', seen_time desc, id desc) x
-    where body->>'coverage' = 'ok' order by id`;
-  const nets = outs.map((r) => r.net as number).sort((a, b) => a - b);
+    where body->>'coverage' = 'ok' and exists (select 1 from (
+        select c.body->>'callout_id' id, c.body->>'quoted_callout_id' quoted, row_number() over (partition by c.body->>'mint' order by c.seen_time, c.id) nth
+        from tape.events c where c.topic = 'callout.created' and c.body->>'author_wallet' = ${b.author_wallet} and coalesce(c.body->>'via', '') <> 'history' and c.seen_time <= ${e.seen_time}) f
+      where f.id = x.body->>'callout_id' and f.nth = 1 and f.quoted is null)
+    order by id`;
+  const nets = outs.map((r) => r.net as number);
   await putSignal(tx, clock, {
     kind: "caller.dna",
     subject: b.author_wallet,
@@ -169,7 +174,7 @@ async function callers(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created
       ...dna,
       resolved: nets.length,
       net_win: nets.length ? nets.filter((x) => x > 1).length / nets.length : null,
-      med_net: nets.length ? nets[Math.floor((nets.length - 1) / 2)]! : null,
+      med_net: median(nets),
       followers: b.author_followers,
       handle: b.author_handle,
     },

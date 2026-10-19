@@ -4,6 +4,7 @@ import { replayClock } from "../../../../services/core/src/lib/clock.ts";
 import { Tape } from "../../../../services/core/src/tape/tape.ts";
 import { buildCase, renderCase } from "../../../../services/core/src/hunt/case.ts";
 import { coverage, ledger } from "../../../../services/core/src/scorekeeper/ledger.ts";
+import { HORIZONS } from "../../../../services/core/src/scorekeeper/scorekeeper.ts";
 import { derivedHash, everyReplayChecks, type Check } from "../../lib/checks.ts";
 import { readTape, type Row } from "../../lib/replay.ts";
 import type { Suite } from "../../lib/suite.ts";
@@ -30,7 +31,7 @@ export const suite: Suite = {
     checks.push({ name: "every outcome is ov2 with a coverage status", pass: oc!.n > 0 && oc!.bad === 0, detail: `${oc!.n} outcomes, ${oc!.bad} bad, ${oc!.ok} ok` });
 
     // 2. ledger: every callout counted once, exclusions by reason, losers kept
-    const L = await ledger(sql, { horizon: 5 });
+    const L = await ledger(sql, { horizon: HORIZONS.at(-1)! });
     const [cc] = await sql`select count(*)::int n from tape.events where topic = 'callout.created'`;
     const adds = (row: typeof L.all) => row.ok + Object.values(row.excluded).reduce((a, b) => a + b, 0) === row.calls;
     const badRows = L.rows.filter((r) => !adds(r)).length;
@@ -89,7 +90,7 @@ export const suite: Suite = {
         select distinct on (body->>'callout_id', body->>'horizon_min') body from tape.events
         where topic = 'outcome.measured' order by body->>'callout_id', body->>'horizon_min', seen_time desc, id desc) x
       where (body->>'t0')::timestamptz <= ${at(240)} and (body->>'t0')::timestamptz + make_interval(mins => (body->>'horizon_min')::int) >= ${at(120)}`;
-    const GL = await ledger(g.sql, { horizon: 5 });
+    const GL = await ledger(g.sql, { horizon: HORIZONS.at(-1)! });
     checks.push({ name: "late gap supersedes overlapping outcomes", pass: gs!.superseding > 0 && gs!.originals_kept === gs!.superseding && overlap!.n > 0 && overlap!.wrong === 0, detail: `${gs!.superseding} superseding (${gs!.originals_kept} originals kept), ${overlap!.n} overlapping, ${overlap!.wrong} not marked gap` });
     checks.push({ name: "ledger counts gap exclusions", pass: (GL.all.excluded.gap ?? 0) > 0 && GL.all.calls === L.all.calls, detail: `gap excluded ${GL.all.excluded.gap ?? 0}; calls ${GL.all.calls} vs ${L.all.calls}` });
 

@@ -1,5 +1,6 @@
 // Holder snapshot (docs/PIPELINE.md section 3): the 20 largest token accounts of a promoted coin, accounts owned by programs
 // (the bonding curve, AMM pools, lockers) left out. Written as `holders.snapshot`, so replays see it.
+import type { BodyOf } from "@asimog/contracts";
 import { PublicKey } from "@solana/web3.js";
 import type { RpcPool } from "../lib/rpc.ts";
 import { bondingCurvePda } from "../senses/backfill.ts";
@@ -16,6 +17,7 @@ export function curveAccounts(mint: string, known: string | null): string[] {
   return [...new Set([...(known ? [known] : []), ata(TOKEN), ata(TOKEN22)])];
 }
 
+type CoinFeatures = BodyOf<"coin.watched">["features"];
 type Largest = { value: { address: string; uiAmount: number | null }[] };
 type Supply = { value: { uiAmount: number | null } };
 type Parsed = { value: ({ data: { parsed?: { info?: { owner?: string } } } } | null)[] };
@@ -24,7 +26,7 @@ type Parsed = { value: ({ data: { parsed?: { info?: { owner?: string } } } } | n
  * Top-10 share of the whole supply held by people. Accounts owned by a program (an off-curve address: the bonding
  * curve, an AMM pool vault, a locker) are excluded, and so is the curve's token account even before it is parsed.
  */
-export async function snapshotHolders(pool: RpcPool, tape: Tape, mint: string, curveAccount: string | null, causes: string[]) {
+export async function snapshotHolders(pool: RpcPool, tape: Tape, mint: string, curveAccount: string | null, causes: string[], features: () => CoinFeatures | null) {
   const [largest, supply] = await Promise.all([pool.call<Largest>("getTokenLargestAccounts", [mint, { commitment: "confirmed" }]), pool.call<Supply>("getTokenSupply", [mint])]);
   const accounts = largest.value.map((a) => a.address);
   // RPC Fast and QuickNode free plans take at most 5 keys per getMultipleAccounts
@@ -38,5 +40,5 @@ export async function snapshotHolders(pool: RpcPool, tape: Tape, mint: string, c
   const total = supply.value.uiAmount ?? 1e9;
   const top = largest.value.map((a) => ({ account: a.address, amount: a.uiAmount ?? 0 })).filter((a) => !excluded.includes(a.account));
   const top10 = top.slice(0, 10).reduce((s, a) => s + a.amount, 0);
-  tape.emit("holders.snapshot", { mint, supply: total, top, excluded, top10_share: Math.min(1, top10 / Math.max(1, total)) }, { source: "rpc", subject: mint, causes });
+  tape.emit("holders.snapshot", { mint, supply: total, top, excluded, top10_share: Math.min(1, top10 / Math.max(1, total)), features: features() }, { source: "rpc", subject: mint, causes });
 }

@@ -23,9 +23,9 @@ export interface Consumer {
   handle(events: Envelope[], tx: Tx): Promise<void>;
 }
 
-type Row = Envelope & { seen_time: Date | string; event_time: Date | string };
+export type Row = Envelope & { seen_time: Date | string; event_time: Date | string };
 
-function normalize(r: Row): Envelope {
+export function normalize(r: Row): Envelope {
   const iso = (d: Date | string) => (d instanceof Date ? d.toISOString() : new Date(d).toISOString());
   return { ...r, seen_time: iso(r.seen_time), event_time: iso(r.event_time) };
 }
@@ -47,14 +47,19 @@ export async function step(sql: Sql, c: Consumer, untilIso?: string): Promise<nu
       limit ${c.batch ?? 500}`) as unknown as Row[];
     if (!rows.length) return 0;
     const events = rows.map(normalize);
-    await c.handle(events, tx);
-    const last = events[events.length - 1]!;
-    await tx`update tape.consumer_offsets set last_seen_time = ${last.seen_time}, last_id = ${last.id}, updated_at = now()
-             where consumer = ${c.name}`;
+    await apply(tx, c, events);
     return events.length;
   });
   if (n) c.afterCommit?.();
   return n;
+}
+
+/** Hand events to a consumer and move its offset past them, inside the caller's transaction. */
+export async function apply(tx: Tx, c: Consumer, events: Envelope[]) {
+  await c.handle(events, tx);
+  const last = events[events.length - 1]!;
+  await tx`insert into tape.consumer_offsets (consumer, last_seen_time, last_id) values (${c.name}, ${last.seen_time}, ${last.id})
+    on conflict (consumer) do update set last_seen_time = excluded.last_seen_time, last_id = excluded.last_id, updated_at = now()`;
 }
 
 /** Drain a consumer to the head (or to untilIso). Used by replay and by live loops. */
@@ -63,7 +68,7 @@ export async function drain(sql: Sql, c: Consumer, untilIso?: string) {
   for (;;) {
     const n = await step(sql, c, untilIso);
     total += n;
-    if (n === 0) return total;
+    if (n < (c.batch ?? 500)) return total; // a short batch reached the end
   }
 }
 
@@ -74,23 +79,32 @@ export async function runLive(sql: Sql, consumers: Consumer[], _clock: Clock, po
       select ${c.name}, seen_time, id from tape.events order by seen_time desc, id desc limit 1
       on conflict (consumer) do nothing`;
   const loops = [consumers.filter((c) => !c.ownLoop), ...consumers.filter((c) => c.ownLoop).map((c) => [c])];
-  const wakes = new Set<() => void>();
+  // a NOTIFY that lands while a group drains marks it pending, so the group drains again instead of sleeping a poll
+  const groups = loops.map((consumers) => ({ consumers, pending: false, wake: null as (() => void) | null }));
   await sql.listen("tape", () => {
-    for (const w of wakes) w();
+    for (const g of groups) {
+      if (g.wake) g.wake();
+      else g.pending = true;
+    }
   });
-  await Promise.all(loops.map(async (group) => {
+  await Promise.all(groups.map(async (g) => {
     for (;;) {
-      for (const c of group) {
+      g.pending = false;
+      for (const c of g.consumers) {
         try {
           await drain(sql, c);
         } catch (err) {
           log.error("consumer", { consumer: c.name, err: String(err) });
         }
       }
+      if (g.pending) continue;
       await new Promise<void>((r) => {
-        const done = () => (wakes.delete(done), r());
-        wakes.add(done);
-        setTimeout(done, pollMs);
+        const t = setTimeout(() => g.wake?.(), pollMs);
+        g.wake = () => {
+          clearTimeout(t);
+          g.wake = null;
+          r();
+        };
       });
     }
   }));

@@ -1,6 +1,7 @@
 // Caller ledger, methodology cl1 (docs/PIPELINE.md): every callout counted once, exclusions by reason, never by result.
 // Coverage report (docs/PIPELINE.md coverage). Both read only the Tape, so any replay gives the same numbers.
 import type { Sql } from "../lib/db.ts";
+import { median as med } from "../lib/stats.ts";
 
 export const LEDGER_METHOD = "cl1";
 const FEW = 5;
@@ -21,12 +22,6 @@ export type LedgerRow = {
   few: boolean;
 };
 
-const med = (xs: number[]) => {
-  if (!xs.length) return null;
-  const s = [...xs].sort((a, b) => a - b);
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
-};
 
 /** Wilson score interval, 95%. */
 function wilson(k: number, n: number): [number, number] | null {
@@ -63,21 +58,23 @@ function row(wallet: string, handle: string | null, calls: Call[]): LedgerRow {
   };
 }
 
-export async function ledger(sql: Sql, o: { horizon?: number } = {}) {
+/** `at`: the ledger as it stood then (calls and outcomes seen by `at`). */
+export async function ledger(sql: Sql, o: { horizon?: number; at?: string } = {}) {
   const horizon = o.horizon ?? 5;
+  const upto = o.at ?? "infinity";
   const rows = await sql`
     with calls as (
       select e.body->>'callout_id' id, e.body->>'author_wallet' wallet, e.body->>'author_handle' handle, e.body->>'mint' mint,
         e.body->>'quoted_callout_id' quoted, e.body->>'via' via, e.seen_time, e.id ev,
         row_number() over (partition by e.body->>'author_wallet', e.body->>'mint', coalesce(e.body->>'via', '') = 'history' order by e.seen_time, e.id) nth -- a history row never makes a live call a repeat
-      from tape.events e where e.topic = 'callout.created'
+      from tape.events e where e.topic = 'callout.created' and e.seen_time <= ${upto}
       union all -- our own paper callouts (docs/EXECUTION.md): the house is one more caller
       select e.body->>'house_id', w, w, e.body->>'mint', null, 'house', e.seen_time, e.id, 1
       from tape.events e, lateral (select case e.body->>'kind' when 'callout' then 'house' else 'house:reply' end w) k
-      where e.topic = 'post.queued' and e.body->>'kind' in ('callout', 'reply')
+      where e.topic = 'post.queued' and e.body->>'kind' in ('callout', 'reply') and e.seen_time <= ${upto}
     ), outs as (
       select distinct on (body->>'callout_id') body->>'callout_id' id, body from tape.events
-      where topic = 'outcome.measured' and (body->>'horizon_min')::int = ${horizon}
+      where topic = 'outcome.measured' and (body->>'horizon_min')::int = ${horizon} and seen_time <= ${upto}
       order by body->>'callout_id', seen_time desc, id desc
     )
     select c.id, c.wallet, c.handle, c.nth, c.quoted, c.via, c.seen_time, o.body
@@ -96,7 +93,7 @@ export async function ledger(sql: Sql, o: { horizon?: number } = {}) {
     horizon_min: horizon,
     window: { from: first?.toISOString() ?? null, to: last?.toISOString() ?? null },
     all: row("all callers", null, calls.filter((c) => !c.wallet.startsWith("house"))), // the crowd baseline; the house has its own row
-    rows: [...by.entries()].map(([w, cs]) => row(w, cs.at(-1)!.handle, cs)).sort((a, b) => b.calls - a.calls || (a.wallet < b.wallet ? -1 : 1)),
+    rows: [...by.entries()].map(([w, cs]) => row(w, cs.findLast((c) => c.handle)?.handle ?? null, cs)).sort((a, b) => b.calls - a.calls || (a.wallet < b.wallet ? -1 : 1)),
   };
 }
 

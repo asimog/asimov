@@ -20,11 +20,12 @@ All senses write the Tape and nothing else. None decides anything.
 
 Reads the callout feed JSON the web client reads, for each configured source.
 
-- Push channel when available, else polls every `FEED_POLL_MS` with a cursor kept in a table, so a restart resumes.
+- Push channel when available, else polls every `FEED_POLL_MS` with a cursor kept in a table (`tape.feed_cursors`), so a restart resumes: the startup walk stops at the newest callout already read, and the history walk resumes from its saved page or stays done.
 - Dedupe by callout and update id. Changed counts write `callout.counts` with a dedupe key.
 - When page 1 is all new, it walks older pages until it meets a known callout; if it runs out, it writes `system.gap` (source `feed`).
 - One honest user agent naming the firm. Backoff per path prefix; `Retry-After` honoured, including date values.
 - Callouts from the 30-day history backfill arrive with `via: history`: they feed the Index and are never traded.
+- A callout first seen on the push channel carries no handle; the ledger and case files show the newest handle that wallet has had.
 
 Ways it fails: the endpoint changes shape (schema check, `system.schema_drift`, adapter stops); a bot challenge (stop, alert, never bypass); silent cursor skips (gap walk); duplicate floods after reconnect (dedupe); clock skew (store both times, never sort by platform time across sources); deleted callouts (marked, never removed).
 
@@ -34,13 +35,13 @@ Reads the reply thread of each watched callout and caches callout media and coin
 
 ### Chain Reader
 
-Records every trade of watched coins from pump.fun NATS as `trade.curve` or `trade.amm`, one dedupe key per trade for every sense. Emits `coin.graduated` on the first AMM trade. Money paths read our RPC and confirmed transactions only; NATS feeds signals only.
+Records every trade of watched coins from pump.fun NATS as `trade.curve` or `trade.amm`, one dedupe key per trade for every sense. The flow analyzer writes `coin.graduated` on a coin's first AMM trade after curve trades the chain reported, so every replay re-derives it; a coin first seen on the AMM graduated before we watched and gets none. Money paths read our RPC and confirmed transactions only; NATS feeds signals only.
 
 Ways it fails: NATS disconnects (`system.gap` on reconnect; Backfill re-reads); NATS and RPC disagree (RPC wins, `system.source_disagree`); reorgs (fills count at `confirmed`, books at `finalized`).
 
 ### Scout
 
-Reads the whole trade firehose (about 232 trades/s) in memory. It folds every trade into Index rollups and promotes a coin into the watched set (`coin.watched` with a reason) when:
+Reads the whole trade firehose (about 232 trades/s) in memory. The firehose does not say which program a trade ran on, so the trigger trade the Scout writes has `program: null` and an unknown phase; readers that depend on the phase (graduation, the fill model) require a program. It folds every trade into Index rollups and promotes a coin into the watched set (`coin.watched` with a reason) when:
 
 | Reason | Rule |
 |---|---|
@@ -50,7 +51,7 @@ Reads the whole trade firehose (about 232 trades/s) in memory. It folds every tr
 | `heat` | At least `SCOUT_HEAT_BUYERS` unique buyers and `SCOUT_HEAT_NET_SOL` net SOL in 60 s |
 | `metrics` | The launch passes the launch filters and the scan floor (`SCOUT_MIN_MCAP_USD`, `SCOUT_MIN_BUYERS`) |
 
-The floors only decide what we record in full. Strategies keep and evolve their own thresholds. Each promotion carries the coin's launch features. Memory stays bounded: a hot set in memory, the wallet set persisted, idle coin windows dropped.
+The floors only decide what we record in full. Strategies keep and evolve their own thresholds. Each promotion carries the coin's launch features. Memory stays bounded: callers and smart wallets are persisted in `idx.scout_wallet`, memory keeps at most `SCOUT_HOT_WALLETS` of them (least recently used out, reloaded from the table on start and on each refresh), a wallet not in memory is looked up in the table in small batches, and idle coin windows are dropped.
 
 Ways it fails: the firehose drops (`system.note`, kind `scout_gap`); a caller buys from a second wallet (missed until `caller_wallets` or funder links join it); heat floods the watched set (cap, oldest leave with `system.gap`).
 
@@ -78,15 +79,15 @@ Asimog's own dataset of who to trust: a rolling 30-day record with a 7-day half-
 | Full rebuild | every score from compacted rollups, archives if needed | Every 48 h |
 | Deeper refresh | 30-day callout backfill, leaderboard seed lists, owner lists and owner updates | Weekly; every weekly version kept |
 
-The Index reads only its rollups, never raw trades, so it survives Tape pruning. A full rebuild can replay archive files.
+The Index reads only its rollups, never raw trades, so it survives Tape pruning. The copy price and the horizon mark are set by the first trade after their due time, even when a flush came between; `idx.coin` counters add deltas, and a restart restores the live coins' creator and what the creator sold. A full rebuild can replay archive files.
 
 **Copy scores.** A wallet's profit is not ours. Every score asks what a `OUTCOME_REF_SOL` trade would have made if we bought at the first trade after their buy plus our latency and sold when they sold, through the desk's fill model.
 
 | Score | Means |
 |---|---|
-| `copy_net` | Median net multiple of copied trades |
+| `copy_net` | Weighted geometric mean of the net multiple of copied trades. Value is marked at a fixed horizon (`INDEX_MIN_AGE_MIN` after their first buy), not at the coin's last trade |
 | `copy_win_lcb` | Lower 95% Wilson bound of the copied win rate |
-| `early_right` | Share of their buys made before the coin's first 2x, using the peak after their first buy |
+| `early_right` | Share of their buys made before the coin's first 2x, using only the peak after their first buy, never an earlier one |
 | `lead_s` | Median seconds from their buy to the first callout |
 | `hold_med_s` | Median hold time |
 | `n_coins` | Distinct coins traded |
@@ -99,7 +100,7 @@ Ways it fails: survivorship (coverage reported, denominators shown); speed edges
 
 ## 4. Rugs and bundles
 
-One signal, `risk.state`, recomputed on every holder snapshot.
+One signal, `risk.state`, recomputed on every holder snapshot. The snapshot carries the Index's launch features as of that moment, so the bundle, fresh and sniper shares move with it instead of freezing at promotion.
 
 | Field | From |
 |---|---|
@@ -157,11 +158,11 @@ Every callout and every house callout opens a watch. At each horizon in `OUTCOME
 - `coverage`: `ok`, `no_entry`, `no_trades` or `gap`. Gap outcomes are not scored.
 - A late gap writes a new outcome that supersedes the old one; the old stays on the Tape.
 
-Probability signals are scored with Brier and skill against the base rate, in day buckets over a trailing window.
+Probability signals are scored with Brier and skill against the base rate, in day buckets (`mind.score_days`) over a trailing `SCORE_WINDOW_DAYS`; every reader sums the window as of its own now (`scoresAsOf`). The pre-call score takes one sample per coin and buying caller, from `precall.detected`, and counts a hit only when that same caller calls the coin within the horizon.
 
 ## 8. Caller ledger, case files, coverage
 
-- **Caller ledger** (`ctl callers`, method `cl1`): one row per caller plus an all-callers baseline, every number with its denominator, losing calls always in, exclusions counted by reason (`repeat`, `quote`, `history`, coverage). Callers are listed, never ranked.
+- **Caller ledger** (`ctl callers [--h 5] [--at <iso>]`, method `cl1`): one row per caller plus an all-callers baseline, every number with its denominator, losing calls always in, exclusions counted by reason (`repeat`, `quote`, `history`, coverage). Callers are listed, never ranked.
 - **Case file** (`ctl case <id>`): everything known about one callout in six sections that never mix: observed, statistics, AI judgments, indicators, unresolved, outcomes and corrections. Byte-identical from the same Tape. Never says "scam".
 - **Coverage** (`ctl coverage`): gaps per source, coins called against coins with trades, outcomes per coverage status, callouts announced by the author's buy.
 

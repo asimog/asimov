@@ -9,6 +9,12 @@ const BASE = () => env.str("PUMP_API_URL");
 // one queue and one backoff per path prefix: a rate limit on replies never pauses the hot feed (fix plan 3.15)
 const lanes = new Map<string, { chain: Promise<unknown>; backoffMs: number }>();
 
+/** Retry-After is delta-seconds or an HTTP date (RFC 9110); NaN when absent or unreadable. */
+function retryAfterMs(h: string | null): number {
+  if (h === null || h.trim() === "") return Number.NaN;
+  return /^\s*\d+(\.\d+)?\s*$/.test(h) ? Number(h) * 1000 : Date.parse(h) - Date.now();
+}
+
 export async function pumpGet<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<{ status: number; body: T | null; raw: string }> {
   const url = new URL(path.startsWith("http") ? path : BASE() + path);
   for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v));
@@ -22,7 +28,7 @@ export async function pumpGet<T>(path: string, params: Record<string, string | n
     });
     const raw = await res.text();
     if (res.status === 429 || res.status >= 500) {
-      const after = Number(res.headers.get("retry-after")) * 1000; // seconds; an HTTP date reads as NaN and falls back to doubling
+      const after = retryAfterMs(res.headers.get("retry-after"));
       lane.backoffMs = Math.min(60_000, Number.isFinite(after) && after > 0 ? after : Math.max(1000, lane.backoffMs * 2));
       log.warn("pump-http backoff", { path: url.pathname, status: res.status, backoffMs: lane.backoffMs });
     } else lane.backoffMs = 0;

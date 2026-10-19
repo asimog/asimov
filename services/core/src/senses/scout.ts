@@ -15,11 +15,16 @@ import { consume, decodeJson, natsConnect } from "./nats.ts";
 const WINDOW_MS = 60_000;
 type Tick = { at: number; wallet: string; buy: boolean; sol: number };
 type Reason = BodyOf<"coin.watched">["reason"];
+type Features = BodyOf<"coin.watched">["features"];
+type Role = "caller" | "smart";
+type Trade = NonNullable<ReturnType<typeof toTrade>>;
 
 export class Scout {
   private nc: NatsConnection | null = null;
   private feed: NatsConnection | null = null;
-  private callers = new Set<string>();
+  /** Bounded, least recently used first: wallet -> its role, or null when the table says it is plain. The table is idx.scout_wallet. */
+  readonly hot = new Map<string, Role | null>();
+  private pending: { t: Trade; now: number }[] = [];
   private flow = new Map<string, Tick[]>();
   private promoted = new Map<string, number>();
   private timers: NodeJS.Timeout[] = [];
@@ -33,10 +38,14 @@ export class Scout {
     refreshMs: env.int("SCOUT_CALLERS_REFRESH_S") * 1000,
     repromoteMs: env.num("WATCH_HOURS") * 3_600_000,
   };
-  stats = { trades: 0, callers: 0, live_coins: 0, launches: 0, caller_buy: 0, smart_buy: 0, heat: 0, metrics: 0 };
+  stats = { trades: 0, callers: 0, hot_wallets: 0, live_coins: 0, launches: 0, caller_buy: 0, smart_buy: 0, heat: 0, metrics: 0 };
 
-  /** `watched(mint)`: already in the Chain Reader's set. `onPromote(mint, curveAccount, eventId)`: subscribe, backfill, snapshot holders. */
-  constructor(private tape: Tape, private sql: Sql, private watched: (mint: string) => boolean, private onPromote: (mint: string, curveAccount: string | null, eventId: string) => void) {}
+  /** `watched(mint)`: already in the Chain Reader's set. `onPromote(mint, curveAccount, eventId, features)`: subscribe, backfill, snapshot holders (`features()` is the Index's view at snapshot time). */
+  constructor(
+    private tape: Tape, private sql: Sql, private watched: (mint: string) => boolean,
+    private onPromote: (mint: string, curveAccount: string | null, eventId: string, features: () => Features | null) => void,
+    private hotMax = env.int("SCOUT_HOT_WALLETS"),
+  ) {}
 
   async start() {
     await this.refresh();
@@ -49,6 +58,7 @@ export class Scout {
     this.timers.push(
       setInterval(() => void this.refresh(), this.p.refreshMs),
       setInterval(() => this.prune(), 15_000),
+      setInterval(() => void this.resolve(), 200),
       setInterval(() => void this.rollup.flush(this.sql, this.tape.clock.now()).catch((err) => log.warn("index flush", { err: String(err) })), 60_000),
     );
   }
@@ -60,19 +70,62 @@ export class Scout {
     await this.feed?.close();
   }
 
-  /** Known callers from memory; smart wallets and snipers from the latest Index version. */
-  private async refresh() {
+  /** Known callers and the latest Index version's smart wallets go to idx.scout_wallet; snipers stay with the rollup. Then the hot set reloads from the table. */
+  async refresh() {
     try {
-      this.callers = new Set((await this.sql`select wallet from mem.callers`).map((r) => r.wallet as string));
-      this.stats.callers = this.callers.size;
+      const at = new Date(this.tape.clock.now()).toISOString();
       const [ix] = await this.sql`select max(version) v from idx.wallet`;
+      await this.sql.begin(async (tx) => { // smart first, so a wallet that is both ends as a caller
+        if (ix?.v) await tx`insert into idx.scout_wallet select wallet, 'smart', ${at}::timestamptz from idx.wallet where archetype = 'smart' and version = ${ix.v}
+          on conflict (wallet) do update set role = 'smart', at = excluded.at`;
+        await tx`insert into idx.scout_wallet select wallet, 'caller', ${at}::timestamptz from mem.callers
+          on conflict (wallet) do update set role = 'caller', at = excluded.at`;
+        await tx`delete from idx.scout_wallet where at <> ${at}::timestamptz`;
+      });
       if (ix?.v) {
         this.rollup.smart = new Set((await this.sql`select wallet from idx.wallet where archetype = 'smart' and version = ${ix.v}`).map((r) => r.wallet as string));
         this.rollup.snipers = new Set((await this.sql`select wallet from idx.wallet where archetype = 'sniper' and version = ${ix.v}`).map((r) => r.wallet as string));
       }
+      const [n] = await this.sql`select count(*)::int n from idx.scout_wallet where role = 'caller'`;
+      this.stats.callers = n!.n as number;
+      this.hot.clear();
+      for (const r of await this.sql`select wallet, role from idx.scout_wallet order by role, wallet limit ${this.hotMax}`) this.hot.set(r.wallet as string, r.role as Role);
+      this.stats.hot_wallets = this.hot.size;
     } catch (err) {
       log.warn("scout refresh", { err: String(err) });
     }
+  }
+
+  /** Looks up the wallets whose role was not in memory, then reconsiders their buys. */
+  async resolve() {
+    const batch = this.pending;
+    this.pending = [];
+    if (!batch.length) return;
+    try {
+      const wallets = [...new Set(batch.map((p) => p.t.wallet))];
+      const roles = new Map((await this.sql`select wallet, role from idx.scout_wallet where wallet = any(${wallets})`).map((r) => [r.wallet as string, r.role as Role]));
+      for (const w of wallets) this.remember(w, roles.get(w) ?? null);
+      for (const p of batch) {
+        const role = roles.get(p.t.wallet);
+        if (role) this.consider(p.t, p.now, role);
+      }
+    } catch (err) {
+      log.warn("scout resolve", { err: String(err) });
+    }
+  }
+
+  private remember(wallet: string, role: Role | null) {
+    this.hot.delete(wallet);
+    this.hot.set(wallet, role);
+    if (this.hot.size > this.hotMax) this.hot.delete(this.hot.keys().next().value!);
+    this.stats.hot_wallets = this.hot.size;
+  }
+
+  /** The wallet's role from memory (refreshing its place), or undefined when only the table knows. */
+  private roleOf(wallet: string) {
+    const role = this.hot.get(wallet);
+    if (role !== undefined) this.remember(wallet, role);
+    return role;
   }
 
   private prune() {
@@ -88,7 +141,7 @@ export class Scout {
     this.rollup.launch(c.mint, c.creator ?? null, c.associated_bonding_curve ?? null, c.created_timestamp ?? null, this.tape.clock.now());
   }
 
-  private onTrade(raw: Parameters<typeof toTrade>[0]) {
+  onTrade(raw: Parameters<typeof toTrade>[0]) {
     const t = toTrade(raw);
     if (!t) return;
     this.stats.trades++;
@@ -97,13 +150,24 @@ export class Scout {
     const ticks = this.flow.get(t.mint) ?? this.flow.set(t.mint, []).get(t.mint)!;
     ticks.push({ at: now, wallet: t.wallet, buy: t.side === "buy", sol: t.sol });
     while (ticks.length && ticks[0]!.at < now - WINDOW_MS) ticks.shift();
+    this.consider(t, now);
+  }
+
+  /** `role` is passed when the table already answered for this buy; otherwise memory answers, and a miss queues a lookup for `resolve`. */
+  private consider(t: Trade, now: number, role?: Role) {
     if (this.promoted.has(t.mint) || this.watched(t.mint)) return;
+    const ticks = this.flow.get(t.mint) ?? [];
     const buyers = new Set(ticks.filter((x) => x.buy).map((x) => x.wallet)).size;
     const net = ticks.reduce((a, x) => a + (x.buy ? x.sol : -x.sol), 0);
     const f = this.rollup.features(t.mint, now);
     const buy = t.side === "buy";
-    const reason: Reason | null = buy && this.callers.has(t.wallet) ? "caller_buy"
-      : buy && this.rollup.smart.has(t.wallet) ? "smart_buy"
+    if (buy && role === undefined) {
+      const known = this.roleOf(t.wallet);
+      if (known === undefined && this.pending.length < this.hotMax) this.pending.push({ t, now });
+      role = known ?? undefined;
+    }
+    const reason: Reason | null = buy && role === "caller" ? "caller_buy"
+      : buy && role === "smart" ? "smart_buy"
       : buyers >= this.p.heatBuyers && net >= this.p.heatNetSol ? "heat"
       : f && (f.mcap_usd ?? 0) >= this.p.minMcapUsd && f.buyers >= this.p.minBuyers ? "metrics"
       : null;
@@ -115,6 +179,6 @@ export class Scout {
     const we = this.tape.emit("coin.watched", {
       mint: t.mint, reason, wallet: reason === "caller_buy" || reason === "smart_buy" ? t.wallet : null, buyers_60s: buyers, net_sol_60s: net, trigger_tx: t.tx, features: f,
     }, { source: "nats", subject: t.mint, causes: [te.id], dedupe: `watch:${t.mint}:${Math.floor(now / this.p.repromoteMs)}` });
-    this.onPromote(t.mint, this.rollup.curveAccount(t.mint), we.id);
+    this.onPromote(t.mint, this.rollup.curveAccount(t.mint), we.id, () => this.rollup.features(t.mint, this.tape.clock.now()));
   }
 }

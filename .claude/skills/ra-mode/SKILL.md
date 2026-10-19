@@ -30,6 +30,7 @@ Depth means fewer things done properly, not more things.
 
 - Build the whole feature end to end: no mocks or thin slices standing in for the real thing. If BettaFish or MiroShark is in scope, wire their real parts.
 - Keep the code inside the feature lean: no extra layers, files or options the feature does not need.
+- Prototype data: never preserve large databases or write data migrations. Change the schema in place, then test on a new database or the smallest slice of data that proves the change. Replay and test databases are disposable.
 - Keep working until everything asked for is done. Stop only when you cannot go on without the user, or before a risky step. Note rabbit holes in the report instead of following them.
 - When the work asked for is done and checked, stop and report. If you think a further feature, refactor or review would help, name it at the end instead of doing it.
 - When the user asks for ideas, options or a plan, give that and stop until they say go.

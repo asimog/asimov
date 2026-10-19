@@ -42,9 +42,9 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
   const rows = await sql`
     with t as (
       select w.wallet, w.mint, w.early_slot,
-        -- value per token bought: what was sold, plus what is left at the coin's last price; against the price we could have paid
-        ((w.sol_out + greatest(w.tok_in - w.tok_out, 0) * coalesce(c.last_price, 0)) / w.tok_in) / w.copy_price * (1 - ${P.cost}::float8) mult,
-        c.peak_price >= 2 * w.copy_price early_right,
+        -- value per token bought: what was sold, plus what is left at the price a fixed horizon after the buy (the last price if the Index missed it); against the price we could have paid
+        ((w.sol_out + greatest(w.tok_in - w.tok_out, 0) * coalesce(w.mark_price, c.last_price, 0)) / w.tok_in) / w.copy_price * (1 - ${P.cost}::float8) mult,
+        w.peak_after >= 2 * w.copy_price early_right, -- the peak after their first buy, never an earlier one
         extract(epoch from (select min(k.created_at) from mem.callouts k where k.mint = w.mint and k.created_at > w.first_buy_at) - w.first_buy_at) lead_s,
         power(0.5, extract(epoch from (${now}::timestamptz - w.first_buy_at)) / 86400 / ${P.halfLifeDays}::float8) wt,
         c.creator = w.wallet is_dev

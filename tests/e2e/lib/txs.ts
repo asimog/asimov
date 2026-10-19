@@ -41,5 +41,10 @@ export function build(payer: string, ixs: TransactionInstruction[], extraSigners
   return { tx, b64: Buffer.from(tx.serialize()).toString("base64") };
 }
 
-export const newKeys = () => ({ trade: Keypair.generate(), creator: Keypair.generate(), agent: Keypair.generate(), operator: Keypair.generate().publicKey.toBase58(), stranger: Keypair.generate(), mint: Keypair.generate().publicKey.toBase58(), fee: Keypair.generate().publicKey.toBase58() });
+/** Test keypairs; with a seed they are the same every run, so a replay signs the same bytes. */
+export const newKeys = (seed?: number) => {
+  const k = (name: string) => (seed == null ? Keypair.generate() : Keypair.fromSeed(crypto.createHash("sha256").update(`${seed}:${name}`).digest()));
+  return { trade: k("trade"), creator: k("creator"), agent: k("agent"), operator: k("operator").publicKey.toBase58(), stranger: k("stranger"), mint: k("mint").publicKey.toBase58(), fee: k("fee").publicKey.toBase58() };
+};
+export type Keys = ReturnType<typeof newKeys>;
 export { NATIVE_MINT, PROGRAMS };

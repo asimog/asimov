@@ -15,6 +15,7 @@ the model ignores the cite format (claims without a [cid:...] are sent with no c
 from __future__ import annotations
 
 import argparse
+import contextvars
 import json
 import os
 import re
@@ -184,13 +185,16 @@ def to_output(req: dict, results: list) -> dict:
 def execute(run_id: str, req: dict) -> None:
     engines = [e.strip() for e in os.getenv("BETTAFISH_ENGINES", "insight").split(",") if e.strip()]
     query = query_for(req)
+    import asimog_db
+    asimog_db.AS_OF.set(req.get("as_of") or None)  # the Bridge's slot: reads see nothing after it
+    ctx = contextvars.copy_context()
     try:
         forum = Forum(int(os.getenv("BETTAFISH_HOST_EVERY_N", "5")), int(os.getenv("BETTAFISH_FORUM_ROUNDS", "2"))) if len(engines) > 1 or os.getenv("BETTAFISH_FORUM_ALWAYS") == "1" else None
         import importlib
         for e in engines:  # import once, in this thread: parallel first imports of the same package race
             importlib.import_module({"insight": "InsightEngine.agent", "query": "QueryEngine.agent", "media": "MediaEngine.agent"}[e])
         with ThreadPoolExecutor(max_workers=len(engines)) as pool:
-            results = list(pool.map(lambda e: run_engine(e, query, forum), engines))
+            results = list(pool.map(lambda e: ctx.copy().run(run_engine, e, query, forum), engines))
         out = to_output(req, results)
         if forum:
             out["forum_lines"] = forum.lines

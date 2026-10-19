@@ -31,7 +31,13 @@ export class Tape {
   constructor(
     readonly sql: Sql,
     readonly clock: Clock,
+    private readonly root?: Tape,
   ) {}
+
+  /** A consumer's own view: its decisions take ids from its own clock stream; buffered writes and counts stay on the root. */
+  for(clock: Clock): Tape {
+    return new Tape(this.sql, clock, this.root ?? this);
+  }
 
   private envelope<T extends Topic>(topic: T, body: BodyOf<T>, o: EmitOpts, now = this.clock.iso()): Envelope<BodyOf<T>> {
     const parsed = TOPICS[topic].safeParse(body);
@@ -54,6 +60,7 @@ export class Tape {
   }
 
   emit<T extends Topic>(topic: T, body: BodyOf<T>, o: EmitOpts): Envelope<BodyOf<T>> {
+    if (this.root) return this.root.emit(topic, body, o);
     const e = this.envelope(topic, body, o);
     this.buf.push({ env: e, dedupe: o.dedupe });
     if (this.buf.length >= 500) void this.flush();
@@ -64,15 +71,17 @@ export class Tape {
   /**
    * Write inside a consumer's transaction, so a decision and the consumer offset commit together.
    * seen_time is at least 1 ms after the event that caused it, so it sorts after its cause on the Tape.
+   * With `dedupe`, a repeat (a rebuilt projection re-running) is not written.
    */
   async emitIn<T extends Topic>(tx: Tx, topic: T, body: BodyOf<T>, o: EmitOpts & { after: string }): Promise<Envelope<BodyOf<T>>> {
-    // replay: exactly 1 ms after the cause (the shared replay clock may already sit at the window end)
+    // replay: exactly 1 ms after the cause, which every consumer reaches together (tests/e2e/lib/replay.ts)
     const after = Date.parse(o.after) + 1;
     const now = new Date(this.clock.mode === "replay" ? after : Math.max(this.clock.now(), after)).toISOString();
     const e = this.envelope(topic, body, o, now);
+    if (o.dedupe && !(await tx`insert into tape.dedupe (key, event_id) values (${o.dedupe}, ${e.id}) on conflict do nothing returning 1`).length) return e;
     await tx`insert into tape.events ${tx({ ...e, body: tx.json(e.body as never) } as never, "id", "topic", "v", "event_time", "seen_time", "source", "subject", "causes", "mode", "body")}`;
     await tx`select pg_notify('tape', ${e.seen_time})`;
-    this.written++;
+    (this.root ?? this).written++;
     return e;
   }
 

@@ -6,6 +6,7 @@ Dated decisions with their reason. The newest are first. Open questions for the 
 
 | Decision | Why |
 |---|---|
+| While prototyping, no large databases are preserved and no data migrations are written: schema changes happen in place and are tested on a new database or the smallest slice of data. Replay and test databases are disposable and the e2e runner drops its own | Building speed; there is no data worth keeping yet |
 | Tape pruning: hot raw trades 4 h while testing, raw feed pages 1 h, Board history 48 h; callouts, decisions and books kept; archive every hour. The append-only rule now reads: no row is ever edited or deleted, and only the archiver drops whole hours after their archive file is checked | Keep Postgres small without losing replays; tune the window after measuring |
 | The Index builds only from its own summaries. Leaderboards update hourly, a light rebuild runs every 12 h, a full rebuild every 48 h, and a deeper refresh (backfill, seed lists, owner updates) weekly | Raw trades are not needed once summarized; top lists stay always available |
 | Filter before storing, and keep a 1% sample of rejected items | A bad filter must be visible |

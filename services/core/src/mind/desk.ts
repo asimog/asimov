@@ -460,7 +460,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   return {
     name: "desk",
     startAtHead: true,
-    topics: ["callout.created", "jev.answer", "trade.curve", "trade.amm", "limits.changed", "lists.loaded"],
+    topics: ["callout.created", "precall.detected", "jev.answer", "trade.curve", "trade.amm", "limits.changed", "lists.loaded"],
     batch: 500,
     stats,
     async handle(events, tx) {
@@ -482,22 +482,18 @@ export function desk(tape: Tape, clock: Clock): Desk {
             await tx`insert into mind.coin_callout (mint, callout_id, author_wallet, at) values (${b.mint}, ${b.callout_id}, ${b.author_wallet}, ${e.seen_time})
               on conflict (mint) do update set callout_id = excluded.callout_id, author_wallet = excluded.author_wallet, at = excluded.at`;
             if (market.has(b.mint)) await entries(tx, b.mint, now, e);
+          } else if (e.topic === "precall.detected") {
+            const b = e.body as BodyOf<"precall.detected">;
+            coinPrecall.set(b.mint, { caller: b.caller, at_ms: now });
+            await tx`insert into mind.coin_precall (mint, caller, at) values (${b.mint}, ${b.caller}, ${e.seen_time})
+              on conflict (mint) do update set caller = excluded.caller, at = excluded.at`;
+            if (market.has(b.mint)) await entries(tx, b.mint, now, e);
           } else if (e.topic === "jev.answer") {
             const mint = calloutMint.get((e.body as BodyOf<"jev.answer">).subject);
             if (mint && coinCallout.get(mint)?.callout_id === (e.body as BodyOf<"jev.answer">).subject && market.has(mint)) await entries(tx, mint, now, e);
           } else {
             const t = e.body as BodyOf<"trade.curve">;
             if (!t.price_sol) continue;
-            if (t.side === "buy") {
-              // the pre-call analyzer ran on this trade first (buildConsumers order): a signal citing it means a known caller bought
-              const [pc] = await tx`select value->>'caller' caller from board.signals where kind = 'precall.callout_p' and subject = ${t.mint}
-                and produced_at = ${e.seen_time} and ${e.id} = any(inputs) limit 1`;
-              if (pc) {
-                coinPrecall.set(t.mint, { caller: pc.caller as string, at_ms: now });
-                await tx`insert into mind.coin_precall (mint, caller, at) values (${t.mint}, ${pc.caller as string}, ${e.seen_time})
-                  on conflict (mint) do update set caller = excluded.caller, at = excluded.at`;
-              }
-            }
             const prev = market.get(t.mint);
             const graduated = e.topic === "trade.amm";
             const m = { price_sol: t.price_sol, at_ms: now, graduated, real_sol: graduated ? null : curveFromPrice(t.price_sol).realSol };

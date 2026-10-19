@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-70 topics.
+72 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -45,8 +45,10 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `kernel.allocation` | `round`, `hurdle`, `shares` |
 | `outcome.measured` | `method`, `callout_id`, `mint`, `author_wallet`, `horizon_min`, `t0`, `call_lag_ms`, `entry_basis`, `price0_sol`, `price_sol`, `multiple`, `peak_multiple`, `trough_multiple`, `t_peak_s`, `net_multiple`, `ref_sol`, `phase`, `graduated`, `trades`, `pre_call_trades`, `new_callouts`, `coverage`, `gaps`, `supersedes` |
 | `score.updated` | `kind`, `horizon_min`, `n`, `brier`, `base_rate`, `skill` |
+| `precall.detected` | `mint`, `caller`, `trade_id`, `buy_sol`, `p`, `horizon_min` |
 | `coin.watched` | `mint`, `reason`, `wallet`, `buyers_60s`, `net_sol_60s`, `trigger_tx`, `features` |
-| `holders.snapshot` | `mint`, `supply`, `top`, `excluded`, `top10_share` |
+| `coin.graduated` | `mint`, `tx`, `price_sol`, `at` |
+| `holders.snapshot` | `mint`, `supply`, `top`, `excluded`, `top10_share`, `features` |
 | `index.refreshed` | `version`, `window_days`, `wallets`, `coins`, `smart` |
 | `budget.spent` | `analyzer`, `units`, `amount`, `job_event_id` |
 | `thesis.formed` | `thesis_id`, `mint`, `strategy_id`, `position_id`, `kind`, `claims`, `prediction`, `plan`, `invalidation`, `commit_id` |

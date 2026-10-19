@@ -74,3 +74,4 @@ Windows with Git Bash. Node 24, pnpm 10 workspaces, uv for Python. Postgres in D
 The owner is learning. Use simple words, explain each new term once, and lead with the next action. When the owner corrects you, add a "When X, do Y" line below.
 
 - When asked what remains, answer with a short plain list grouped by feature.
+- While this is a prototype, do not preserve large databases or write data migrations: start from a new database or the smallest slice of data that proves the change. Test and replay databases are disposable. The Tape's append-only rule still holds for the working database.

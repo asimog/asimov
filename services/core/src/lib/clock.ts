@@ -10,6 +10,8 @@ export interface Clock {
   id(kind: IdKind): string;
   /** replay only: move virtual time forward (never backward) */
   advance?(toMs: number): void;
+  /** Same time, its own random and id stream: each consumer draws only from its own, so their order changes nothing. */
+  fork(name: string): Clock;
 }
 
 function mulberry32(seed: number) {
@@ -28,28 +30,29 @@ function makeIds(now: () => number, rand: () => number) {
   return (kind: IdKind) => `${ID_PREFIXES[kind]}_${ulid(now())}`;
 }
 
-export function liveClock(mode: Exclude<Mode, "replay">, seed = Date.now()): Clock {
+/** A seed for the stream called `name`: FNV-1a over the name, mixed into the parent seed. */
+function streamSeed(seed: number, name: string) {
+  let h = 0x811c9dc5;
+  for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193);
+  return (seed ^ h) >>> 0;
+}
+
+function clockOn(mode: Mode, now: () => number, seed: number, advance?: (toMs: number) => void): Clock {
   const rand = mulberry32(seed);
-  const now = () => Date.now();
-  const id = makeIds(now, rand);
-  return { mode, now, iso: () => new Date(now()).toISOString(), rand, id };
+  const forks = new Map<string, Clock>(); // a rebuilt consumer continues its stream, as an uninterrupted one would
+  const fork = (name: string) => forks.get(name) ?? forks.set(name, clockOn(mode, now, streamSeed(seed, name), advance)).get(name)!;
+  return { mode, now, iso: () => new Date(now()).toISOString(), rand, id: makeIds(now, rand), advance, fork };
+}
+
+export function liveClock(mode: Exclude<Mode, "replay">, seed = Date.now()): Clock {
+  return clockOn(mode, () => Date.now(), seed);
 }
 
 export function replayClock(startMs: number, seed = 42): Clock {
   let t = startMs;
-  const rand = mulberry32(seed);
-  const now = () => t;
-  const id = makeIds(now, rand);
-  return {
-    mode: "replay",
-    now,
-    iso: () => new Date(t).toISOString(),
-    rand,
-    id,
-    advance(toMs: number) {
-      if (toMs > t) t = toMs;
-    },
-  };
+  return clockOn("replay", () => t, seed, (toMs) => {
+    if (toMs > t) t = toMs;
+  });
 }
 
 /** An outside timestamp as ISO, or null when it is not a real time: one bad field skips its item, never the frame. */

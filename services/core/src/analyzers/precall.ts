@@ -1,13 +1,18 @@
 // Flow and pre-call analyzers (docs/PIPELINE.md flow, precall). A callout is announced by its author's own buy (posting
 // requires holding), so a known caller's buy on a coin they have not called is a forecast of a callout.
 // Every read is bounded by the event's seen_time: memory may already hold callouts from later in the window.
+// Each detection is also a `precall.detected` event, so the desk wakes on the Tape instead of searching the Board.
+// The same pass sees each coin's first AMM trade and writes `coin.graduated`.
 import type { BodyOf, Envelope } from "@asimog/contracts";
 import { putSignal } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
+import { median } from "../lib/stats.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
+import type { Tape } from "../tape/tape.ts";
 
 const P = {
+  windowDays: env.num("INDEX_WINDOW_DAYS"),
   horizonMin: env.num("PRECALL_HORIZON_MIN"),
   priorN: env.num("PRECALL_PRIOR_N"),
   peakAt: env.num("PRECALL_PEAK_MULT"),
@@ -17,7 +22,6 @@ const MIN = 60_000;
 type T = Envelope<BodyOf<"trade.curve">>;
 
 const iso = (ms: number) => new Date(ms).toISOString();
-const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[(xs.length - 1) >> 1]! : null);
 
 /** Was `wallet` a known caller at `at`, and had it not called `mint` by then? */
 async function qualifies(tx: Tx, wallet: string, mint: string, at: string) {
@@ -38,6 +42,7 @@ async function record(tx: Tx, wallet: string | null, nowMs: number) {
       select distinct on (t.body->>'wallet', t.subject) t.body->>'wallet' w, t.subject mint, (case when t.source = 'rpc' then t.event_time else t.seen_time end) at
       from tape.events t
       where t.topic = any(${TRADES}) and t.body->>'side' = 'buy' and t.seen_time <= ${iso(nowMs)} and (case when t.source = 'rpc' then t.event_time else t.seen_time end) <= ${iso(nowMs - H * MIN)}
+        and t.seen_time > ${iso(nowMs - P.windowDays * 86_400_000)}
         ${wallet ? tx`and t.body->>'wallet' = ${wallet}` : tx``}
         and exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.seen_at < (case when t.source = 'rpc' then t.event_time else t.seen_time end))
         and not exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.mint = t.subject and c.seen_at <= (case when t.source = 'rpc' then t.event_time else t.seen_time end))
@@ -49,7 +54,19 @@ async function record(tx: Tx, wallet: string | null, nowMs: number) {
   return { buys: rows.length, called: lags.length, lags };
 }
 
-export function precallAnalyzers(clock: Clock): Consumer {
+export function precallAnalyzers(tape: Tape, clock: Clock): Consumer {
+  const settled = new Set<string>(); // mints whose graduation is decided: emitted, or first seen on the AMM (graduated before we watched)
+
+  /** coin.graduated on the first AMM trade of a coin we saw trading on the curve (docs/SYSTEM.md coin lifecycle). */
+  async function graduation(tx: Tx, e: T) {
+    if (settled.has(e.body.mint)) return;
+    settled.add(e.body.mint);
+    // a curve trade the chain reported with its program: a trigger trade written without one says nothing about the curve
+    const [c] = await tx`select 1 from tape.events where subject = ${e.body.mint} and topic = 'trade.curve' and body->>'program' is not null and seen_time < ${e.seen_time} limit 1`;
+    if (c) await tape.emitIn(tx, "coin.graduated", { mint: e.body.mint, tx: e.body.tx, price_sol: e.body.price_sol, at: e.event_time },
+      { source: "analyzer", subject: e.body.mint, causes: [e.id], after: e.seen_time, dedupe: `graduated:${e.body.mint}` });
+  }
+
   const pop = new Map<number, number>(); // minute bucket -> population rate; a pure cache, so a restart recomputes the same value
   async function popRate(tx: Tx, nowMs: number) {
     const bucket = Math.floor(nowMs / MIN);
@@ -84,7 +101,7 @@ export function precallAnalyzers(clock: Clock): Consumer {
         net_sol_60s: net,
         accel: last.length / (rows.length - last.length + 1),
         top_share: buySol > 0 ? Math.max(...bySol.values()) / buySol : 0,
-        callers_buying: cb!.n as number,
+        known_callers_buying: cb!.n as number,
         heat: Math.min(1, bySol.size / 20) * Math.min(1, Math.max(0, net) / 5),
       },
       confidence: Math.min(1, rows.length / 20),
@@ -117,11 +134,12 @@ export function precallAnalyzers(clock: Clock): Consumer {
         select distinct on (body->>'callout_id') body from tape.events
         where topic = 'outcome.measured' and seen_time <= ${e.seen_time} and body->>'author_wallet' = ${top.wallet} and (body->>'horizon_min')::int = 3
         order by body->>'callout_id', seen_time desc, id desc) x where body->>'coverage' = 'ok'`).map((r) => r.peak as number);
+    const p = 1 - each.reduce((a, x) => a * (1 - x.p), 1);
     await putSignal(tx, clock, {
       kind: "precall.callout_p",
       subject: e.body.mint,
       value: {
-        p: 1 - each.reduce((a, x) => a * (1 - x.p), 1),
+        p,
         caller: top.wallet,
         caller_p: top.p,
         buy_sol: e.body.sol,
@@ -140,6 +158,12 @@ export function precallAnalyzers(clock: Clock): Consumer {
       analyzer: "precall@1",
       at: e.seen_time,
     });
+    // the detection is about this buyer: its own chance to call is what the Scorekeeper grades
+    const found = each.find((x) => x.wallet === e.body.wallet);
+    const r = found ?? (await record(tx, e.body.wallet, now));
+    const ownP = found ? found.p : (a0 + r.called) / (P.priorN + r.buys);
+    await tape.emitIn(tx, "precall.detected", { mint: e.body.mint, caller: e.body.wallet, trade_id: e.id, buy_sol: e.body.sol, p: ownP, horizon_min: H },
+      { source: "analyzer", subject: e.body.mint, causes: [e.id], after: e.seen_time, dedupe: `precall.detected:${e.id}` });
   }
 
   return {
@@ -152,6 +176,7 @@ export function precallAnalyzers(clock: Clock): Consumer {
       for (const e of events as T[]) {
         clock.advance?.(Date.parse(e.seen_time));
         if (e.body.side === "buy" && (await qualifies(tx, e.body.wallet, e.body.mint, e.seen_time))) await precall(tx, e);
+        if (e.topic === "trade.amm") await graduation(tx, e);
         last.set(e.body.mint, e);
       }
       for (const e of last.values()) await flow(tx, e);

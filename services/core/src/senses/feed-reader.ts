@@ -66,12 +66,30 @@ export class FeedReader {
   constructor(private tape: Tape) {}
 
   async start() {
-    await this.backfill(env.int("FEED_BACKFILL_MIN"), env.int("FEED_BACKFILL_PAGES"), 0, "poll");
+    // the startup walk stops at the newest callout an earlier run already read
+    const [poll] = await this.tape.sql`select newest_at from tape.feed_cursors where name = 'poll'`;
+    await this.backfill(env.int("FEED_BACKFILL_MIN"), env.int("FEED_BACKFILL_PAGES"), 0, "poll", (poll?.newest_at as Date | undefined)?.getTime());
     void this.pollLoop();
     // the Index's callout history (docs/PIPELINE.md): 30 days, paged slowly in the background so live polling keeps its turn
     const days = env.num("INDEX_CALLOUT_DAYS");
-    if (days > 0) void this.backfill(days * 1440, env.int("INDEX_CALLOUT_PAGES"), env.int("INDEX_CALLOUT_PAGE_MS"), "history");
+    if (days > 0) void this.history(days * 1440);
     if (env.bool("FEED_PUSH")) await this.startPush();
+  }
+
+  /** Newest callout read by the poll; only moves forward. */
+  private async markNewest(page: FeedPage) {
+    const t = page.coins.map((c) => isoOrNull(c.position?.callout?.calloutTimestamp)).filter((x): x is string => !!x).sort().at(-1);
+    if (t) await this.tape.sql`insert into tape.feed_cursors (name, newest_at) values ('poll', ${t})
+      on conflict (name) do update set newest_at = greatest(tape.feed_cursors.newest_at, excluded.newest_at), updated_at = now()`;
+  }
+
+  /** The history walk resumes from its saved page token and never re-walks once it reached its target. */
+  private async history(minutes: number) {
+    const target = this.tape.clock.now() - minutes * 60_000;
+    const [c] = await this.tape.sql`select oldest_at, token from tape.feed_cursors where name = 'history'`;
+    const oldest = (c?.oldest_at as Date | undefined)?.getTime();
+    if (oldest != null && (oldest <= target || !c?.token)) return log.info("feed history already walked", { oldest: new Date(oldest).toISOString() });
+    await this.backfill(minutes, env.int("INDEX_CALLOUT_PAGES"), env.int("INDEX_CALLOUT_PAGE_MS"), "history", undefined, (c?.token as string | null) ?? undefined);
   }
 
   async stop() {
@@ -98,6 +116,7 @@ export class FeedReader {
     const page = await this.fetchPage();
     if (!page) return 0;
     let fresh = await this.ingestPage(page, "poll");
+    await this.markNewest(page);
     // gap: every item on page 1 was new -> walk back until we meet a known callout
     let token = page.nextPageToken;
     let pages = 0;
@@ -118,19 +137,22 @@ export class FeedReader {
     return fresh;
   }
 
-  async backfill(minutes: number, pages: number, pauseMs: number, via: Via) {
-    const stopAt = this.tape.clock.now() - minutes * 60_000;
-    let token: string | undefined;
+  /** Walk back from `token` (or page 1) to `knownMs`, else `minutes` ago. The history walk saves its place after every page. */
+  async backfill(minutes: number, pages: number, pauseMs: number, via: Via, knownMs?: number, token?: string) {
+    const stopAt = knownMs ?? this.tape.clock.now() - minutes * 60_000; // after downtime, back to what was read (pages still bound it)
     for (let i = 0; i < pages && !this.stopped; i++) {
       if (pauseMs) await new Promise((r) => setTimeout(r, pauseMs));
-      const page = await this.fetchPage(token);
+      const page = (await this.fetchPage(token)) ?? (token && i === 0 ? await this.fetchPage() : null); // a stale saved token starts over
       if (!page?.coins.length) break;
       await this.ingestPage(page, via);
-      const oldest = page.coins.at(-1)?.position?.callout?.calloutTimestamp;
+      if (via === "poll" && i === 0) await this.markNewest(page);
+      const oldest = isoOrNull(page.coins.at(-1)?.position?.callout?.calloutTimestamp);
+      if (via === "history" && oldest) await this.tape.sql`insert into tape.feed_cursors (name, oldest_at, token) values ('history', ${oldest}, ${page.nextPageToken ?? null})
+        on conflict (name) do update set oldest_at = excluded.oldest_at, token = excluded.token, updated_at = now()`;
       if (!oldest || Date.parse(oldest) < stopAt || !page.nextPageToken) break;
       token = page.nextPageToken;
     }
-    log.info("feed backfill done", { minutes, created: this.stats.created });
+    log.info("feed backfill done", { minutes, via, created: this.stats.created });
   }
 
   private async fetchPage(pageToken?: string): Promise<FeedPage | null> {

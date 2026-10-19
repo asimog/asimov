@@ -3,7 +3,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { liveClock } from "../../../services/core/src/lib/clock.ts";
+import { type Clock, liveClock } from "../../../services/core/src/lib/clock.ts";
+import type { Sql } from "../../../services/core/src/lib/db.ts";
 import { orderGate } from "../../../services/core/src/hands/order-gate.ts";
 import { trader } from "../../../services/core/src/hands/trader.ts";
 import type { SignCtx, SignerClient, SignReply } from "../../../services/core/src/hands/signer-client.ts";
@@ -14,7 +15,7 @@ import { kill } from "../../../services/core/src/treasury/kill.ts";
 import { Signer } from "../../../services/signer/src/signer.ts";
 import { freshDb } from "./freshdb.ts";
 import { FakeBuilder, MockChain } from "./mockchain.ts";
-import { newKeys } from "./txs.ts";
+import { type Keys, newKeys } from "./txs.ts";
 
 export const SOL = 1e9;
 
@@ -27,29 +28,44 @@ export class LocalSigner implements SignerClient {
   }
 }
 
-export async function world(tag: string, o: { live?: boolean; strategies?: string[]; confirmMs?: number } = {}) {
-  const db = await freshDb(tag);
-  const clock = liveClock("live");
-  const tape = new Tape(db.sql, clock);
-  const keys = newKeys();
+/**
+ * The live leg as runtime.ts wires it: the real gate, Trader, books and kill, on the mock chain with an in-process Signer.
+ * Each consumer gets its own clock stream, as buildConsumers gives the paper side.
+ */
+export function liveLeg(sql: Sql, tape: Tape, o: { keys: Keys; dir: string; live?: boolean; strategies: () => Set<string>; confirmMs?: number }) {
+  const { keys } = o;
   const wallets = { trade: keys.trade.publicKey.toBase58(), creator: keys.creator.publicKey.toBase58(), agent: keys.agent.publicKey.toBase58(), operator: keys.operator };
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `world-${tag}-`));
-  const killFile = path.join(dir, "KILL");
+  const killFile = path.join(o.dir, "KILL");
+  const clock = tape.clock;
   const signer = new Signer({
     keys: { trade: keys.trade, creator: keys.creator, agent: keys.agent, operator: keys.operator },
     tokens: { "cap:sign.swap": "swap-secret", "cap:sign.treasury": "treasury-secret" },
     rules: { feeRecipients: [], maxPriorityLamports: 100_000, maxOrderLamports: 0.05 * SOL, coinMint: keys.mint },
-    auditFile: path.join(dir, "audit.jsonl"), killFile, ratePerMin: 10_000,
+    auditFile: path.join(o.dir, "audit.jsonl"), killFile, ratePerMin: 10_000, now: () => clock.now(),
   });
   const chain = new MockChain();
   const builder = new FakeBuilder(chain);
   const swapSigner = new LocalSigner(signer, "swap-secret");
   const treasurySigner = new LocalSigner(signer, "treasury-secret");
-  const gate = orderGate(tape, clock, wallets, { live: () => o.live ?? true, strategies: () => new Set(o.strategies ?? ["sr_live"]) });
-  const tr = trader({ sql: db.sql, tape, clock, chain, builder, swapSigner, wallet: wallets.trade, confirmMs: o.confirmMs ?? 50 });
-  const bk = books(tape, wallets);
-  const kl = kill(tape, killFile);
+  const own = (name: string) => tape.for(clock.fork(name));
+  const gt = own("order.gate");
+  const gate = orderGate(gt, gt.clock, wallets, { live: () => o.live ?? true, strategies: o.strategies });
+  const tt = own("trader");
+  const tr = trader({ sql, tape: tt, clock: tt.clock, chain, builder, swapSigner, wallet: wallets.trade, confirmMs: o.confirmMs ?? 50 });
+  const bk = books(own("books"), wallets);
+  const kl = kill(own("kill"), killFile);
   const consumers: Consumer[] = [bk, kl, gate, tr];
+  return { wallets, killFile, signer, chain, builder, swapSigner, treasurySigner, gate, trader: tr, books: bk, kill: kl, consumers };
+}
+
+export async function world(tag: string, o: { live?: boolean; strategies?: string[]; confirmMs?: number } = {}) {
+  const db = await freshDb(tag);
+  const clock: Clock = liveClock("live");
+  const tape = new Tape(db.sql, clock);
+  const keys = newKeys();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `world-${tag}-`));
+  const leg = liveLeg(db.sql, tape, { keys, dir, live: o.live, strategies: () => new Set(o.strategies ?? ["sr_live"]), confirmMs: o.confirmMs });
+  const { wallets, killFile, signer, chain, builder, swapSigner, treasurySigner, gate, trader: tr, books: bk, kill: kl, consumers } = leg;
   chain.prices.set(keys.mint, 4e-8);
 
   /** drain every consumer until nothing moves; a consumer that throws (confirm timeout) is reported, not hidden */

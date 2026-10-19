@@ -81,7 +81,9 @@ Cross-cutting: Clock, budgets, kill state, Scorekeeper.
 - One table `tape.events`, append-only. No row is ever updated or deleted. The only removal is the archiver dropping a whole hourly partition after its archive file is written and verified (`OPS.md`).
 - Each event has `event_time` (when it happened) and `seen_time` (when we learned it), a `topic` and a body validated against its zod schema in `packages/contracts`.
 - Consumers keep their own offset. The handler and the offset commit in one transaction, so a crash never applies a batch twice.
-- Senses and Reflex write through the buffered Tape writer. Deciders write with `emitIn` inside their consumer transaction, so a decision and its offset commit together.
+- Senses and Reflex write through the buffered Tape writer. Deciders write with `emitIn` inside their consumer transaction, so a decision and its offset commit together. A decision is stamped at least 1 ms after its cause. A projection that writes a Tape event gives it a dedupe key, so a rebuild never writes it twice.
+- Each consumer draws randomness and ids from its own Clock stream (`clock.fork(name)`), so one consumer's draws never shift another's.
+- The live loop never loses a wake: a NOTIFY that lands while a group is draining makes it drain again.
 - **Inputs** (what the world told us) and **derived** topics (our decisions) are kept apart. A replay loads inputs and re-derives the rest.
 - `ctl rebuild` clears projection consumers (flagged `projection: true`) and refills them from the Tape. Deciders are never re-run over old Tape.
 

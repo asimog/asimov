@@ -37,11 +37,15 @@ export interface Runtime {
   stats(): Record<string, unknown>;
 }
 
-/** Consumers in dependency order. Analyzers and mind add themselves here as they are built. */
+/** Consumers in dependency order. Each gets its own clock stream (Clock.fork), named after it. */
 export function buildConsumers(tape: Tape): Consumer[] {
+  const own = (name: string) => tape.for(tape.clock.fork(name));
+  const t = Object.fromEntries(["analyzers.cheap", "analyzers.precall", "analyzers.index", "analyzers.slow", "reflex.trigger", "reflex.signals", "desk", "publisher", "replies", "scorekeeper"].map((n) => [n, own(n)]));
+  const at = (n: string) => [t[n]!, t[n]!.clock] as const;
   return [
-    memory, cheapAnalyzers(tape.clock), precallAnalyzers(tape.clock), indexSignals(tape.clock), slowSignals(tape.clock), reflexTrigger(tape, tape.clock), reflexSignals(tape.clock),
-    desk(tape, tape.clock), publisher(tape, tape.clock), replies(tape, tape.clock), scorekeeper(tape, tape.clock),
+    memory, cheapAnalyzers(t["analyzers.cheap"]!.clock), precallAnalyzers(...at("analyzers.precall")), indexSignals(t["analyzers.index"]!.clock), slowSignals(t["analyzers.slow"]!.clock),
+    reflexTrigger(...at("reflex.trigger")), reflexSignals(t["reflex.signals"]!.clock),
+    desk(...at("desk")), publisher(...at("publisher")), replies(...at("replies")), scorekeeper(...at("scorekeeper")),
   ];
 }
 
@@ -56,10 +60,10 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
   const backfill = env.bool("SENSE_BACKFILL") && pool.size ? new Backfill(tape, sql, pool) : null;
   const chain = env.bool("SENSE_CHAIN") ? new ChainReader(tape, sql, (mint) => backfill?.enqueue(mint)) : null;
   const scout = chain && env.bool("SCOUT")
-    ? new Scout(tape, sql, (mint) => chain.isWatched(mint), (mint, curveAccount, eventId) => {
+    ? new Scout(tape, sql, (mint) => chain.isWatched(mint), (mint, curveAccount, eventId, features) => {
         chain.watchNow(mint); // subscribes and queues the Backfill
         // a coin seconds old may be unknown to the RPC yet: snapshot after HOLDERS_DELAY_S, retry once
-        const snap = (tries: number) => void snapshotHolders(pool, tape, mint, curveAccount, [eventId]).catch((err) =>
+        const snap = (tries: number) => void snapshotHolders(pool, tape, mint, curveAccount, [eventId], features).catch((err) =>
           tries > 0 ? setTimeout(() => snap(tries - 1), 30_000) : log.warn("holders", { mint, err: String(err).slice(0, 120) }));
         if (pool.size) setTimeout(() => snap(1), env.int("HOLDERS_DELAY_S") * 1000);
       })
@@ -116,7 +120,8 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     },
     stats() {
       const of = (name: string) => (consumers.find((c) => c.name === name) as { stats?: unknown } | undefined)?.stats;
-      return { tape: { written: tape.written, dropped: tape.dropped }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
+      const m = process.memoryUsage();
+      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, dropped: tape.dropped }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
     },
   };
   return rt;

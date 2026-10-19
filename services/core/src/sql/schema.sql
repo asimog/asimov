@@ -45,6 +45,15 @@ create table if not exists tape.consumer_offsets (
   updated_at      timestamptz not null default now()
 );
 
+-- where each feed walk stopped (docs/PIPELINE.md feed): a restart walks only what it has not read
+create table if not exists tape.feed_cursors (
+  name       text primary key,
+  newest_at  timestamptz,
+  oldest_at  timestamptz,
+  token      text,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists tape.blobs (
   sha256 text primary key,
   bytes  int not null,
@@ -252,25 +261,30 @@ create index if not exists outcome_watch_mint on mind.outcome_watch (mint);
 -- columns added after the first databases were made (create table if not exists does not add them)
 alter table mind.outcome_watch add column if not exists event_id text, add column if not exists author text, add column if not exists created_at timestamptz;
 alter table mind.coin_callout add column if not exists last_eval timestamptz;
-create table if not exists mind.scores (
+-- Brier sums per UTC day of resolution; readers sum the trailing SCORE_WINDOW_DAYS (scoresAsOf in scorekeeper.ts)
+create table if not exists mind.score_days (
   kind text not null,
   horizon_min int not null,
+  day date not null,
   n int not null default 0,
   brier_sum double precision not null default 0,
   hits int not null default 0,
   p_sum double precision not null default 0,
-  primary key (kind, horizon_min)
+  primary key (kind, horizon_min, day)
 );
 -- pre-call: known-caller buys waiting for their horizon (docs/PIPELINE.md precall); desk coins in play before a callout
-create table if not exists mind.precall_watch (
-  signal_id text primary key,
+-- probabilities waiting for their horizon: pre-call per coin and buying caller (id mint:caller), slow-mind kinds per signal
+create table if not exists mind.prob_watch (
+  id text primary key,
+  kind text not null,
   mint text not null,
+  caller text,
   at timestamptz not null,
   p double precision not null,
   horizon_min int not null,
-  done boolean not null default false
+  done boolean not null default false,
+  hit int
 );
-alter table mind.precall_watch add column if not exists kind text not null default 'precall.callout_p'; -- docs/SLOW-MIND.md P8: swarm.wave_p too
 create table if not exists mind.coin_precall (
   mint text primary key,
   caller text not null,
@@ -330,11 +344,14 @@ create table if not exists idx.wallet_coin (
   first_buy_at timestamptz,
   first_buy_price double precision,
   copy_price double precision,       -- the first price we could have bought at after our latency
+  peak_after double precision,       -- the highest price seen since the wallet's first buy
+  mark_price double precision,       -- the price INDEX_MIN_AGE_MIN after the first buy: what copy value is marked at
   first_sell_at timestamptz,
   early_slot boolean not null default false,
   last_at timestamptz not null,
   primary key (wallet, mint)
 );
+alter table idx.wallet_coin add column if not exists peak_after double precision, add column if not exists mark_price double precision; -- older databases (no data migration)
 create index if not exists wallet_coin_last on idx.wallet_coin (last_at);
 create index if not exists wallet_coin_mint on idx.wallet_coin (mint);
 create table if not exists idx.coin (
@@ -362,6 +379,12 @@ create table if not exists idx.wallet (
   archetype text not null,
   seed text,                          -- where we first heard of it: leaderboard, top_trader, firehose
   refreshed_at timestamptz not null
+);
+-- the wallets the Scout matches buys against (docs/PIPELINE.md Scout): memory keeps only a bounded hot set of these
+create table if not exists idx.scout_wallet (
+  wallet text primary key,
+  role text not null,                 -- caller or smart; a wallet that is both is a caller
+  at timestamptz not null
 );
 create table if not exists idx.seed (
   wallet text primary key,
