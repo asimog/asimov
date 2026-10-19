@@ -42,7 +42,7 @@ export class AgentsRuntime {
   }
 
   /** Librarian (E5): embed texts seen since its cursor. A budget refusal leaves the cursor, so the batch is retried later. */
-  async index(limit = 50): Promise<number> {
+  async indexMemory(limit = 50): Promise<number> {
     if (!this.o.embedder || !this.enabled.includes("librarian")) return 0;
     const belt = await this.belt("librarian");
     const cur = await getCursor(this.o.sql, "librarian");
@@ -73,7 +73,7 @@ export class AgentsRuntime {
       const slotStart = new Date(n * s.period + s.offset).toISOString();
       if (await enqueue(this.o.sql, agent, { type: "schedule", slot: slotStart }, `${agent}:${slotStart}`)) queued.push(agent);
     }
-    await this.index().catch((err) => console.error(JSON.stringify({ librarian: String(err instanceof Error ? err.message : err).slice(0, 200) })));
+    await this.indexMemory().catch((err) => console.error(JSON.stringify({ librarian: String(err instanceof Error ? err.message : err).slice(0, 200) })));
     // Postmortem: each closed position that lost money
     if (this.enabled.includes("postmortem")) {
       const belt = await this.belt("postmortem");

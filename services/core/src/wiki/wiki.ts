@@ -75,13 +75,18 @@ export async function gatherPages(sql: Q, at: string): Promise<PageData[]> {
   return pages;
 }
 
-/** Rendering a stored version's data again gives its stored bytes (the E3 check). */
-export async function rebuildCheck(sql: Sql, slug: string, version: number): Promise<{ ok: boolean; sha256: string; again: string }> {
+/**
+ * The E3 check: the stored data renders to the stored bytes, and the sources read again as of the version's time give
+ * the same bytes. `regathered` is null when the page's sources are gone (a caller's calls archived off the Tape).
+ */
+export async function rebuildCheck(sql: Sql, slug: string, version: number): Promise<{ ok: boolean; sha256: string; again: string; regathered: string | null }> {
   const [e] = await sql`select e.body from wiki.pages p join tape.events e on e.id = p.event_id where p.slug = ${slug} and p.version = ${version}`;
   if (!e) throw new Error(`no wiki page ${slug} v${version}`);
   const b = e.body as BodyOf<"wiki.page">;
   const again = sha(renderPage(b.data as PageData));
-  return { ok: again === b.sha256 && sha(b.body) === b.sha256, sha256: b.sha256, again };
+  const page = (await gatherPages(sql, new Date(b.as_of).toISOString())).find((p) => p.slug === slug);
+  const regathered = page ? sha(renderPage(page)) : null;
+  return { ok: again === b.sha256 && sha(b.body) === b.sha256 && (regathered === null || regathered === b.sha256), sha256: b.sha256, again, regathered };
 }
 
 /** Builds the wiki at each Index refresh, as of that refresh. Writes `wiki.page` and its projection in one transaction. */

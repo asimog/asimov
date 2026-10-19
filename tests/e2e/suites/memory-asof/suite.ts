@@ -38,8 +38,8 @@ export const suite: Suite = {
       await emit("callout.created", callout("co_2", firstText, WALLETS[1]!) as never, "co_2");
       await emit("callout.reply", { callout_id: "co_1", mint: MINT_A, reply_id: "r_1", parent_id: null, wallet: null, handle: null, text: "dev sold everything, this is a rug", likes: 2, media_url: null, created_at: new Date().toISOString() } as never, "r_1");
       await emit("report.drafted", { report_id: "rep_1", day: "2026-10-19", text: "PAPER. Two coins held, one closed at a small loss.", checks: [] } as never, "rep_1");
-      const indexed = await rt.index();
-      const again = await rt.index();
+      const indexed = await rt.indexMemory();
+      const again = await rt.indexMemory();
       const before = await recall(asql, emb, { text: firstText, kinds: ["callout", "reply", "report"], as_of: cut, k: 10 });
       const after = await recall(asql, emb, { text: firstText, kinds: ["callout", "reply", "report"], as_of: new Date().toISOString(), k: 10 });
       const rug = await recall(asql, emb, { text: "rug dev sold", kinds: ["reply"], as_of: new Date().toISOString(), k: 1 });

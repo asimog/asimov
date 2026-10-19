@@ -55,7 +55,7 @@ We speak only under coins we hold. Pump.fun allows replies only from holders, an
 |---|---|
 | First live entry with a call policy, holding confirmed | Callout, position disclosed |
 | Later entries, exits, stops, thesis changes | Updates on that callout, merged inside the cooldown |
-| Another caller's callout on a coin we bought | One reply under it, only while we hold the coin |
+| Another caller's callout on a coin we bought | One reply under it, only while we hold the coin; never under a wallet on the owner's `own_wallets` list |
 | Combined position closed | Final update with the result |
 
 Every text passes one public-text check in core (the Jev `guard` pack when available, plus code rules): position disclosed on a callout, no emojis, no dashes, no promise words, no handles or wallet addresses, at most 280 characters, `PAPER.` first on paper. A failed check refuses the post and records the rule. On paper, `post.queued` carries `paper: true` and nothing is posted. The voice follows `agent/skills/voice-terse`: answer first, exact numbers, no hype.

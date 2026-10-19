@@ -54,7 +54,7 @@ export const suite: Suite = {
         checks: [
           { name: "the first build writes version 1", pass: v1.length === 1 && v1[0]!.version === 1, detail: v1.map((r) => `${r.slug.slice(0, 12)} v${r.version}`).join(", ") },
           { name: "the same data writes no new version", pass: same[0]!.n === 1, detail: `${same[0]!.n} rows` },
-          { name: "a page rebuilds byte-identical from its stored data", pass: check1.ok, detail: `${check1.sha256.slice(0, 12)} vs ${check1.again.slice(0, 12)}` },
+          { name: "a page rebuilds byte-identical from its stored data and from its sources as of its time", pass: check1.ok && check1.regathered === check1.sha256, detail: `${check1.sha256.slice(0, 12)} vs ${check1.again.slice(0, 12)}` },
           { name: "the source data as of the build gives the same bytes", pass: sha(renderPage(fromSource)) === check1.sha256, detail: sha(renderPage(fromSource)).slice(0, 12) },
           { name: "a changed number writes exactly one new version", pass: v2.map((r) => r.version).join() === "1,2", detail: v2.map((r) => r.version).join() },
           { name: "old and new versions both rebuild byte-identical", pass: check1again.ok && check2.ok, detail: `v1 ${check1again.ok}, v2 ${check2.ok}` },

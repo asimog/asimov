@@ -20,6 +20,8 @@ export type Limits = {
   max_slippage_bps: number;
   blocked_mints: string[];
   own_mints: string[];
+  /** the firm's own wallets (the disclosure registry): the Publisher never replies under their callouts */
+  own_wallets: string[];
   blocked_creators: string[];
   blocked_wallets: string[];
   // rug and bundle floor (docs/PIPELINE.md section 3): shares of SOL bought; top-10 of the circulating supply
@@ -32,7 +34,7 @@ export type Limits = {
 
 /** The defaults in `config/limits.default.json` (checked at boot), with empty lists; the lists come only from mind.lists. */
 export function defaultLimits(): Limits {
-  return { ...configValues()["limits.default"], blocked_mints: [], own_mints: [], blocked_creators: [], blocked_wallets: [] };
+  return { ...configValues()["limits.default"], blocked_mints: [], own_mints: [], own_wallets: [], blocked_creators: [], blocked_wallets: [] };
 }
 
 export type Book = {

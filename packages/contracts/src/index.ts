@@ -587,7 +587,7 @@ export const KILL_STATES = ["running", "exit_only", "halted"] as const;
 export type KillState = (typeof KILL_STATES)[number];
 export const KillChanged = z.object({ state: z.enum(KILL_STATES), reason: z.string(), by: z.enum([...KILL_CAUSES, "admin"]) });
 /** Owner lists (docs/SYSTEM.md section 6), loaded with `ctl lists load`; the Risk Gate reads the blocked and own ones. */
-export const LIST_KINDS = ["smart_wallets", "caller_wallets", "follow_wallets", "blocked_creators", "blocked_wallets", "blocked_mints", "own_mints"] as const;
+export const LIST_KINDS = ["smart_wallets", "caller_wallets", "follow_wallets", "blocked_creators", "blocked_wallets", "blocked_mints", "own_mints", "own_wallets"] as const;
 export type ListKind = (typeof LIST_KINDS)[number];
 export const LimitsChanged = z.object({ version: z.number().int(), key: z.string(), value: z.unknown(), by: z.literal("admin") });
 export const ListsLoaded = z.object({ kind: z.enum(LIST_KINDS), version: z.number().int(), count: z.number().int(), sha256: z.string(), by: z.literal("admin") });

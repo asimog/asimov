@@ -7,6 +7,7 @@ import { type BodyOf, canonical, type Envelope } from "@asimog/contracts";
 import { liveFor } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
+import { loadLimits } from "../mind/risk.ts";
 import { log } from "../lib/log.ts";
 import type { BoardValues, Spec } from "../mind/dsl.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
@@ -23,8 +24,9 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
 type House = { house_id: string; mint: string; position_id: string; strategy_id: string; thesis_id: string; opened_ms: number; tokens: number; left: number; entry: number; size: number; kind: Thesis["kind"]; horizon: number; commit_id: string };
 
 /** One reply under another caller's callout, only while we hold the coin (docs/EXECUTION.md). Pure. */
-export function replyFor(h: Pick<House, "size" | "tokens" | "left"> | undefined, c: Pick<BodyOf<"callout.created">, "via">): { ok: true; text: string } | { ok: false; reason: string } {
+export function replyFor(h: Pick<House, "size" | "tokens" | "left"> | undefined, c: Pick<BodyOf<"callout.created">, "via" | "author_wallet">, own: string[] = []): { ok: true; text: string } | { ok: false; reason: string } {
   if (c.via === "history") return { ok: false, reason: "history" }; // seen long after it was made: nobody is reading it
+  if (own.includes(c.author_wallet)) return { ok: false, reason: "own_callout" }; // another caller's callout only
   if (!h || h.left <= h.tokens * 1e-9) return { ok: false, reason: "not_held" };
   return { ok: true, text: `PAPER. We hold this coin. Bought ${h.size} SOL, ${pct(h.left / h.tokens)} still held.` };
 }
@@ -51,10 +53,6 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
 
   /** Queue a post if its text passes every check (docs/EXECUTION.md). Returns the event, or null when refused. */
   async function queue(tx: Tx, h: Pick<House, "house_id" | "mint">, kind: PostKind, text: string, thesis_id: string | null, because: string[], after: string, subject = h.house_id) {
-    if (kind === "reply" && open.get(h.mint)?.house_id !== h.house_id) { // we speak only under coins we hold
-      stats.not_held++;
-      return null;
-    }
     const c = checkText(text, { kind, paper: true });
     if (!c.ok) {
       stats.refused++;
@@ -139,7 +137,7 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
 
   async function onCallout(tx: Tx, e: Envelope<BodyOf<"callout.created">>) {
     const h = open.get(e.body.mint);
-    const r = replyFor(h, e.body);
+    const r = replyFor(h, e.body, h ? (await loadLimits(tx, e.seen_time)).own_wallets : []);
     if (!r.ok) {
       if (r.reason === "not_held") stats.not_held++;
       return;

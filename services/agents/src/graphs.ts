@@ -207,7 +207,7 @@ function wiki(d: GraphDeps) {
       const p = page(s);
       // what people said about the coin, as of the page: callouts for the narrative, scraped replies for rug reports
       const said = p.mint && d.recall ? await d.recall({ text: p.body, kinds: ["callout", "reply"], as_of: p.as_of, k: 8, mint: p.mint }) : [];
-      const told = said.length ? `What strangers wrote about this coin:\n${filterEvidence(said.map((x) => `${x.kind}: ${x.text}`), 1500)}` : "";
+      const told = said.length ? `What strangers wrote about this coin:\n${filterEvidence(said.map((x) => `${x.copy_of ? "callout, a copy of an earlier one" : x.kind}: ${x.text}`), 1500)}` : "";
       return { evidence: `Page (numbers are exact, written by code):\n${p.body.slice(0, 2500)}\n${told}` };
     })
     .addNode("write", async (s) => {
