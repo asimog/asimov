@@ -7,21 +7,21 @@
  */
 import { parseArgs } from "node:util";
 import {
-  OnlinePumpSdk,
   bondingCurvePda,
   canonicalPumpPoolPda,
   feeSharingConfigPda,
   isCreatorUsingSharingConfig,
+  OnlinePumpSdk,
 } from "@pump-fun/pump-sdk";
 import { OnlinePumpAmmSdk } from "@pump-fun/pump-swap-sdk";
 import { PublicKey } from "@solana/web3.js";
-import { getConnection } from "./lib/env.mjs";
 import {
   exitWithHelp,
   parsePositiveInt,
   printJson,
   requirePublicKey,
 } from "./lib/args.mjs";
+import { getConnection } from "./lib/env.mjs";
 import { buildAndPartialSignTx, transactionToBase64 } from "./lib/tx-build.mjs";
 
 const COLLECT_FEE_DEFAULT_UNITS = 200_000;

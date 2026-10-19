@@ -4,15 +4,13 @@
  * (inputMint = NATIVE_MINT for buy, outputMint = token mint)
  */
 import { parseArgs } from "node:util";
-import BN from "bn.js";
+import { bondingCurvePda, PUMP_SDK } from "@pump-fun/pump-sdk";
 import {
+  canonicalPumpPoolPda,
   OnlinePumpAmmSdk,
   PUMP_AMM_SDK,
-  canonicalPumpPoolPda,
 } from "@pump-fun/pump-swap-sdk";
-import { PUMP_SDK, bondingCurvePda } from "@pump-fun/pump-sdk";
-import { getConnection } from "./lib/env.mjs";
-import { AMM_BUY_SELL_DEFAULT_UNITS } from "./lib/constants.mjs";
+import BN from "bn.js";
 import {
   exitWithHelp,
   parsePositiveInt,
@@ -21,6 +19,8 @@ import {
   requirePublicKey,
   requireString,
 } from "./lib/args.mjs";
+import { AMM_BUY_SELL_DEFAULT_UNITS } from "./lib/constants.mjs";
+import { getConnection } from "./lib/env.mjs";
 import { buildAndPartialSignTx, transactionToBase64 } from "./lib/tx-build.mjs";
 
 const HELP = `Usage: node scripts/build-buy-amm-tx.mjs [options]

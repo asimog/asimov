@@ -7,13 +7,13 @@ import {
   getAccount,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { getConnection } from "./lib/env.mjs";
-import { tokenProgramIdFromMint } from "./lib/coin-resolve.mjs";
 import {
   exitWithHelp,
   printJson,
   requirePublicKey,
 } from "./lib/args.mjs";
+import { tokenProgramIdFromMint } from "./lib/coin-resolve.mjs";
+import { getConnection } from "./lib/env.mjs";
 
 const HELP = `Usage: node scripts/print-balances.mjs [options]
 

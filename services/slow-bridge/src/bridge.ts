@@ -5,9 +5,10 @@
 // a run hangs (RUN_TIMEOUT_S, then failed); the Bridge restarts mid-run (running jobs older than the timeout requeue);
 // a slot is still running when the next comes (one job per (engine, kind, subject, slot), never queued twice);
 // an escalation storm (per-hour quotas per engine).
-import { enqueue, claim, finish, requeueStale } from "./jobs.ts";
-import { type Cores, mapOutput } from "./mapper.ts";
+
 import type { EngineClient } from "./engine.ts";
+import { claim, enqueue, finish, requeueStale } from "./jobs.ts";
+import { type Cores, mapOutput } from "./mapper.ts";
 import type { Engine, Job, Kind } from "./types.ts";
 
 type Sql = import("postgres").Sql<Record<string, unknown>>;

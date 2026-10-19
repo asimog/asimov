@@ -1,7 +1,8 @@
 // Signer process. Reads keypair files the owner set in env; never prints them. See docs/EXECUTION.md.
-import { Keypair } from "@solana/web3.js";
+
 import fs from "node:fs";
 import path from "node:path";
+import { Keypair } from "@solana/web3.js";
 import { listen } from "./server.ts";
 import { Signer } from "./signer.ts";
 

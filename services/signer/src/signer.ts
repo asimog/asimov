@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Keypair } from "@solana/web3.js";
-import { type Ctx, checkCloseAccount, checkCollectFees, checkMemo, checkSweepSplit, checkSwap, parse, type Rules, type Verdict, type Wallets } from "./policy.ts";
+import { type Ctx, checkCloseAccount, checkCollectFees, checkMemo, checkSwap, checkSweepSplit, parse, type Rules, type Verdict, type Wallets } from "./policy.ts";
 
 export const ENDPOINTS = ["/sign/swap", "/sign/close-account", "/sign/collect-fees", "/sign/sweep-split", "/sign/memo", "/sign/login", "/sign/bounty", "/sign/x402"] as const;
 export type Endpoint = (typeof ENDPOINTS)[number];

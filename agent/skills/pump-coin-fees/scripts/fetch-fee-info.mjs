@@ -1,22 +1,18 @@
 #!/usr/bin/env node
-/**
- * Resolve fee destination for a coin: cashback, sharing_config, or creator.
- * Reports vault balances, sharing config shareholders, and graduation status.
- */
-import BN from "bn.js";
+import { parseArgs } from "node:util";
 import {
-  PUMP_SDK,
-  OnlinePumpSdk,
   bondingCurvePda,
   canonicalPumpPoolPda,
   creatorVaultPda,
   feeSharingConfigPda,
   isCreatorUsingSharingConfig,
+  OnlinePumpSdk,
+  PUMP_SDK,
 } from "@pump-fun/pump-sdk";
 import {
-  OnlinePumpAmmSdk,
-  coinCreatorVaultAuthorityPda,
   coinCreatorVaultAtaPda,
+  coinCreatorVaultAuthorityPda,
+  OnlinePumpAmmSdk,
 } from "@pump-fun/pump-swap-sdk";
 import {
   AccountLayout,
@@ -24,13 +20,17 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
-import { getConnection } from "./lib/env.mjs";
+/**
+ * Resolve fee destination for a coin: cashback, sharing_config, or creator.
+ * Reports vault balances, sharing config shareholders, and graduation status.
+ */
+import BN from "bn.js";
 import {
   exitWithHelp,
   printJson,
   requirePublicKey,
 } from "./lib/args.mjs";
-import { parseArgs } from "node:util";
+import { getConnection } from "./lib/env.mjs";
 
 const HELP = `Usage: node scripts/fetch-fee-info.mjs --mint <MINT>
 

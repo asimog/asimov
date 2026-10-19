@@ -1,14 +1,15 @@
 // A lane is one thinking lane's door to a model (docs/SYSTEM.md): its own OpenRouter key, its own hourly USD limit, checked
 // before every call. `LLM_STUB=1` (or a stub passed in) swaps the model for a scripted one, so everything runs offline.
-import { AIMessage, type BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
+
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { AIMessage, type BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ChatResult } from "@langchain/core/outputs";
 import { ChatOpenAI } from "@langchain/openai";
 import type { ZodType } from "zod";
 import { loadEnv, need, num } from "./env.ts";
 
-export { loadEnv, need, num } from "./env.ts";
 export * from "./core-client.ts";
+export { loadEnv, need, num } from "./env.ts";
 export const LANES = ["SYNTH", "SWARM", "EXTRACT", "THINK", "OPS", "BUILD"] as const;
 export type LaneName = (typeof LANES)[number];
 

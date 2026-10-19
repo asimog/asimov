@@ -32,7 +32,7 @@ export async function llmStub(respond: (r: StubReq) => string = () => "{}"): Pro
         if (j.stream) { // OpenAI server-sent events: one content chunk, then the stop chunk and [DONE]
           res.writeHead(200, { "content-type": "text/event-stream" });
           const chunk = (delta: Record<string, unknown>, finish: string | null) => `data: ${JSON.stringify({ id: `stub-${calls.length}`, object: "chat.completion.chunk", model: j.model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`;
-          return res.end(chunk({ role: "assistant", content }, null) + chunk({}, "stop") + "data: [DONE]\n\n");
+          return res.end(`${chunk({ role: "assistant", content }, null) + chunk({}, "stop")}data: [DONE]\n\n`);
         }
         return send({ id: `stub-${calls.length}`, object: "chat.completion", model: j.model, choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content } }], usage: { prompt_tokens: Math.ceil((r.system.length + r.user.length) / 4), completion_tokens: Math.ceil(content.length / 4), total_tokens: 0 } });
       }

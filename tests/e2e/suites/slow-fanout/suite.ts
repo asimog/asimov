@@ -10,11 +10,11 @@ import path from "node:path";
 import { env } from "../../../../services/core/src/lib/env.ts";
 import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
 import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
-import { bettafishAnswer } from "../../lib/bettafish-stub.ts";
 import { ENGINE as BF_DIR, PY as BF_PY } from "../../lib/bettafish.ts";
+import { bettafishAnswer } from "../../lib/bettafish-stub.ts";
 import type { Check } from "../../lib/checks.ts";
 import { llmStub } from "../../lib/llm-stub.ts";
-import { CAP, MINT_A, WALLETS, slowEnv } from "../../lib/slow.ts";
+import { CAP, MINT_A, slowEnv, WALLETS } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const MS_DIR = path.join(env.root, "services", "miroshark", "engine", "backend");

@@ -3,12 +3,12 @@
 // a strategy in LIVE_STRATEGIES, only in live mode, only after the Risk Gate says yes with the kill state from ops.kill.
 // Default: LIVE_STRATEGIES is empty, so nothing here ever fires until the owner says so (S6.8).
 import type { Envelope } from "@asimog/contracts";
-import { quoteFor } from "../mind/fill.ts";
-import { type Book, bookFrom, type GateRisk, loadLimits, riskGate } from "../mind/risk.ts";
 import { curveFromPrice } from "../analyzers/curve-math.ts";
 import { liveFor } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
+import { quoteFor } from "../mind/fill.ts";
+import { type Book, bookFrom, type GateRisk, loadLimits, riskGate } from "../mind/risk.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 import { killState } from "../treasury/kill.ts";

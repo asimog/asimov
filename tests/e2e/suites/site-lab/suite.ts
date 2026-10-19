@@ -1,6 +1,7 @@
 // The Lab (docs/UI.md): counters and the arc show what /v1/lab says; theses show their real commit hashes.
+
+import { Browser, getJson, pageChecks, servers, VIEWPORTS, WEB } from "../../lib/site.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { Browser, VIEWPORTS, WEB, getJson, pageChecks, servers } from "../../lib/site.ts";
 
 type Lab = { total: number; revealed: number; items: { sha: string; matches: boolean | null; revealed: number | null; thesis: unknown }[] };
 

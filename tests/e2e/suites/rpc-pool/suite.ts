@@ -3,7 +3,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { RpcError, RpcPool, type EndpointSpec } from "../../../../services/core/src/lib/rpc.ts";
+import { type EndpointSpec, RpcError, RpcPool } from "../../../../services/core/src/lib/rpc.ts";
 import type { Check } from "../../lib/checks.ts";
 import type { Suite } from "../../lib/suite.ts";
 

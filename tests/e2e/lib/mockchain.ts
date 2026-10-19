@@ -1,13 +1,13 @@
 // A mocked Solana for the hands and treasury suites (docs/OPS.md): enough of Pump to buy, sell, close accounts, collect fees
 // and move SOL, with real serialized transactions in and real signatures checked. No network. The numbers are exact
 // integers so suites can compare to the lamport. Failure hooks let a suite drop a confirmation or drift a balance.
-import { PublicKey, type VersionedTransaction } from "../../../services/signer/src/web3.ts";
-import { bs58 } from "../../../services/signer/src/signer.ts";
-import { PROGRAMS } from "../../../services/signer/src/policy.ts";
+
 import { type Builder, tokenAccountOf } from "../../../services/core/src/hands/builder.ts";
 import type { Chain, Parsed, Sim } from "../../../services/core/src/hands/chain.ts";
+import { PROGRAMS, parse } from "../../../services/signer/src/policy.ts";
+import { bs58 } from "../../../services/signer/src/signer.ts";
+import { PublicKey, type VersionedTransaction } from "../../../services/signer/src/web3.ts";
 import { budget, build, createAta, disc, pumpBuy, pumpNamed, pumpSell } from "./txs.ts";
-import { parse } from "../../../services/signer/src/policy.ts";
 
 export const ATA_RENT = 2_039_280;
 const BASE_FEE = 5000;

@@ -1,7 +1,8 @@
 // The Strategy Pool on the fixture tape: seeds load, strategies evaluate, the gate decides, ghosts fill and close.
+
+import { seedSpecs } from "../../../../services/core/src/mind/seeds.ts";
 import { everyReplayChecks } from "../../lib/checks.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { seedSpecs } from "../../../../services/core/src/mind/seeds.ts";
 
 export const suite: Suite = {
   name: "strategies-replay",

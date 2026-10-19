@@ -3,11 +3,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { orderGate } from "../../../services/core/src/hands/order-gate.ts";
+import type { SignCtx, SignerClient, SignReply } from "../../../services/core/src/hands/signer-client.ts";
+import { trader } from "../../../services/core/src/hands/trader.ts";
 import { type Clock, liveClock } from "../../../services/core/src/lib/clock.ts";
 import type { Sql } from "../../../services/core/src/lib/db.ts";
-import { orderGate } from "../../../services/core/src/hands/order-gate.ts";
-import { trader } from "../../../services/core/src/hands/trader.ts";
-import type { SignCtx, SignerClient, SignReply } from "../../../services/core/src/hands/signer-client.ts";
 import { type Consumer, drain } from "../../../services/core/src/tape/consumer.ts";
 import { Tape } from "../../../services/core/src/tape/tape.ts";
 import { books, recordDeposit } from "../../../services/core/src/treasury/books.ts";

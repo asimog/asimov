@@ -4,8 +4,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import type { Envelope, KillState } from "@asimog/contracts";
-import { env } from "../lib/env.ts";
 import type { Sql } from "../lib/db.ts";
+import { env } from "../lib/env.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 

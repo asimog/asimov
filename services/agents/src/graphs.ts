@@ -1,12 +1,12 @@
 // The five thinking graphs and the no-op (docs/SYSTEM.md "Graph shapes"). Each is a small LangGraph StateGraph over a belt of
 // core tools. Graphs only propose: every write goes through a core tool that validates it (spec validator, prose Guard,
 // citation rule, capability). Retrieved text is fenced and trimmed before any model sees it.
-import { type Lane, CoreRefused, fence } from "@asimog/lane";
-import { Annotation, END, START, StateGraph, type BaseCheckpointSaver } from "@langchain/langgraph";
+import { CoreRefused, fence, type Lane } from "@asimog/lane";
+import { Annotation, type BaseCheckpointSaver, END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
+import type { Trigger } from "./jobs.ts";
 import type { AgentName } from "./lanes.ts";
 import type { Belt } from "./tools.ts";
-import type { Trigger } from "./jobs.ts";
 
 export interface GraphDeps {
   belt: Belt;

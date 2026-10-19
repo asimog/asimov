@@ -3,12 +3,12 @@
  * Fetch coin metadata and state flags from pump.fun HTTP API (no RPC).
  */
 import { parseArgs } from "node:util";
-import { fetchCoinV2 } from "./lib/coin-api.mjs";
 import {
   exitWithHelp,
   printJson,
   requireString,
 } from "./lib/args.mjs";
+import { fetchCoinV2 } from "./lib/coin-api.mjs";
 
 const HELP = `Usage: node scripts/fetch-coin.mjs --mint <MINT> [--subset]
 

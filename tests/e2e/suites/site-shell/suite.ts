@@ -1,6 +1,7 @@
 // The shell (docs/UI.md): every room loads on desktop and phone, dark, no sideways scroll, nav lists every room, footer says PAPER.
+
+import { Browser, pageChecks, servers, VIEWPORTS, WEB } from "../../lib/site.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { Browser, VIEWPORTS, WEB, pageChecks, servers } from "../../lib/site.ts";
 
 const ROOMS = ["/", "/cortex", "/lab", "/ledger", "/integrity", "/synthesis", "/simulations", "/treasury", "/rewind", "/connectome", "/charter"];
 const LABELS = ["Field", "Cortex", "Lab", "Ledger", "Integrity", "Treasury", "Rewind", "Connectome", "Charter"];

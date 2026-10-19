@@ -7,7 +7,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { cues, graduatedLive, liveEdges, useLive } from "@/lib/live";
-import { CORE, MAX_CLUSTERS, cloudFragment, cloudVertex, dustFragment, dustVertex, lineFragment, lineVertex, packetFragment, packetVertex } from "./shaders";
+import { CORE, cloudFragment, cloudVertex, dustFragment, dustVertex, lineFragment, lineVertex, MAX_CLUSTERS, packetFragment, packetVertex } from "./shaders";
 
 export type Overlay = {
   labels: (HTMLElement | null)[];

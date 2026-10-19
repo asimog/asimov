@@ -1,15 +1,15 @@
 // Scout (docs/PIPELINE.md, docs/PIPELINE.md): every pump.fun trade, in memory. It feeds the Index rollup and promotes a coin into the
 // watched set when a known caller or a smart wallet buys it, when its flow heats, or when its metrics clear the scan
 // floor. Promotion writes the triggering trade and `coin.watched` with the coin's launch features as seen right then.
-import { tradeKey } from "./chain-reader.ts";
-import type { NatsConnection } from "@nats-io/nats-core";
+
 import type { BodyOf } from "@asimog/contracts";
+import type { NatsConnection } from "@nats-io/nats-core";
 import { Rollup } from "../index/rollup.ts";
 import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import type { Tape } from "../tape/tape.ts";
-import { toTrade } from "./chain-reader.ts";
+import { toTrade, tradeKey } from "./chain-reader.ts";
 import { consume, decodeJson, natsConnect } from "./nats.ts";
 
 const WINDOW_MS = 60_000;

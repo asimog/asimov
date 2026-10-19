@@ -1,6 +1,6 @@
 // One short real model call per lane (docs/OPS.md "Slow-mind suites"): `npm run agents:smoke`. A lane without its key
 // (LLM_KEY_<LANE> in .env.local) is skipped and said so. Costs a fraction of a cent per lane.
-import { Lane, LANES, loadEnv } from "@asimog/lane";
+import { LANES, Lane, loadEnv } from "@asimog/lane";
 
 const env = loadEnv();
 for (const name of LANES) {

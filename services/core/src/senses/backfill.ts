@@ -1,7 +1,7 @@
 // Backfill (S2.7, docs/PIPELINE.md): when a coin enters the watched set, read its recent trades from RPC and write the ones
 // the Tape lacks as `trade.curve` with source `rpc`. Pump `TradeEvent`s come from `Program data:` log lines.
 // `event_time` is when the trade happened; `seen_time` is when we learned it, so nothing leaks back.
-import { tradeKey } from "./chain-reader.ts";
+
 import type { Trade } from "@asimog/contracts";
 import { PublicKey } from "@solana/web3.js";
 import type { Sql } from "../lib/db.ts";
@@ -9,6 +9,7 @@ import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import type { RpcPool } from "../lib/rpc.ts";
 import type { Tape } from "../tape/tape.ts";
+import { tradeKey } from "./chain-reader.ts";
 
 // No pump SDK here: its ESM build imports the agent-payments SDK and fails to load. We need only the curve address and
 // the event's fixed first fields (pump IDL: mint, sol_amount, token_amount, is_buy, user, timestamp, virtual reserves).

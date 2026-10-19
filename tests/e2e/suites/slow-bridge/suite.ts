@@ -2,13 +2,13 @@
 // escalation that feeds both engines at once, outputs mapped through core's validators, reports passed between the
 // engines as parents, idempotent slots, and a dead engine that fails its job without touching anything else.
 import http from "node:http";
-import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
-import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
-import type { RunRequest, RunStatus } from "../../../../services/slow-bridge/src/types.ts";
 import type { Envelope } from "../../../../packages/contracts/src/index.ts";
 import { slowSignals } from "../../../../services/core/src/analyzers/slow-signals.ts";
 import { liveFor } from "../../../../services/core/src/board/board.ts";
 import type { Tx } from "../../../../services/core/src/tape/consumer.ts";
+import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
+import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
+import type { RunRequest, RunStatus } from "../../../../services/slow-bridge/src/types.ts";
 import type { Check } from "../../lib/checks.ts";
 import { CAP, MINT_A, slowEnv } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";

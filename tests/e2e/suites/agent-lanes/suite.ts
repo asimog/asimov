@@ -2,7 +2,7 @@
 // schedule, the five graphs write only their own topics through core's validators, and spend limits are per lane.
 import fs from "node:fs";
 import path from "node:path";
-import { connectCore, CoreRefused, Lane, type LaneName, type Responder } from "../../../../packages/lane/src/index.ts";
+import { CoreRefused, connectCore, Lane, type LaneName, type Responder } from "../../../../packages/lane/src/index.ts";
 import { makeCheckpointer } from "../../../../services/agents/src/checkpoint.ts";
 import { connect as agentsConnect, migrate as agentsMigrate, PgSpend } from "../../../../services/agents/src/db.ts";
 import { claim, enqueue } from "../../../../services/agents/src/jobs.ts";
@@ -91,7 +91,7 @@ export const suite: Suite = {
       add("each refusal is noted on the Tape", notesAfter - notesBefore === pairs, `${notesAfter - notesBefore} notes for ${pairs} refusals`);
       const ops = lists[CAP.ops]!.filter((n) => n !== "job_event");
       add("Ops can read, alert, stop and ask for a restart, and has no tool that starts anything", ops.join() === ["doctor", "events_since", "ops_alert", "ops_restart_request", "ops_stop", "state"].sort().join(), ops.join());
-      add("no tool can reach money: none touches orders, keys, posts or limits", TOOLS.every((t) => !t.name.split("_").some((p) => ["order", "sign", "post", "limit", "trade", "swap", "wallet", "buy", "sell", "send", "transfer", "key"].includes(p))), TOOLS.length + " tools");
+      add("no tool can reach money: none touches orders, keys, posts or limits", TOOLS.every((t) => !t.name.split("_").some((p) => ["order", "sign", "post", "limit", "trade", "swap", "wallet", "buy", "sell", "send", "transfer", "key"].includes(p))), `${TOOLS.length} tools`);
       const unauth = await w.box.call("nope", "state", {});
       add("the toolbox refuses an unknown token and an unknown tool", !unauth.ok && unauth.code === "unauthorized" && (await w.box.call(w.tok(CAP.ops), "launch_missiles", {})).ok === false);
 

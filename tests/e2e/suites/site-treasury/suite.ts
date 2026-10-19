@@ -2,8 +2,8 @@
 import crypto from "node:crypto";
 import { canonical } from "../../../../packages/contracts/src/index.ts";
 import { connect } from "../../../../services/core/src/lib/db.ts";
+import { Browser, getJson, pageChecks, servers, VIEWPORTS, WEB } from "../../lib/site.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { Browser, VIEWPORTS, WEB, getJson, pageChecks, servers } from "../../lib/site.ts";
 
 type T = {
   mode: string; mandate_sol: number; as_of: number;

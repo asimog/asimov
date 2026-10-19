@@ -1,7 +1,7 @@
 // The Field (docs/UI.md): the numbers on screen are the relay snapshot's numbers; the strip's tape lines are real tape lines.
 import { connect } from "../../../../services/core/src/lib/db.ts";
+import { Browser, getJson, pageChecks, servers, VIEWPORTS, WEB } from "../../lib/site.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { Browser, VIEWPORTS, WEB, getJson, pageChecks, servers } from "../../lib/site.ts";
 
 type Snap = { mode: string; mandate_sol: number; milestone: string; pool: { alive: number; open: number; net: number; commits: number }; coins: { mint: string }[]; graduated: string[]; edges: unknown[]; tape: { text: string }[] };
 

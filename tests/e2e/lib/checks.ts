@@ -1,8 +1,8 @@
 // Checks that run on every replay (docs/OPS.md), plus metric readers shared by suites. All read the replay database.
 import crypto from "node:crypto";
 import type { Sql } from "../../../services/core/src/lib/db.ts";
-import { DEFAULT_LIMITS } from "../../../services/core/src/mind/risk.ts";
 import { F } from "../../../services/core/src/mind/fill.ts";
+import { DEFAULT_LIMITS } from "../../../services/core/src/mind/risk.ts";
 import { DERIVED } from "./replay.ts";
 
 export type Check = { name: string; pass: boolean; detail: string };

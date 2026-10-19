@@ -1,6 +1,7 @@
 // The Clock: the only source of time and randomness (AGENTS.md: never Date.now() in analyzers, mind or hands).
-import { monotonicFactory } from "ulid";
+
 import { ID_PREFIXES, type IdKind, type Mode } from "@asimog/contracts";
+import { monotonicFactory } from "ulid";
 
 export interface Clock {
   readonly mode: Mode;

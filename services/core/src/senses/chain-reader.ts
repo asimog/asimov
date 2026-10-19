@@ -1,9 +1,10 @@
 // Chain Reader (docs/PIPELINE.md): trades for the watched set from pump.fun NATS.
 // Watched set = coins called or promoted by the Scout in the last WATCH_HOURS (capped at WATCH_MAX_COINS), refreshed
 // every 15 s; a Scout promotion subscribes at once (watchNow).
-import { isoOrNull } from "../lib/clock.ts";
-import type { NatsConnection, Subscription } from "@nats-io/nats-core";
+
 import type { Trade } from "@asimog/contracts";
+import type { NatsConnection, Subscription } from "@nats-io/nats-core";
+import { isoOrNull } from "../lib/clock.ts";
 import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";

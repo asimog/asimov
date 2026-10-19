@@ -1,5 +1,5 @@
-import { PublicKey } from "@solana/web3.js";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { PublicKey } from "@solana/web3.js";
 
 const KNOWN_SPL_TOKEN_PROGRAMS = new Set([
   TOKEN_PROGRAM_ID.toBase58(),

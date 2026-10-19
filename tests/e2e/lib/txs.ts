@@ -1,8 +1,8 @@
 // Test transactions for the Signer and the Trader: real serialized transactions built with test keypairs.
 // Keypairs are generated in memory; nothing here touches a real key.
 import crypto from "node:crypto";
-import { Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "../../../services/signer/src/web3.ts";
 import { NATIVE_MINT, PROGRAMS } from "../../../services/signer/src/policy.ts";
+import { Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "../../../services/signer/src/web3.ts";
 
 export const pk = (s: string) => new PublicKey(s);
 export const disc = (name: string) => crypto.createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);

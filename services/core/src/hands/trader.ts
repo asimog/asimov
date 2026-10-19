@@ -4,11 +4,11 @@
 // and an order with a stored signature is only ever confirmed again, never rebuilt (docs/SYSTEM.md 5.3). retry() drives
 // unconfirmed orders, sells that failed and closes that failed.
 import type { Envelope } from "@asimog/contracts";
-import { type Limits, loadLimits } from "../mind/risk.ts";
-import { env } from "../lib/env.ts";
 import type { Clock } from "../lib/clock.ts";
 import type { Sql } from "../lib/db.ts";
+import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
+import { type Limits, loadLimits } from "../mind/risk.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 import { killState } from "../treasury/kill.ts";

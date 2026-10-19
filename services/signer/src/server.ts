@@ -1,7 +1,8 @@
 // HTTP face of the Signer: private network only. Binding to a public address is refused at start.
+
+import net from "node:net";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import net from "node:net";
 import type { Signer } from "./signer.ts";
 
 /** loopback and private ranges only (docs/OPS.md: no ingress) */

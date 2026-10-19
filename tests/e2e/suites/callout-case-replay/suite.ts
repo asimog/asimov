@@ -1,12 +1,13 @@
 // Callout tracking v2 (docs/PIPELINE.md): outcomes ov2 with coverage, the caller ledger, case files, a late-reported gap,
 // a consumer restart and duplicate ingestion. The worst ok call's case file is written as the artifact.
-import { replayClock } from "../../../../services/core/src/lib/clock.ts";
-import { Tape } from "../../../../services/core/src/tape/tape.ts";
+
 import { buildCase, renderCase } from "../../../../services/core/src/hunt/case.ts";
+import { replayClock } from "../../../../services/core/src/lib/clock.ts";
 import { coverage, ledger } from "../../../../services/core/src/scorekeeper/ledger.ts";
 import { HORIZONS } from "../../../../services/core/src/scorekeeper/scorekeeper.ts";
-import { derivedHash, everyReplayChecks, type Check } from "../../lib/checks.ts";
-import { readTape, type Row } from "../../lib/replay.ts";
+import { Tape } from "../../../../services/core/src/tape/tape.ts";
+import { type Check, derivedHash, everyReplayChecks } from "../../lib/checks.ts";
+import { type Row, readTape } from "../../lib/replay.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const SECTIONS = ["OBSERVED", "STATISTICS", "AI JUDGMENTS", "INDICATORS", "UNRESOLVED", "OUTCOMES AND CORRECTIONS"];

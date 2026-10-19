@@ -5,21 +5,20 @@
  * distribution can proceed. Does NOT send a transaction.
  */
 import { parseArgs } from "node:util";
-import BN from "bn.js";
 import {
-  PUMP_SDK,
-  OnlinePumpSdk,
   bondingCurvePda,
   canonicalPumpPoolPda,
   creatorVaultPda,
   feeSharingConfigPda,
-  isCreatorUsingSharingConfig,
   getPumpAmmProgram,
+  isCreatorUsingSharingConfig,
+  OnlinePumpSdk,
+  PUMP_SDK,
 } from "@pump-fun/pump-sdk";
 import {
-  OnlinePumpAmmSdk,
-  coinCreatorVaultAuthorityPda,
   coinCreatorVaultAtaPda,
+  coinCreatorVaultAuthorityPda,
+  OnlinePumpAmmSdk,
 } from "@pump-fun/pump-swap-sdk";
 import {
   AccountLayout,
@@ -33,12 +32,13 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-import { getConnection } from "./lib/env.mjs";
+import BN from "bn.js";
 import {
   exitWithHelp,
   printJson,
   requirePublicKey,
 } from "./lib/args.mjs";
+import { getConnection } from "./lib/env.mjs";
 
 const HELP = `Usage: node scripts/fetch-distributable-info.mjs --mint <MINT>
 

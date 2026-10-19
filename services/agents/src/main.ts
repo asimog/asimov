@@ -1,6 +1,6 @@
 // Agents service: `tsx services/agents/src/main.ts`. Deterministic ticks queue jobs; a worker runs them.
 // Needs the core MCP server (MCP_PORT) and one token per agent (MCP_TOKEN_<AGENT>) in .env.local.
-import { Lane, loadEnv, need, type LaneName } from "@asimog/lane";
+import { Lane, type LaneName, loadEnv, need } from "@asimog/lane";
 import { makeCheckpointer } from "./checkpoint.ts";
 import { connect, migrate, PgSpend } from "./db.ts";
 import { AGENT_NAMES, AGENTS, type AgentName } from "./lanes.ts";

@@ -1,18 +1,21 @@
 // The runtime: one place that wires parts together. main.ts runs it live; the replay driver runs the same consumers.
+
+import { cheapAnalyzers } from "./analyzers/cheap.ts";
+import { indexSignals } from "./analyzers/index-signals.ts";
+import { precallAnalyzers } from "./analyzers/precall.ts";
+import { slowSignals } from "./analyzers/slow-signals.ts";
+import { publisher } from "./hands/publisher.ts";
+import { replies } from "./hands/replies.ts";
+import { snapshotHolders } from "./index/holders.ts";
+import { refresh, seed } from "./index/refresh.ts";
 import type { Clock } from "./lib/clock.ts";
 import type { Sql } from "./lib/db.ts";
 import { env } from "./lib/env.ts";
 import { log } from "./lib/log.ts";
-import { snapshotHolders } from "./index/holders.ts";
-import { refresh, seed } from "./index/refresh.ts";
 import { RpcPool } from "./lib/rpc.ts";
-import { cheapAnalyzers } from "./analyzers/cheap.ts";
-import { indexSignals } from "./analyzers/index-signals.ts";
-import { slowSignals } from "./analyzers/slow-signals.ts";
-import { precallAnalyzers } from "./analyzers/precall.ts";
+import { startMcp } from "./mcp/server.ts";
+import { parseTokens, Toolbox } from "./mcp/toolbox.ts";
 import { memory } from "./memory/projections.ts";
-import { publisher } from "./hands/publisher.ts";
-import { replies } from "./hands/replies.ts";
 import { desk } from "./mind/desk.ts";
 import { reflexSignals, reflexTrigger } from "./reflex/reflex.ts";
 import { scorekeeper } from "./scorekeeper/scorekeeper.ts";
@@ -22,12 +25,10 @@ import { FeedReader } from "./senses/feed-reader.ts";
 import { MediaCache } from "./senses/media-cache.ts";
 import { ReplyReader } from "./senses/reply-reader.ts";
 import { Scout } from "./senses/scout.ts";
-import { startMcp } from "./mcp/server.ts";
-import { parseTokens, Toolbox } from "./mcp/toolbox.ts";
 import { ensureGenesis } from "./soul/soul.ts";
 import { type Consumer, runLive } from "./tape/consumer.ts";
-import { treasuryWiring } from "./treasury/wire.ts";
 import { Tape } from "./tape/tape.ts";
+import { treasuryWiring } from "./treasury/wire.ts";
 
 export interface Runtime {
   tape: Tape;

@@ -1,7 +1,7 @@
 // verify-asimog driver: start, check and drive the site the way a visitor does. Reuses the e2e Chrome driver
 // (tests/e2e/lib/site.ts). Reads only: the site takes no input and the relay's database connection is read-only.
 // Usage: npx tsx .claude/skills/verify-asimog/drive.ts <up | doctor | page | down> [...]
-import { spawn, execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { Browser, RELAY, VIEWPORTS, WEB } from "../../../tests/e2e/lib/site.ts";

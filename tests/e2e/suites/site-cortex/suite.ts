@@ -1,6 +1,7 @@
 // The Cortex (docs/UI.md): a lobe is lit only by events. The lane counters never run ahead of the stream.
+
+import { Browser, pageChecks, RELAY, servers, VIEWPORTS, WEB } from "../../lib/site.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { Browser, RELAY, VIEWPORTS, WEB, pageChecks, servers } from "../../lib/site.ts";
 
 const LANES = ["Sense", "Analyze", "Reflex", "Decide", "Risk", "Execute", "Publish", "Memory", "Treasury", "Counsel"];
 const MAPPED = ["callout.created", "trade.curve", "trade.amm", "coin.watched", "holders.snapshot", "score.updated", "index.refreshed", "markout.measured", "jev.answer", "intent.created", "strategy.born", "strategy.retired", "kernel.allocation", "order.rejected", "intent.ghost_filled", "position.closed", "post.queued", "thesis.formed", "commit.made", "commit.revealed"];

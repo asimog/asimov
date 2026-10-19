@@ -1,11 +1,12 @@
 // Fee sweep (docs/EXECUTION.md), every 10 minutes: collect creator fees, measure what arrived, split 50% to W_trade (base capital,
 // never profit), the rest to W_agent up to its runway room and then W_operator. Idempotent by sweep id: the memos
 // `asimog:<id>:collect` and `asimog:<id>:split` are searched on chain before anything is sent again.
-import type { Clock } from "../lib/clock.ts";
-import { env } from "../lib/env.ts";
+
 import { appendMemo, type Builder, LAMPORTS, transfersTx } from "../hands/builder.ts";
 import type { Chain, Parsed } from "../hands/chain.ts";
 import type { SignerClient } from "../hands/signer-client.ts";
+import type { Clock } from "../lib/clock.ts";
+import { env } from "../lib/env.ts";
 import type { Tape } from "../tape/tape.ts";
 
 export type SweepDeps = {

@@ -4,12 +4,12 @@
 import fs from "node:fs";
 import { appendMemo } from "../../../../services/core/src/hands/builder.ts";
 import { F } from "../../../../services/core/src/mind/fill.ts";
+import { hourOf, reconcile } from "../../../../services/core/src/treasury/books.ts";
 import { ownerKill, resume } from "../../../../services/core/src/treasury/kill.ts";
-import { ATA_RENT } from "../../lib/mockchain.ts";
-import { reconcile, hourOf } from "../../../../services/core/src/treasury/books.ts";
 import type { Check } from "../../lib/checks.ts";
+import { ATA_RENT } from "../../lib/mockchain.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { world, type World } from "../../lib/world.ts";
+import { type World, world } from "../../lib/world.ts";
 
 const state = async (w: World) => {
   const [r] = await w.sql`select state, by from ops.kill where id = 1`;

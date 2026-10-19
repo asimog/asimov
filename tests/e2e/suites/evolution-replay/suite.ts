@@ -1,5 +1,5 @@
 // Evolution on the fixture tape: births and retirements happen, children are valid, no duplicate specs.
-import { specDistance, type Spec, validate } from "../../../../services/core/src/mind/dsl.ts";
+import { type Spec, specDistance, validate } from "../../../../services/core/src/mind/dsl.ts";
 import { E } from "../../../../services/core/src/mind/evolve.ts";
 import type { Suite } from "../../lib/suite.ts";
 

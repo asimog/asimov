@@ -12,23 +12,23 @@
  */
 import { parseArgs } from "node:util";
 import {
-  PUMP_SDK,
-  OnlinePumpSdk,
   bondingCurvePda,
   canonicalPumpPoolPda,
   feeSharingConfigPda,
   isCreatorUsingSharingConfig,
   isSharingConfigEditable,
+  OnlinePumpSdk,
+  PUMP_SDK,
 } from "@pump-fun/pump-sdk";
 import { OnlinePumpAmmSdk } from "@pump-fun/pump-swap-sdk";
 import { PublicKey } from "@solana/web3.js";
-import { getConnection } from "./lib/env.mjs";
 import {
   exitWithHelp,
   parsePositiveInt,
   printJson,
   requirePublicKey,
 } from "./lib/args.mjs";
+import { getConnection } from "./lib/env.mjs";
 import { buildAndPartialSignTx, transactionToBase64 } from "./lib/tx-build.mjs";
 
 const DEFAULT_COMPUTE_UNITS = 200_000;
@@ -225,7 +225,7 @@ async function main() {
 
   // Detect mode
   const configExists = isCreatorUsingSharingConfig({ mint, creator: effectiveCreator });
-  let mode = values.mode ?? (configExists ? "update" : "create");
+  const mode = values.mode ?? (configExists ? "update" : "create");
 
   if (mode === "create" && configExists) {
     throw new Error(

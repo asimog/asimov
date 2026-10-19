@@ -1,9 +1,10 @@
 // Integrity (docs/PIPELINE.md, docs/UI.md): the caller ledger shows the API's denominators; a case page prints the same facts as
 // `ctl case`, in six sections that never mix evidence classes.
-import { connect } from "../../../../services/core/src/lib/db.ts";
+
 import { buildCase, type CaseFile } from "../../../../services/core/src/hunt/case.ts";
+import { connect } from "../../../../services/core/src/lib/db.ts";
+import { Browser, getJson, pageChecks, servers, VIEWPORTS, WEB } from "../../lib/site.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { Browser, VIEWPORTS, WEB, getJson, pageChecks, servers } from "../../lib/site.ts";
 
 type Integrity = { callers: { who: string; calls: number; ok: number; wins: number }[] };
 const SECTIONS = ["observed", "statistics", "ai_judgments", "indicators", "unresolved", "corrections"] as const;

@@ -1,15 +1,15 @@
 // Live wiring of hands and treasury (docs/EXECUTION.md, 10, 15). Returns null unless the owner has set the trade wallet and a send
 // endpoint, so a machine without keys runs exactly as before. Nothing here holds a key: signing is the Signer's job.
 import path from "node:path";
-import type { Clock } from "../lib/clock.ts";
-import type { Sql } from "../lib/db.ts";
-import { env } from "../lib/env.ts";
-import { log } from "../lib/log.ts";
 import { FunBlock } from "../hands/builder.ts";
 import { RpcChain } from "../hands/chain.ts";
 import { orderGate } from "../hands/order-gate.ts";
 import { HttpSigner } from "../hands/signer-client.ts";
 import { trader } from "../hands/trader.ts";
+import type { Clock } from "../lib/clock.ts";
+import type { Sql } from "../lib/db.ts";
+import { env } from "../lib/env.ts";
+import { log } from "../lib/log.ts";
 import type { Consumer } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 import { books, hourOf, reconcile } from "./books.ts";

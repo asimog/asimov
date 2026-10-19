@@ -1,10 +1,11 @@
 // Feed Reader (docs/PIPELINE.md): every Pump.fun callout, push-first with poll as the safety net.
 // Push: NATS followingFeed.user.> (each callout fanned out per follower; dedupe by calloutId).
 // Poll: home-feed/new every FEED_POLL_MS; gap walk with pageToken; startup backfill.
-import { isoOrNull } from "../lib/clock.ts";
+
 import crypto from "node:crypto";
 import type { Envelope } from "@asimog/contracts";
 import type { NatsConnection } from "@nats-io/nats-core";
+import { isoOrNull } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import { putBlob, type Tape } from "../tape/tape.ts";

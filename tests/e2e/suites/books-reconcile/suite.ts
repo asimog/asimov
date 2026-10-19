@@ -2,10 +2,10 @@
 // FIFO PnL and NAV must match hand computation, a 1-lamport drift must fail the hour and trip the kill switch, the ledger
 // must rebuild identically from the Tape, and the proof chain must verify (docs/EXECUTION.md, docs/OPS.md).
 import crypto from "node:crypto";
+import { drain } from "../../../../services/core/src/tape/consumer.ts";
 import { balances, hourOf, nav, reconcile } from "../../../../services/core/src/treasury/books.ts";
 import { killState } from "../../../../services/core/src/treasury/kill.ts";
 import { publishProof, verifyProofs } from "../../../../services/core/src/treasury/proofs.ts";
-import { drain } from "../../../../services/core/src/tape/consumer.ts";
 import type { Check } from "../../lib/checks.ts";
 import type { Suite } from "../../lib/suite.ts";
 import { SOL, world } from "../../lib/world.ts";

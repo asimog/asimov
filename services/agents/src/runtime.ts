@@ -1,6 +1,6 @@
 // The agents runtime: deterministic triggers fill the job table, a worker claims jobs and runs each agent's graph with
 // its own belt of core tools, its own model lane and a Postgres checkpoint thread per job (docs/SYSTEM.md).
-import { BudgetExceeded, Lane, type LaneName } from "@asimog/lane";
+import { BudgetExceeded, type Lane, type LaneName } from "@asimog/lane";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Sql } from "./db.ts";
 import { buildGraph } from "./graphs.ts";

@@ -4,18 +4,15 @@
  * (inputMint = NATIVE_MINT for buy, outputMint = token mint)
  */
 import { parseArgs } from "node:util";
-import BN from "bn.js";
 import {
-  PUMP_SDK,
-  OnlinePumpSdk,
-  getBuyTokenAmountFromSolAmount,
-  getBuySolAmountFromTokenAmount,
   bondingCurvePda,
+  getBuySolAmountFromTokenAmount,
+  getBuyTokenAmountFromSolAmount,
+  OnlinePumpSdk,
+  PUMP_SDK,
 } from "@pump-fun/pump-sdk";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
-import { getConnection } from "./lib/env.mjs";
-import { tokenProgramIdFromMint } from "./lib/coin-resolve.mjs";
-import { BUY_SELL_DEFAULT_UNITS } from "./lib/constants.mjs";
+import BN from "bn.js";
 import {
   exitWithHelp,
   parsePositiveInt,
@@ -24,6 +21,9 @@ import {
   requirePublicKey,
   requireString,
 } from "./lib/args.mjs";
+import { tokenProgramIdFromMint } from "./lib/coin-resolve.mjs";
+import { BUY_SELL_DEFAULT_UNITS } from "./lib/constants.mjs";
+import { getConnection } from "./lib/env.mjs";
 import { buildAndPartialSignTx, transactionToBase64 } from "./lib/tx-build.mjs";
 
 const HELP = `Usage: node scripts/build-buy-bonding-tx.mjs [options]

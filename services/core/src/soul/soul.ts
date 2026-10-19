@@ -2,9 +2,9 @@
 // ops.soul_versions on a hash chain, announced as `soul.updated`, and then written to the file.
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { putBlob, type Tape } from "../tape/tape.ts";
-import type { Sql } from "../lib/db.ts";
 import { checkProse } from "../hands/text-checks.ts";
+import type { Sql } from "../lib/db.ts";
+import { putBlob, type Tape } from "../tape/tape.ts";
 
 export const REQUIRED = ["Core purpose", "Values", "Personality", "Boundaries"];
 const MAX_CHARS = 20_000;
