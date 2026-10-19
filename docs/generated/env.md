@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-267 keys. Secrets live only in `.env.local` and are not listed here.
+272 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -241,6 +241,10 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `SENSE_BACKFILL` | `true` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `SENSE_CHAIN` | `true` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `SENSE_FEED` | `true` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `ARCHIVER` | `true` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `S3_ENDPOINT` | ` ` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `S3_ACCESS_KEY_ID` | ` ` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `S3_SECRET_ACCESS_KEY` | ` ` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `STATS_EVERY_MS` | `30000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `ENTRY_STALE_S` | `60` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `OUTCOME_GRACE_S` | `60` | defaults that lived in code until fix plan 2.1; each key has one default, here |
@@ -255,6 +259,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `FEED_GAP_PAGES` | `10` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `FEED_PAGE_SIZE` | `50` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `FEED_PUSH` | `true` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `FILTER_SAMPLE_PCT` | `1` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_CALLOUT_PAGES` | `30000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_CALLOUT_PAGE_MS` | `2000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `SCOUT_CALLERS_REFRESH_S` | `60` | defaults that lived in code until fix plan 2.1; each key has one default, here |

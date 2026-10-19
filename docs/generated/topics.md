@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-73 topics.
+77 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -13,6 +13,7 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `callout.reply` | `callout_id`, `mint`, `reply_id`, `parent_id`, `wallet`, `handle`, `text`, `likes`, `media_url`, `created_at` |
 | `media.cached` | `media_id`, `kind`, `mint`, `callout_id`, `url`, `sha256`, `bytes`, `mime` |
 | `callout.counts` | `callout_id`, `mint`, `likes`, `replies`, `comments`, `reposts`, `quotes`, `views`, `multiple`, `max_multiple`, `mcap_usd` |
+| `filter.sampled` | `reason`, `source`, `chain`, `callout`, `launch` |
 | `caller.position` | `callout_id`, `mint`, `wallet`, `is_exited`, `amount_held`, `realized_pnl_sol`, `at` |
 | `trade.curve` | `mint`, `tx`, `slot_index_id`, `ts`, `side`, `wallet`, `sol`, `usd`, `tokens`, `price_sol`, `price_usd`, `mcap_usd`, `on_curve`, `program` |
 | `trade.amm` | `mint`, `tx`, `slot_index_id`, `ts`, `side`, `wallet`, `sol`, `usd`, `tokens`, `price_sol`, `price_usd`, `mcap_usd`, `on_curve`, `program` |
@@ -47,7 +48,8 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `outcome.measured` | `method`, `callout_id`, `mint`, `author_wallet`, `horizon_min`, `t0`, `call_lag_ms`, `entry_basis`, `price0_sol`, `price_sol`, `multiple`, `peak_multiple`, `trough_multiple`, `t_peak_s`, `net_multiple`, `ref_sol`, `phase`, `graduated`, `trades`, `pre_call_trades`, `new_callouts`, `coverage`, `gaps`, `supersedes` |
 | `score.updated` | `kind`, `horizon_min`, `n`, `brier`, `base_rate`, `skill` |
 | `precall.detected` | `mint`, `caller`, `trade_id`, `buy_sol`, `p`, `horizon_min` |
-| `coin.watched` | `mint`, `reason`, `wallet`, `buyers_60s`, `net_sol_60s`, `trigger_tx`, `features` |
+| `coin.watched` | `mint`, `reason`, `wallet`, `note`, `buyers_60s`, `net_sol_60s`, `trigger_tx`, `features` |
+| `coin.unwatched` | `mint`, `reason`, `by` |
 | `coin.graduated` | `mint`, `tx`, `price_sol`, `at` |
 | `holders.snapshot` | `mint`, `supply`, `top`, `excluded`, `top10_share`, `features` |
 | `index.refreshed` | `version`, `window_days`, `wallets`, `coins`, `smart` |
@@ -79,3 +81,5 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `system.note` | `kind`, `detail` |
 | `system.gap` | `source`, `scope`, `from`, `to`, `reason` |
 | `system.schema_drift` | `kind`, `detail` |
+| `system.source_disagree` | `mint`, `fact`, `nats`, `rpc`, `at` |
+| `tape.archived` | `partition`, `file`, `rows`, `sha256`, `target`, `from`, `to`, `at` |
