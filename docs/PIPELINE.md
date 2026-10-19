@@ -71,15 +71,16 @@ Asimog's own dataset of who to trust: a rolling 30-day record with a 7-day half-
 
 | Layer | One row per | Refresh |
 |---|---|---|
-| Rollups | wallet x coin x hour (buys, sells, SOL in and out, first buy time and market cap, first-slot flag) | Every minute, from the Scout |
+| Rollups | wallet x coin (buys, sells, SOL in and out, first buy time and market cap, first-slot flag) | Every minute, from the Scout |
+| Compaction | rows older than `retention.rollup_hourly_hours` (48) move to wallet x coin (lifetime) and wallet x day, then leave the hot table | Every `rollup_compact_every_min` |
 | Wallet scores | wallet | Hourly, versioned |
 | Coin and creator records | coin, creator | Hourly |
-| Leaderboards | top wallets, top traders, top callers, top callouts, top creators | Hourly |
+| Leaderboards | top wallets, top traders, top callers, top callouts, top creators, as versioned rows | Every `leaderboards_every_min`; light rebuild keeps the version |
 | Light rebuild | scores and leaderboards recomputed from rollups | Every 12 h |
-| Full rebuild | every score from compacted rollups, archives if needed | Every 48 h |
+| Full rebuild | every score from compacted rollups, archives if needed, and a new leaderboard version | Every 48 h |
 | Deeper refresh | 30-day callout backfill, leaderboard seed lists, owner lists and owner updates | Weekly; every weekly version kept |
 
-The Index reads only its rollups, never raw trades, so it survives Tape pruning. The copy price and the horizon mark are set by the first trade after their due time, even when a flush came between; `idx.coin` counters add deltas, and a restart restores the live coins' creator and what the creator sold. A full rebuild can replay archive files.
+The Index reads only its rollups, never raw trades, so it survives Tape pruning. Scores read the hot wallet x coin rows and the compacted lifetime rows together, so a score for one window is equal before and after compaction. The copy price and the horizon mark are set by the first trade after their due time, even when a flush came between; `idx.coin` counters add deltas, and a restart restores the live coins' creator and what the creator sold. A full rebuild can replay archive files.
 
 **Copy scores.** A wallet's profit is not ours. Every score asks what a `OUTCOME_REF_SOL` trade would have made if we bought at the first trade after their buy plus our latency and sold when they sold, through the desk's fill model.
 

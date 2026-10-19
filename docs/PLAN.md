@@ -51,7 +51,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | B5 | Done 2026-10-19. Backfill fans out across providers in parallel and checks our rollups first (`docs/tasks/B5.md`) | `backfill-rollup` passed: fewer RPC calls for a coin we already rolled up; calls spread and fall back |
 | B6 | Done 2026-10-19. Tape partitions by hour and class; the archiver (export, verify, `tape.archived`, offset check, drop) with a 4 h hot window while testing; row UPDATE and DELETE refused (`docs/tasks/B6-partitions.md`, `docs/tasks/B6-archiver.md`) | `tape-partitions` and `tape-archive` passed: a test-clock run archives and drops one partition; replay from the file matches |
 | B6b | Done 2026-10-19. Pluggable archive targets: local folder, S3-compatible bucket by SigV4, git repository on a schedule (`docs/tasks/B6b.md`) | `archive-targets` passed: the same partition lands in three targets with matching checksums |
-| B7 | Index rollup compaction (48 h hourly, then wallet x coin and wallet x day); leaderboards hourly; light rebuild every 12 h, full rebuild every 48 h, deeper refresh weekly; weekly versions kept (`docs/tasks/B7.md`) | Leaderboards queryable after a raw partition is dropped |
+| B7 | Done 2026-10-19. Index rollup compaction (48 h, then wallet x coin and wallet x day); leaderboards hourly; light rebuild every 12 h, full rebuild every 48 h, deeper refresh weekly; weekly versions kept (`docs/tasks/B7.md`) | `index-compact` passed: leaderboards queryable after the raw rows are gone; scores equal |
 | B8 | `ctl stats`: rows and bytes per tier, archive lag (`docs/tasks/B8.md`) | Numbers in `ctl doctor` |
 
 ### C. Strategy layer (fix plan Phase 4)

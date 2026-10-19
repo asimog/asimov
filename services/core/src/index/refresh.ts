@@ -48,7 +48,7 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
         extract(epoch from (select min(k.created_at) from mem.callouts k where k.mint = w.mint and k.created_at > w.first_buy_at) - w.first_buy_at) lead_s,
         power(0.5, extract(epoch from (${now}::timestamptz - w.first_buy_at)) / 86400 / ${P.halfLifeDays}::float8) wt,
         c.creator = w.wallet is_dev
-      from idx.wallet_coin w join idx.coin c on c.mint = w.mint
+      from (select * from idx.wallet_coin union all select * from idx.wallet_coin_all) w join idx.coin c on c.mint = w.mint
       where w.tok_in > 0 and w.copy_price > 0 and w.first_buy_at > ${now}::timestamptz - make_interval(days => ${P.windowDays})
         and w.first_buy_at < ${now}::timestamptz - make_interval(mins => ${P.minAgeMin})
     )

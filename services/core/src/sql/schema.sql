@@ -398,6 +398,52 @@ create table if not exists idx.wallet_coin (
 alter table idx.wallet_coin add column if not exists peak_after double precision, add column if not exists mark_price double precision; -- older databases (no data migration)
 create index if not exists wallet_coin_last on idx.wallet_coin (last_at);
 create index if not exists wallet_coin_mint on idx.wallet_coin (mint);
+-- B7 compaction: a row older than the hourly window moves here, then into wallet x day
+create table if not exists idx.wallet_coin_all (
+  wallet text not null,
+  mint text not null,
+  buys int not null default 0,
+  sells int not null default 0,
+  sol_in double precision not null default 0,
+  sol_out double precision not null default 0,
+  tok_in double precision not null default 0,
+  tok_out double precision not null default 0,
+  first_buy_at timestamptz,
+  first_buy_price double precision,
+  copy_price double precision,
+  peak_after double precision,
+  mark_price double precision,
+  first_sell_at timestamptz,
+  early_slot boolean not null default false,
+  last_at timestamptz not null,
+  primary key (wallet, mint)
+);
+create table if not exists idx.wallet_day (
+  wallet text not null,
+  day date not null,
+  buys int not null default 0,
+  sells int not null default 0,
+  sol_in double precision not null default 0,
+  sol_out double precision not null default 0,
+  coins int not null default 0,
+  first_at timestamptz not null,
+  last_at timestamptz not null,
+  primary key (wallet, day)
+);
+create index if not exists wallet_day_day on idx.wallet_day (day);
+-- versioned leaderboards, rebuilt from the rollups (B7)
+create table if not exists idx.leaderboard (
+  version int not null,
+  kind text not null,                 -- wallets, traders, callers, callouts, creators
+  window_days int not null,
+  rank int not null,
+  subject text not null,
+  score double precision,
+  body jsonb not null default '{}',
+  built_at timestamptz not null,
+  primary key (version, kind, window_days, subject)
+);
+create index if not exists leaderboard_lookup on idx.leaderboard (kind, version desc, window_days, rank);
 create table if not exists idx.coin (
   mint text primary key,
   first_seen_at timestamptz not null,

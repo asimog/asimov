@@ -6,6 +6,7 @@ import { precallAnalyzers } from "./analyzers/precall.ts";
 import { slowSignals } from "./analyzers/slow-signals.ts";
 import { publisher } from "./hands/publisher.ts";
 import { replies } from "./hands/replies.ts";
+import { buildLeaderboards, compact } from "./index/compact.ts";
 import { snapshotHolders } from "./index/holders.ts";
 import { refresh, seed } from "./index/refresh.ts";
 import type { Clock } from "./lib/clock.ts";
@@ -113,6 +114,25 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
         void indexJobs(true);
         timers.push(setInterval(() => void indexJobs(false), env.num("INDEX_REFRESH_MIN") * 60_000));
         timers.push(setInterval(() => void indexJobs(true), env.num("INDEX_SEED_HOURS") * 3_600_000));
+        // B7 schedules: compact hourly, leaderboards hourly, light 12 h, full 48 h, weekly reference
+        const s = config.schedules;
+        const maintain = () => {
+          void compact(sql, clock.iso(), config.retention.rollup_hourly_hours).catch((err) => log.warn("compact", { err: String(err) }));
+          void buildLeaderboards(sql, clock.iso()).catch((err) => log.warn("leaderboards", { err: String(err) }));
+        };
+        maintain();
+        timers.push(setInterval(maintain, s.rollup_compact_every_min * 60_000));
+        timers.push(setInterval(maintain, s.leaderboards_every_min * 60_000));
+        timers.push(setInterval(() => void buildLeaderboards(sql, clock.iso()).catch((err) => log.warn("leaderboards", { err: String(err) })), s.index_light_every_min * 60_000));
+        const full = () => {
+          void (async () => {
+            await indexJobs(false);
+            await compact(sql, clock.iso(), config.retention.rollup_hourly_hours);
+            await buildLeaderboards(sql, clock.iso(), { newVersion: true });
+          })().catch((err) => log.warn("index full rebuild", { err: String(err) }));
+        };
+        timers.push(setInterval(full, s.index_full_every_min * 60_000));
+        timers.push(setInterval(full, s.index_weekly_every_min * 60_000));
       }
     },
     async stop() {
