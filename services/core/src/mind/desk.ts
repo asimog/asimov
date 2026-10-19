@@ -13,7 +13,7 @@ import type { Tape } from "../tape/tape.ts";
 import { type BoardValues, evaluateEntry, type Spec, validate, whenHolds } from "./dsl.ts";
 import { evolve, type Member } from "./evolve.ts";
 import { F, fillBuy, fillSell, type Market, quoteFor, sampleLatencyMs } from "./fill.ts";
-import { allocate, lcb, type Stats } from "./kernel.ts";
+import { type AllocRow, allocate, lcb, type Stats, statsOf } from "./kernel.ts";
 import { type Book, bookFrom, defaultLimits, type GateRisk, type Limits, loadLimits, riskGate } from "./risk.ts";
 import { seedSpecs } from "./seeds.ts";
 
@@ -178,6 +178,32 @@ export function desk(tape: Tape, clock: Clock): Desk {
     bump("retirements");
   }
 
+  /**
+   * Honest promotion inputs (docs/STRATEGY.md section 5): trades on one coin count once, per strategy and per family;
+   * the family's per-coin returns are ordered by their last close, so the held-out window is the latest coins.
+   */
+  async function allocRows(tx: Tx, now: number): Promise<AllocRow[]> {
+    const rows = await tx`select s.family, p.strategy_id, p.mint, avg(p.net_sol / greatest(1e-9, p.cost_sol - p.rent_sol))::float r, max(p.closed_at) at
+      from mind.positions p join mind.strategies s on s.id = p.strategy_id
+      where p.closed_at is not null and p.closed_at <= ${iso(now)} group by 1, 2, 3 order by at, strategy_id, mint`;
+    const byStrategy = new Map<string, number[]>();
+    const byFamily = new Map<string, Map<string, { sum: number; n: number }>>();
+    for (const r of rows) {
+      push(byStrategy, r.strategy_id as string, r.r as number);
+      const f = byFamily.get(r.family as string) ?? byFamily.set(r.family as string, new Map()).get(r.family as string)!;
+      const c = f.get(r.mint as string) ?? { sum: 0, n: 0 };
+      f.delete(r.mint as string); // re-insert so map order follows the latest close
+      f.set(r.mint as string, { sum: c.sum + (r.r as number), n: c.n + 1 });
+    }
+    const members = new Map<string, number>();
+    for (const { spec } of strategies.values()) members.set(spec.family, (members.get(spec.family) ?? 0) + 1);
+    return [...strategies.values()].map(({ spec }) => ({
+      strategy_id: spec.id,
+      stats: statsOf(byStrategy.get(spec.id) ?? [], (st.get(spec.id) ?? emptyStats()).max_dd),
+      family: { coinRets: [...(byFamily.get(spec.family)?.values() ?? [])].map((c) => c.sum / c.n), members: members.get(spec.family) ?? 1 },
+    }));
+  }
+
   // ---------- periodic rounds ----------
   async function rounds(tx: Tx, e: Envelope, now: number) {
     if (strategies.size === 0 && (await tx`select count(*)::int n from mind.strategies`)[0]!.n === 0)
@@ -195,7 +221,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     if (now >= clockRow.next_alloc) {
       clockRow.next_alloc = now + D.allocateMs;
       clockRow.round++;
-      const shares = allocate([...strategies.keys()].map((id) => ({ strategy_id: id, stats: st.get(id) ?? emptyStats() })), D.bookSol, clock.rand);
+      const shares = allocate(await allocRows(tx, now), D.bookSol, clock.rand);
       for (const a of shares) {
         const s = st.get(a.strategy_id);
         if (s && (s.share !== a.share || s.stage !== a.stage)) ((s.share = a.share), (s.stage = a.stage), await saveStats(tx, a.strategy_id));

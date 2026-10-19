@@ -26,6 +26,7 @@ import { suite as liveRoundtrip } from "./suites/live-roundtrip/suite.ts";
 import { suite as mirosharkPumpfun } from "./suites/miroshark-pumpfun/suite.ts";
 import { suite as ownerConfig } from "./suites/owner-config/suite.ts";
 import { suite as precall } from "./suites/precall-replay/suite.ts";
+import { suite as promoteHonest } from "./suites/promote-honest/suite.ts";
 import { suite as pumpHttp } from "./suites/pump-http/suite.ts";
 import { suite as determinism } from "./suites/replay-determinism/suite.ts";
 import { suite as riskgate } from "./suites/riskgate-refuses/suite.ts";
@@ -53,4 +54,4 @@ import { suite as tapeArchive } from "./suites/tape-archive/suite.ts";
 import { suite as tapeDurable } from "./suites/tape-durable/suite.ts";
 import { suite as tapePartitions } from "./suites/tape-partitions/suite.ts";
 
-export const ALL: Suite[] = [riskgate, ownerConfig, deskInPlay, evolveFloor, configLoad, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, archiveTargets, backfillRollup, feedCursor, feedFilters, followWallets, launchFilters, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexCompact, indexRows, tapeDurable, tapePartitions, tapeArchive];
+export const ALL: Suite[] = [riskgate, ownerConfig, deskInPlay, evolveFloor, promoteHonest, configLoad, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, archiveTargets, backfillRollup, feedCursor, feedFilters, followWallets, launchFilters, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexCompact, indexRows, tapeDurable, tapePartitions, tapeArchive];

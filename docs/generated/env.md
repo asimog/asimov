@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-272 keys. Secrets live only in `.env.local` and are not listed here.
+273 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -231,6 +231,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `KERNEL_PRIOR_N` | `5` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `KERNEL_PRIOR_SD` | `0.25` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `PROMOTE_FULL_EXTRA_TRADES` | `20` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `PROMOTE_HOLDOUT_FRAC` | `0.3` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `PROMOTE_MAX_DD_FRAC` | `0.3` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `PROMOTE_MIN_TRADES` | `30` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `JEV_CALLOUT_MIN_FOLLOWERS` | `0` | defaults that lived in code until fix plan 2.1; each key has one default, here |

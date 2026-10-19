@@ -23,7 +23,7 @@ const niche = (s: Spec) => `${s.family}|${s.horizon}`;
 const clone = <T>(x: T): T => structuredClone(x);
 const pick = <T>(xs: readonly T[], rand: () => number): T => xs[Math.floor(rand() * xs.length)]!;
 const nudge = (x: number, rand: () => number) => x * (1 + 0.1 * (Math.sqrt(-2 * Math.log(Math.max(rand(), 1e-12))) * Math.cos(2 * Math.PI * rand())));
-const fitness = (m: Member) => (m.stats.n ? lcb(m.stats) : Number.NEGATIVE_INFINITY);
+
 
 export function mutate(parent: Spec, rand: () => number): Spec {
   const s = clone(parent);
@@ -68,6 +68,10 @@ export function crossover(a: Spec, b: Spec): Spec {
 }
 
 export function evolve(pool: Member[], bookSol: number, rand: () => number, newId: () => string) {
+  // fitness: the bound raised for the number of living members of the strategy's family (docs/STRATEGY.md section 5)
+  const members = new Map<string, number>();
+  for (const m of pool) members.set(m.spec.family, (members.get(m.spec.family) ?? 0) + 1);
+  const fitness = (m: Member) => (m.stats.n ? lcb(m.stats, members.get(m.spec.family)) : Number.NEGATIVE_INFINITY);
   let retire: { id: string; reason: string; m: Member }[] = [];
   for (const m of pool) {
     const mk = [...m.mk60].sort((x, y) => x - y);

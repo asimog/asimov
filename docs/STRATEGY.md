@@ -100,9 +100,9 @@ A score is a ranking, not a probability. Per family, closed ghost decisions are 
 Honest promotion:
 
 1. Niches are family x horizon; each keeps its best, and at least one living member.
-2. Fitness is the 90% lower bound of net SOL per trade after costs, raised for the number of living family members.
-3. Parents need `EVOLVE_PARENT_MIN_TRADES` (10). Correlated trades on one coin count once.
-4. A family must clear its bound in a held-out window (the latest 30%) before any member leaves ghost.
+2. Fitness is the 90% lower bound of net SOL per trade after costs, raised for the number of living family members (Bonferroni: the bound uses the normal quantile at 1 - 0.1 / members).
+3. Parents need `EVOLVE_PARENT_MIN_TRADES` (10). Correlated trades on one coin count once: promotion reads one mean return per coin, per strategy and per family.
+4. A family must clear its raised bound in a held-out window (the latest `PROMOTE_HOLDOUT_FRAC` of its per-coin results, 0.3) before any member leaves ghost.
 5. Ghost to probe: 30 trades, bound above the hurdle in both halves. Probe size is the owner limit `probe_order_sol`; probes are silent.
 6. Probe to full: 20 live trades, live against ghost slippage within 30%. Only `full` sizes by Kelly on its kernel share.
 7. Retire on: bound below zero after 50, drawdown over 30%, negative fee-adjusted 60 s markout over 50, idle time counted only in active market minutes (Tape minutes in which the desk saw a trade). No retirement, idle or pool cap, takes a niche's last living member.
