@@ -219,7 +219,9 @@ create table if not exists mind.stats (
   rets double precision[] not null default '{}',
   stage text not null default 'ghost',
   share double precision not null default 0,
-  last_trade_at timestamptz
+  last_trade_at timestamptz,
+  -- active market minutes counted when the strategy was born or last closed a trade (C1: idle counts only these)
+  active_mark int not null default 0
 );
 -- one row per open or closed ghost position (per strategy book)
 create table if not exists mind.positions (

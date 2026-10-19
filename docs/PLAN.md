@@ -58,7 +58,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 
 | # | Work | Check |
 |---|---|---|
-| C1 | No pool wipe: idle counts active minutes; one living strategy per niche | A test-clock run with a 3 h gap keeps every niche |
+| C1 | Done 2026-10-19 (`docs/tasks/C1.md`). No pool wipe: idle counts active minutes; one living strategy per niche | `evolve-floor` passed: a 3 h gap keeps 24 of 24 niches |
 | C2 | Done 2026-10-19. In-play reasons `smart_buy` and `scout` recorded on every decision (`docs/tasks/C2.md`) | `desk-in-play` passed: `launch_scan` decides with no callouts; every intent tagged |
 | C3 | Calibration maps and the new sizing | Each family prints its map with counts; no Kelly before calibration |
 | C4 | Honest promotion (family held-out window, correlated trades once, corrected bound) | Random-score pool promotes none |

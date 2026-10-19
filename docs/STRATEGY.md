@@ -105,7 +105,7 @@ Honest promotion:
 4. A family must clear its bound in a held-out window (the latest 30%) before any member leaves ghost.
 5. Ghost to probe: 30 trades, bound above the hurdle in both halves. Probe size is the owner limit `probe_order_sol`; probes are silent.
 6. Probe to full: 20 live trades, live against ghost slippage within 30%. Only `full` sizes by Kelly on its kernel share.
-7. Retire on: bound below zero after 50, drawdown over 30%, negative fee-adjusted 60 s markout over 50, idle time counted only in active market minutes.
+7. Retire on: bound below zero after 50, drawdown over 30%, negative fee-adjusted 60 s markout over 50, idle time counted only in active market minutes (Tape minutes in which the desk saw a trade). No retirement, idle or pool cap, takes a niche's last living member.
 
 The kernel: Thompson sampling over each live strategy's posterior of net return per SOL (skeptical prior at minus 1% per trade). Caps: 25% of the trading book per strategy, 5% in probe.
 

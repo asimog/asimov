@@ -29,7 +29,7 @@ const D = {
 };
 const MK_KEYS = { 1: "h1s", 10: "h10s", 60: "h60s", 300: "h5m" } as const;
 
-type StatRow = Stats & { wins: number; equity: number; peak: number; mk60: number[]; stage: string; share: number; last_trade_ms: number | null };
+type StatRow = Stats & { wins: number; equity: number; peak: number; mk60: number[]; stage: string; share: number; last_trade_ms: number | null; active_mark: number };
 type Position = {
   id: string; strategy_id: string; mint: string; callout_id: string | null; opened_ms: number; tokens: number; tokens_left: number;
   cost_sol: number; proceeds_sol: number; rent_sol: number; entry_price: number; bands: number[]; fired: number[]; commit_id: string | null; in_play: InPlay | null;
@@ -68,9 +68,9 @@ export function desk(tape: Tape, clock: Clock): Desk {
   const coinWatch = new Map<string, { in_play: InPlay; at_ms: number }>(); // promoted by the Scout (coin.watched)
   const lastEval = new Map<string, number>();
   const lastExit = new Map<string, number>(); // `${strategy}:${mint}` -> ms
-  const clockRow = { next_alloc: 0, next_evolve: 0, sweep_bucket: -1, round: 0 };
+  const clockRow = { next_alloc: 0, next_evolve: 0, sweep_bucket: -1, round: 0, active_min: 0, last_minute: -1 }; // active_min: Tape minutes with a trade
 
-  const emptyStats = (): StatRow => ({ n: 0, sum: 0, sq: 0, rets: [], max_dd: 0, wins: 0, equity: 0, peak: 0, mk60: [], stage: "ghost", share: 0, last_trade_ms: null });
+  const emptyStats = (): StatRow => ({ n: 0, sum: 0, sq: 0, rets: [], max_dd: 0, wins: 0, equity: 0, peak: 0, mk60: [], stage: "ghost", share: 0, last_trade_ms: null, active_mark: clockRow.active_min });
   const push = <K, V>(m: Map<K, V[]>, k: K, v: V) => (m.get(k) ?? m.set(k, []).get(k)!).push(v);
 
   // ---------- load ----------
@@ -84,7 +84,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
       st.set(r.strategy_id as string, {
         n: r.trades as number, sum: r.net_sum as number, sq: r.net_sq as number, rets: (r.rets as number[]) ?? [], max_dd: r.max_dd as number,
         wins: r.wins as number, equity: r.equity as number, peak: r.peak as number, mk60: (r.mk60 as number[]) ?? [], stage: r.stage as string,
-        share: r.share as number, last_trade_ms: r.last_trade_at ? (r.last_trade_at as Date).getTime() : null,
+        share: r.share as number, last_trade_ms: r.last_trade_at ? (r.last_trade_at as Date).getTime() : null, active_mark: r.active_mark as number,
       });
     for (const r of await tx`select strategy_id, sum(net_sol)::float net from mind.positions where closed_at is not null group by 1`) realized.set(r.strategy_id as string, r.net as number);
     for (const r of await tx`select * from mind.positions where closed_at is null order by opened_at, id`)
@@ -138,6 +138,9 @@ export function desk(tape: Tape, clock: Clock): Desk {
     clockRow.next_alloc = cl ? (cl.at as Date).getTime() : 0;
     clockRow.round = cl ? (cl.round as number) : 0;
     clockRow.next_evolve = ce ? (ce.at as Date).getTime() : 0;
+    const [ca] = await tx`select at, round from mind.desk_clock where name = 'active_min'`;
+    clockRow.active_min = ca ? (ca.round as number) : 0;
+    clockRow.last_minute = ca ? Math.floor((ca.at as Date).getTime() / 60_000) : -1;
     loaded = true;
   }
 
@@ -149,11 +152,11 @@ export function desk(tape: Tape, clock: Clock): Desk {
 
   async function saveStats(tx: Tx, sid: string) {
     const s = st.get(sid)!;
-    await tx`insert into mind.stats (strategy_id, trades, wins, net_sum, net_sq, equity, peak, max_dd, mk60, rets, stage, share, last_trade_at)
-      values (${sid}, ${s.n}, ${s.wins}, ${s.sum}, ${s.sq}, ${s.equity}, ${s.peak}, ${s.max_dd}, ${s.mk60}, ${s.rets}, ${s.stage}, ${s.share}, ${s.last_trade_ms ? iso(s.last_trade_ms) : null})
+    await tx`insert into mind.stats (strategy_id, trades, wins, net_sum, net_sq, equity, peak, max_dd, mk60, rets, stage, share, last_trade_at, active_mark)
+      values (${sid}, ${s.n}, ${s.wins}, ${s.sum}, ${s.sq}, ${s.equity}, ${s.peak}, ${s.max_dd}, ${s.mk60}, ${s.rets}, ${s.stage}, ${s.share}, ${s.last_trade_ms ? iso(s.last_trade_ms) : null}, ${s.active_mark})
       on conflict (strategy_id) do update set trades = excluded.trades, wins = excluded.wins, net_sum = excluded.net_sum, net_sq = excluded.net_sq,
         equity = excluded.equity, peak = excluded.peak, max_dd = excluded.max_dd, mk60 = excluded.mk60, rets = excluded.rets,
-        stage = excluded.stage, share = excluded.share, last_trade_at = excluded.last_trade_at`;
+        stage = excluded.stage, share = excluded.share, last_trade_at = excluded.last_trade_at, active_mark = excluded.active_mark`;
   }
 
   // ---------- strategies ----------
@@ -203,11 +206,11 @@ export function desk(tape: Tape, clock: Clock): Desk {
     }
     if (now >= clockRow.next_evolve) {
       clockRow.next_evolve = now + D.evolveMs;
-      const pool: Member[] = [...strategies.values()].map(({ spec, born_ms }) => {
+      const pool: Member[] = [...strategies.values()].map(({ spec }) => {
         const s = st.get(spec.id) ?? emptyStats();
-        return { spec, stats: s, born_ms, last_trade_ms: s.last_trade_ms, mk60: s.mk60 };
+        return { spec, stats: s, idle_min: clockRow.active_min - s.active_mark, mk60: s.mk60 };
       });
-      const r = evolve(pool, now, D.bookSol, clock.rand, () => clock.id("strategy"));
+      const r = evolve(pool, D.bookSol, clock.rand, () => clock.id("strategy"));
       for (const x of r.retire) await retire(tx, x.id, x.reason, e);
       for (const c of r.children) await birth(tx, c.spec, c.origin, c.parents, e);
       await tx`insert into mind.desk_clock (name, at) values ('next_evolve', ${iso(clockRow.next_evolve)}) on conflict (name) do update set at = excluded.at`;
@@ -353,6 +356,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     s.peak = Math.max(s.peak, s.equity);
     s.max_dd = Math.max(s.max_dd, s.peak - s.equity);
     s.last_trade_ms = now;
+    s.active_mark = clockRow.active_min;
     st.set(p.strategy_id, s);
     await saveStats(tx, p.strategy_id);
   }
@@ -516,6 +520,11 @@ export function desk(tape: Tape, clock: Clock): Desk {
             const prev = market.get(t.mint);
             const graduated = e.topic === "trade.amm";
             const m = { price_sol: t.price_sol, at_ms: now, graduated, real_sol: graduated ? null : curveFromPrice(t.price_sol).realSol };
+            if (Math.floor(now / 60_000) > clockRow.last_minute) {
+              clockRow.last_minute = Math.floor(now / 60_000);
+              clockRow.active_min++;
+              await tx`insert into mind.desk_clock (name, at, round) values ('active_min', ${iso(now)}, ${clockRow.active_min}) on conflict (name) do update set at = excluded.at, round = excluded.round`;
+            }
             market.set(t.mint, m);
             for (const i of [...(pending.get(t.mint) ?? [])]) if (now >= i.fill_after_ms) await fillIntent(tx, i, m, now, e);
             if (fills.has(t.mint)) await markouts(tx, t.mint, t.price_sol, now, e);

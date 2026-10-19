@@ -11,11 +11,12 @@ export const E = {
   minDistance: env.num("EVOLVE_MIN_DISTANCE"),
   nicheMax: env.int("EVOLVE_NICHE_MAX"),
   retireMinTrades: env.int("RETIRE_MIN_TRADES"),
-  retireIdleMs: env.int("RETIRE_IDLE_MIN") * 60_000,
+  retireIdleMin: env.int("RETIRE_IDLE_MIN"),
   retireDdFrac: env.num("RETIRE_DD_FRAC"),
 };
 
-export type Member = { spec: Spec; stats: Stats; born_ms: number; last_trade_ms: number | null; mk60: number[] };
+/** `idle_min`: active market minutes (a Tape minute with a trade) since the member was born or last closed a trade. */
+export type Member = { spec: Spec; stats: Stats; idle_min: number; mk60: number[] };
 export type Child = { spec: Spec; origin: "mutation" | "crossover"; parents: string[] };
 
 const niche = (s: Spec) => `${s.family}|${s.horizon}`;
@@ -66,15 +67,22 @@ export function crossover(a: Spec, b: Spec): Spec {
   return { ...clone(a), exits: clone(b.exits), stop: clone(b.stop) };
 }
 
-export function evolve(pool: Member[], nowMs: number, bookSol: number, rand: () => number, newId: () => string) {
-  const retire: { id: string; reason: string; m: Member }[] = [];
+export function evolve(pool: Member[], bookSol: number, rand: () => number, newId: () => string) {
+  let retire: { id: string; reason: string; m: Member }[] = [];
   for (const m of pool) {
-    const idle = nowMs - (m.last_trade_ms ?? m.born_ms);
     const mk = [...m.mk60].sort((x, y) => x - y);
     if (m.stats.n >= E.retireMinTrades && lcb(m.stats) < 0) retire.push({ id: m.spec.id, reason: "lcb_below_zero", m });
     else if (m.stats.max_dd > E.retireDdFrac * bookSol) retire.push({ id: m.spec.id, reason: "drawdown", m });
     else if (mk.length >= E.retireMinTrades && mk[Math.floor(mk.length / 2)]! < 0) retire.push({ id: m.spec.id, reason: "markout_60s_negative", m });
-    else if (idle > E.retireIdleMs) retire.push({ id: m.spec.id, reason: "idle", m });
+    else if (m.idle_min > E.retireIdleMin) retire.push({ id: m.spec.id, reason: "idle", m });
+  }
+  // every niche keeps at least one living member (docs/STRATEGY.md section 5): its fittest stays
+  for (const key of new Set(pool.map((m) => niche(m.spec)))) {
+    const members = pool.filter((m) => niche(m.spec) === key);
+    if (members.every((m) => retire.some((r) => r.m === m))) {
+      const keep = [...members].sort((a, b) => fitness(b) - fitness(a))[0]!;
+      retire = retire.filter((r) => r.m !== keep);
+    }
   }
   const gone = new Set(retire.map((r) => r.id));
   let alive = pool.filter((m) => !gone.has(m.spec.id));
@@ -107,7 +115,13 @@ export function evolve(pool: Member[], nowMs: number, bookSol: number, rand: () 
   if (over > 0) {
     const count = new Map<string, number>();
     for (const m of alive) count.set(niche(m.spec), (count.get(niche(m.spec)) ?? 0) + 1);
-    const worst = [...alive].sort((a, b) => (count.get(niche(b.spec))! - count.get(niche(a.spec))!) || fitness(a) - fitness(b)).slice(0, over);
+    const worst: Member[] = [];
+    for (const m of [...alive].sort((a, b) => (count.get(niche(b.spec))! - count.get(niche(a.spec))!) || fitness(a) - fitness(b))) {
+      if (worst.length >= over) break;
+      if (count.get(niche(m.spec))! <= 1) continue; // never a niche's last member
+      count.set(niche(m.spec), count.get(niche(m.spec))! - 1);
+      worst.push(m);
+    }
     for (const m of worst) retire.push({ id: m.spec.id, reason: "pool_cap", m });
     alive = alive.filter((m) => !worst.includes(m));
   }
