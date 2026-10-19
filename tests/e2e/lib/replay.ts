@@ -22,7 +22,7 @@ import { liveLeg, SOL } from "./world.ts";
 export const DERIVED = ["precall.detected", "coin.graduated", "intent.", "order.", "markout.", "commit.", "position.", "strategy.", "kernel.", "outcome.", "score.", "thesis.", "post.queued"];
 export const isDerived = (topic: string) => DERIVED.some((p) => topic.startsWith(p));
 
-export type Row = { id: string; topic: string; v: number; event_time: string; seen_time: string; source: string; subject: string | null; causes: string[]; mode: string; body: unknown };
+export type Row = { id: string; topic: string; v: number; class?: string; event_time: string; seen_time: string; source: string; subject: string | null; causes: string[]; mode: string; body: unknown };
 
 export async function readTape(file: string): Promise<Row[]> {
   const rows: Row[] = [];

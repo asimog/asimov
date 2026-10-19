@@ -74,11 +74,14 @@ create table if not exists tape.archived (
 create or replace function tape.drop_partition(p text) returns void language plpgsql as $$
 declare a tape.archived; behind int;
 begin
-  if p !~ '^tape\.events_p_[0-9]{10}$' then raise exception 'not a tape hour partition: %', p; end if;
+  if p !~ '^tape\.events_p_[0-9]{10}_(inputs_hot|inputs_kept|derived)$' then raise exception 'not a tape class partition: %', p; end if;
+  -- the class partition's parent must be an hour partition of tape.events
   if not exists (select 1 from pg_inherits i join pg_class c on c.oid = i.inhrelid join pg_namespace n on n.oid = c.relnamespace
                  join pg_class parent on parent.oid = i.inhparent join pg_namespace pn on pn.oid = parent.relnamespace
-                 where n.nspname = 'tape' and c.relname = split_part(p, '.', 2) and pn.nspname = 'tape' and parent.relname = 'events')
-    then raise exception 'not a partition of tape.events: %', p; end if;
+                 join pg_inherits pi on pi.inhrelid = parent.oid join pg_class grand on grand.oid = pi.inhparent
+                 where n.nspname = 'tape' and c.relname = split_part(p, '.', 2) and pn.nspname = 'tape'
+                   and parent.relname ~ '^events_p_[0-9]{10}$' and grand.relname = 'events')
+    then raise exception 'not a class partition of a tape hour: %', p; end if;
   select * into a from tape.archived where partition = p and verified;
   if not found then raise exception 'partition % has no verified archive', p; end if;
   select count(*) into behind from tape.consumer_offsets where last_seen_time < a.to_time;

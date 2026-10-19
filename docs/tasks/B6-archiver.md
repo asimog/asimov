@@ -33,4 +33,4 @@ Remote targets (B6b).
 `git diff --stat`; each command run with its result; what was not run and why.
 
 ## State
-Open.
+Passed 2026-10-19. `npm run e2e -- tape-archive` passed all five checks (export, verify, lagging offset blocks the drop, drop after the offsets pass, replay from the file); `pnpm typecheck` clean. The local target is wired; B6b adds the bucket and git targets.

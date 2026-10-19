@@ -168,6 +168,18 @@ export const ObservationRaw = z.object({
 
 export const SystemNote = z.object({ kind: z.string(), detail: z.unknown() });
 
+/** One closed Tape partition was exported, read back and verified, then dropped (docs/tasks/B6-archiver.md). */
+export const TapeArchived = z.object({
+  partition: z.string(),
+  file: z.string(),
+  rows: z.number().int(),
+  sha256: z.string(),
+  target: z.string(),
+  from: iso,
+  to: iso,
+  at: iso,
+});
+
 /** NATS and the RPC pool disagree about a launch fact (docs/PIPELINE.md). RPC wins; the coin is re-checked. */
 export const SourceDisagree = z.object({
   mint: z.string(),
@@ -624,6 +636,7 @@ export const TOPICS = {
   "system.gap": SystemGap,
   "system.schema_drift": SystemNote,
   "system.source_disagree": SourceDisagree,
+  "tape.archived": TapeArchived,
 } as const;
 export type Topic = keyof typeof TOPICS;
 export type BodyOf<T extends Topic> = z.infer<(typeof TOPICS)[T]>;
@@ -666,7 +679,7 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "filter.sampled": "inputs_kept", "coin.watched": "inputs_kept", "coin.unwatched": "inputs_kept", "coin.graduated": "inputs_kept",
   "config.loaded": "inputs_kept", "lists.loaded": "inputs_kept", "limits.changed": "inputs_kept", "kill.changed": "inputs_kept",
   "system.note": "inputs_kept", "system.gap": "inputs_kept", "system.schema_drift": "inputs_kept", "system.source_disagree": "inputs_kept",
-  "ops.stop_requested": "inputs_kept", "ops.restart_requested": "inputs_kept",
+  "ops.stop_requested": "inputs_kept", "ops.restart_requested": "inputs_kept", "tape.archived": "inputs_kept",
   "jev.answer": "derived", "intent.created": "derived", "intent.ghost_filled": "derived", "order.rejected": "derived",
   "order.created": "derived", "order.submitted": "derived", "order.filled": "derived", "order.failed": "derived",
   "signer.refused": "derived", "position.changed": "derived", "ledger.entry": "derived", "fees.swept": "derived",
@@ -686,6 +699,7 @@ export const SCHEMA_VERSION: Record<Topic, number> = {
   "outcome.measured": 2,
   "system.gap": 2,
   "coin.watched": 4,
+  "tape.archived": 1,
 };
 
 /** Canonical JSON (sorted keys, recursively): the only form commit hashes are computed over. */

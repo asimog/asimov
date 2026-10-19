@@ -28,6 +28,7 @@ import { MediaCache } from "./senses/media-cache.ts";
 import { ReplyReader } from "./senses/reply-reader.ts";
 import { Scout } from "./senses/scout.ts";
 import { ensureGenesis } from "./soul/soul.ts";
+import { Archiver } from "./tape/archiver.ts";
 import { type Consumer, runLive } from "./tape/consumer.ts";
 import { Tape } from "./tape/tape.ts";
 import { treasuryWiring } from "./treasury/wire.ts";
@@ -57,6 +58,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
   const treasury = treasuryWiring(sql, tape, clock); // null without keys: paper runs as before
   const consumers = [...buildConsumers(tape), ...(treasury?.consumers ?? [])];
   const config = configValues(); // main.ts already validated it; the senses read the same values
+  const archiver = env.bool("ARCHIVER") ? new Archiver(tape, sql, config) : null;
   const feed = env.bool("SENSE_FEED") ? new FeedReader(tape, config) : null;
   const replies = env.bool("SENSE_REPLIES") ? new ReplyReader(tape, sql) : null;
   const media = env.bool("SENSE_MEDIA") ? new MediaCache(tape, sql) : null;
@@ -105,6 +107,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
       await chain?.start();
       await scout?.start();
       backfill?.start();
+      archiver?.start();
       timers.push(setInterval(() => log.info("stats", rt.stats()), env.int("STATS_EVERY_MS")));
       if (scout) {
         void indexJobs(true);
@@ -114,6 +117,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     },
     async stop() {
       for (const t of timers) clearInterval(t);
+      archiver?.stop();
       treasury?.stop();
       await mcp?.close();
       await feed?.stop();
@@ -127,7 +131,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     stats() {
       const of = (name: string) => (consumers.find((c) => c.name === name) as { stats?: unknown } | undefined)?.stats;
       const m = process.memoryUsage();
-      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, deduped: tape.deduped, queued: tape.queued, unhealthy: tape.unhealthy }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
+      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, deduped: tape.deduped, queued: tape.queued, unhealthy: tape.unhealthy }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, archive: archiver?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
     },
   };
   return rt;
