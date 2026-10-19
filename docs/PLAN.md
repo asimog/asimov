@@ -22,7 +22,7 @@ Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (st
 
 ### A. Finish as-of reads (fix plan Phase 3)
 
-Every row is built and pushed (2cf6401). These still wait for their check on the current code; each task file holds the state and the acceptance command. `npm run checks:status` shows which have passed.
+Every row is built and pushed (2cf6401). A1, A7, A10, A12 and A13 passed their checks on 2026-10-19 (A7, A13 on the 10-minute tape); `npm run checks:status` marks them pending only until they re-run on the current commit. Only A8 is open.
 
 | # | Work | Task |
 |---|---|---|
@@ -33,22 +33,24 @@ Every row is built and pushed (2cf6401). These still wait for their check on the
 | A12 | 2-minute fixtures replay in under 60 s, measured idle | `docs/tasks/A12.md` |
 | A13 | Live-leg replay is deterministic | `docs/tasks/A13.md` |
 
-**Resume here.** Read `docs/WORKFLOW.md`, then take the first open task above (one per session), then B0. Follow-ups noted for later rows: the Scout's trigger trade has an unknown phase (C8); `strategies-replay`, `callout-case-replay` and the site suites have not run on the 2-minute fixture.
+**Resume here.** Read `docs/WORKFLOW.md`, then take A8, then the B rows in order. B0 is done (`tape-durable` passed). Follow-ups noted for later rows: the Scout's trigger trade has an unknown phase (C8); `strategies-replay`, `callout-case-replay` and the site suites have not run on the 2-minute fixture.
 
 ### B. Filter at the door and data tiers
 
+Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a chain (shared `filters.ts`). B5 and B6-partitions are independent and can run beside the chain. B6-archiver after B6-partitions; then B6b, B7 and B8, which do not touch each other's files.
+
 | # | Work | Check |
 |---|---|---|
-| B0 | The Tape never drops an accepted event silently (`docs/tasks/B0.md`) | `tape-durable`: database stopped mid-run, zero dropped |
-| B1 | Config module for `config/*.json` (feeds, filters, retention, schedules, models) with `config.loaded` | A bad file stops boot with the field named |
-| B2 | Feed sources and filters (recent, hot, trending, follow, top traders; chain; minimum position; mcap at call) | A replay with filters stores only passing callouts; rejected ones counted and sampled |
-| B3 | Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion | Filtered launches never reach the watched set |
-| B4 | `follow_wallets` list and the follow feed | A followed wallet's buy promotes its coin |
-| B5 | Backfill fans out across providers in parallel and checks our rollups first | Fewer RPC calls for a coin we already rolled up |
-| B6 | Tape partitions by hour and class; the archiver (export, verify, `tape.archived`, offset check, drop) with a 4 h hot window while testing; row UPDATE and DELETE refused | A smoke archives and drops one partition; replay from the file matches |
-| B6b | Pluggable archive targets: local folder, S3-compatible bucket, git repository on a schedule | The same partition lands in two targets with matching checksums |
-| B7 | Index rollup compaction (48 h hourly, then wallet x coin and wallet x day); leaderboards hourly; light rebuild every 12 h, full rebuild every 48 h, deeper refresh weekly; weekly versions kept | Leaderboards queryable after a raw partition is dropped |
-| B8 | `ctl stats`: rows and bytes per tier, archive lag | Numbers in `ctl doctor` |
+| B0 | Done 2026-10-19. The Tape never drops an accepted event silently (`docs/tasks/B0.md`) | `tape-durable`: database stopped mid-run, zero dropped |
+| B1 | Config module for `config/*.json` (feeds, filters, retention, schedules, models) with `config.loaded` (`docs/tasks/B1.md`) | A bad file stops boot with the field named |
+| B2 | Feed sources and filters (recent, hot, trending, follow, top traders; chain; minimum position; mcap at call) (`docs/tasks/B2.md`) | A replay with filters stores only passing callouts; rejected ones counted and sampled |
+| B3 | Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion (`docs/tasks/B3.md`) | Filtered launches never reach the watched set |
+| B4 | `follow_wallets` list and the follow feed (`docs/tasks/B4.md`) | A followed wallet's buy promotes its coin |
+| B5 | Backfill fans out across providers in parallel and checks our rollups first (`docs/tasks/B5.md`) | Fewer RPC calls for a coin we already rolled up |
+| B6 | Tape partitions by hour and class; the archiver (export, verify, `tape.archived`, offset check, drop) with a 4 h hot window while testing; row UPDATE and DELETE refused (`docs/tasks/B6-partitions.md`, `docs/tasks/B6-archiver.md`) | A smoke archives and drops one partition; replay from the file matches |
+| B6b | Pluggable archive targets: local folder, S3-compatible bucket, git repository on a schedule (`docs/tasks/B6b.md`) | The same partition lands in two targets with matching checksums |
+| B7 | Index rollup compaction (48 h hourly, then wallet x coin and wallet x day); leaderboards hourly; light rebuild every 12 h, full rebuild every 48 h, deeper refresh weekly; weekly versions kept (`docs/tasks/B7.md`) | Leaderboards queryable after a raw partition is dropped |
+| B8 | `ctl stats`: rows and bytes per tier, archive lag (`docs/tasks/B8.md`) | Numbers in `ctl doctor` |
 
 ### C. Strategy layer (fix plan Phase 4)
 
