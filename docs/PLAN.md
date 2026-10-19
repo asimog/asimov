@@ -33,7 +33,7 @@ Every row is built and pushed (2cf6401). A1, A7, A10, A12 and A13 passed their c
 | A12 | 2-minute fixtures replay in under 60 s, measured idle | `docs/tasks/A12.md` |
 | A13 | Live-leg replay is deterministic | `docs/tasks/A13.md` |
 
-**Resume here.** Read `docs/WORKFLOW.md`, then the B rows in order. B0 is done (`tape-durable` passed). Follow-ups noted for later rows: the Scout's trigger trade has an unknown phase (C8); `strategies-replay`, `callout-case-replay` and the site suites have not run on the 2-minute fixture.
+**Resume here.** Read `docs/WORKFLOW.md`, then the B rows in order. B0 and B1 are done (`tape-durable`, `config-load` passed). Follow-ups noted for later rows: the Scout's trigger trade has an unknown phase (C8); `strategies-replay`, `callout-case-replay` and the site suites have not run on the 2-minute fixture.
 
 ### B. Filter at the door and data tiers
 
@@ -42,7 +42,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | # | Work | Check |
 |---|---|---|
 | B0 | Done 2026-10-19. The Tape never drops an accepted event silently (`docs/tasks/B0.md`) | `tape-durable`: database stopped mid-run, zero dropped |
-| B1 | Config module for `config/*.json` (feeds, filters, retention, schedules, models) with `config.loaded` (`docs/tasks/B1.md`) | A bad file stops boot with the field named |
+| B1 | Done 2026-10-19. Config module for `config/*.json` (feeds, filters, retention, schedules; `models.json` comes with E4) with `config.loaded` (`docs/tasks/B1.md`) | `config-load`: a bad field stops boot naming `launch.max_dev_buy_sol`; `config.loaded` carries each file hash |
 | B2 | Feed sources and filters (recent, hot, trending, follow, top traders; chain; minimum position; mcap at call) (`docs/tasks/B2.md`) | A replay with filters stores only passing callouts; rejected ones counted and sampled |
 | B3 | Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion, facts from NATS then the RPC pool then the pump.fun API, with a rule for unknown (`docs/tasks/B3.md`) | Filtered launches never reach the watched set |
 | B4 | `follow_wallets` list and the follow feed (`docs/tasks/B4.md`) | A followed wallet's buy promotes its coin |

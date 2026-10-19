@@ -1,0 +1,8 @@
+{
+  "archiver_every_min": 15,
+  "rollup_compact_every_min": 60,
+  "leaderboards_every_min": 60,
+  "index_light_every_min": 720,
+  "index_full_every_min": 2880,
+  "index_weekly_every_min": 10080
+}

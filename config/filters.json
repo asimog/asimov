@@ -1,0 +1,14 @@
+{
+  "callout": {
+    "chains": ["solana"],
+    "min_position_usd": 10,
+    "min_mcap_usd": 0,
+    "max_mcap_usd": null
+  },
+  "launch": {
+    "max_dev_buy_sol": 5,
+    "max_block0_sniper_share": 0.3,
+    "max_bundle_share": 0.3,
+    "on_unknown": { "caller_buy": "pass", "smart_buy": "pass", "follow": "pass", "heat": "refuse", "metrics": "refuse" }
+  }
+}

@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-72 topics.
+73 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -35,6 +35,7 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `kill.changed` | `state`, `reason`, `by` |
 | `limits.changed` | `version`, `key`, `value`, `by` |
 | `lists.loaded` | `kind`, `version`, `count`, `sha256`, `by` |
+| `config.loaded` | `file`, `sha256`, `value` |
 | `proof.published` | `n`, `hour`, `sha256`, `prev_sha256`, `memo_sig` |
 | `markout.measured` | `fill_id`, `mint`, `side`, `h1s`, `h10s`, `h60s`, `h5m` |
 | `commit.made` | `commit_id`, `kind`, `sha256`, `reveal_after` |

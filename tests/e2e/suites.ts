@@ -9,6 +9,7 @@ import { suite as booksReconcile } from "./suites/books-reconcile/suite.ts";
 import { suite as calloutCase } from "./suites/callout-case-replay/suite.ts";
 import { suite as coinGraduated } from "./suites/coin-graduated/suite.ts";
 import { suite as commitReveal } from "./suites/commit-reveal/suite.ts";
+import { suite as configLoad } from "./suites/config-load/suite.ts";
 import { suite as evolution } from "./suites/evolution-replay/suite.ts";
 import { suite as feedCursor } from "./suites/feed-cursor/suite.ts";
 import { suite as indexRows } from "./suites/index-rows/suite.ts";
@@ -42,4 +43,4 @@ import { suite as swarmBrier } from "./suites/swarm-brier/suite.ts";
 import { suite as sweepSuite } from "./suites/sweep/suite.ts";
 import { suite as tapeDurable } from "./suites/tape-durable/suite.ts";
 
-export const ALL: Suite[] = [riskgate, ownerConfig, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, feedCursor, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexRows, tapeDurable];
+export const ALL: Suite[] = [riskgate, ownerConfig, configLoad, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, feedCursor, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexRows, tapeDurable];
