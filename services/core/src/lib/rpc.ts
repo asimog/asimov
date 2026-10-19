@@ -131,6 +131,62 @@ export class RpcPool {
     this.stats[e.name]!.failed++;
   }
 
+  /** Wait for one chosen endpoint's rate slot and count the call against its budget. */
+  private async pickOn(e: Endpoint, method: string) {
+    if (!this.eligible(e, method)) throw new Error(`${method}: ${e.name} cannot serve it (plan or budget)`);
+    const t = now();
+    const at = Math.max(t, e.restUntilMs, e.nextFreeMs);
+    e.nextFreeMs = at + 1000 / e.rps;
+    e.used += e.cost;
+    this.save();
+    if (at > t) await sleep(at - t);
+  }
+
+  private async request<T>(e: Endpoint, method: string, params: unknown[]): Promise<T> {
+    await this.pickOn(e, method);
+    const r = await fetch(e.url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }),
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (r.status === 429 || r.status >= 500) {
+      this.rest(e, Number(r.headers.get("retry-after") ?? 0) * 1000);
+      throw new Error(`${e.name}: http ${r.status}`);
+    }
+    const j = (await r.json()) as { result?: T; error?: { code: number; message: string } };
+    if (j.error) {
+      // a plan refusal is not an outage: never send this method there again (same rule as call)
+      if (j.error.code === -32601 || (j.error.code === -32099 && /not available/i.test(j.error.message))) e.deny.add(method);
+      throw new RpcError(method, j.error.code, j.error.message);
+    }
+    e.restMs = 0;
+    this.stats[e.name]!.ok++;
+    return j.result as T;
+  }
+
+  /**
+   * One call per item, spread round-robin over every healthy endpoint and run in parallel: each endpoint keeps its
+   * own rate and budget, and a call that fails on its endpoint is retried through `call`, which can fall back.
+   */
+  async fanOut<T>(method: string, paramsList: unknown[][]): Promise<T[]> {
+    if (!this.eps.length) throw new Error("no RPC endpoint configured (RPC_URLS or RPC_URL)");
+    const ok = this.eps.filter((e) => this.eligible(e, method));
+    if (!ok.length) throw new Error(`${method}: no endpoint can serve it (refused by every plan, or every budget is spent)`);
+    const out = new Array<T>(paramsList.length);
+    await Promise.all(ok.map(async (e, gi) => {
+      for (let i = gi; i < paramsList.length; i += ok.length) {
+        try {
+          out[i] = await this.request<T>(e, method, paramsList[i]!);
+        } catch (err) {
+          if (err instanceof RpcError && err.code !== -32601 && !(err.code === -32099 && /not available/i.test(err.message))) throw err;
+          out[i] = await this.call<T>(method, paramsList[i]!);
+        }
+      }
+    }));
+    return out;
+  }
+
   /** One JSON-RPC call. Provider trouble moves it to the next endpoint; a JSON-RPC error is thrown as is. */
   async call<T>(method: string, params: unknown[]): Promise<T> {
     if (!this.eps.length) throw new Error("no RPC endpoint configured (RPC_URLS or RPC_URL)");

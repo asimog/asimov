@@ -57,7 +57,7 @@ Ways it fails: the firehose drops (`system.note`, kind `scout_gap`); a caller bu
 
 ### Backfill
 
-When a coin enters the watched set, reads its past trades from RPC. It first checks our own rollups so data we have is never fetched twice, then fans requests out across every healthy provider in parallel, each inside its own rate and monthly budget, with fallback when one fails. Backfilled trades carry `event_time` from the chain; their `seen_time` is when we fetched them.
+When a coin enters the watched set, reads its past trades from RPC. It first checks our own rollups (`idx.coin.last_at` is the last trade already folded) and the Tape, so data we have is never fetched twice, then asks only for the gap after that time. `getTransaction` calls fan out round-robin across every healthy provider in parallel, each inside its own rate and monthly budget, and a call that fails on its provider falls back through the pool. Backfilled trades carry `event_time` from the chain; their `seen_time` is when we fetched them.
 
 Ways it fails: rate limits (rest that provider, keep the queue; over budget, `system.gap` source `rpc`); null transaction (retry once, then skip); truncated logs (counted, never guessed).
 

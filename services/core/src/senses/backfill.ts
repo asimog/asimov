@@ -79,11 +79,6 @@ export class Backfill {
   /** The pool paces each endpoint and falls back between them (docs/OPS.md); this class only counts its hourly budget. */
   constructor(private tape: Tape, private sql: Sql, private pool: RpcPool) {}
 
-  private rpc<T>(method: string, params: unknown[]) {
-    this.spend();
-    return this.pool.call<T>(method, params);
-  }
-
   start() {
     void this.loop();
   }
@@ -100,11 +95,16 @@ export class Backfill {
   }
 
   /** The hourly count (RPC_BACKFILL_TX_PER_HOUR). */
-  private spend() {
+  private spend(n = 1) {
     const b = Math.floor(this.tape.clock.now() / 3_600_000);
     if (b !== this.hour.bucket) this.hour = { bucket: b, n: 0 };
-    this.hour.n++;
-    this.stats.calls++;
+    this.hour.n += n;
+    this.stats.calls += n;
+  }
+
+  /** Read one coin now (the suite drives this; the loop calls it too). */
+  async fill(mint: string) {
+    await this.coin(mint);
   }
 
   private budgetLeft() {
@@ -131,42 +131,56 @@ export class Backfill {
   private async coin(mint: string) {
     const started = this.tape.clock.iso();
     const calls0 = this.stats.calls;
-    const sigs = await this.rpc<{ signature: string; slot: number; err: unknown; blockTime: number | null }[]>("getSignaturesForAddress", [
+    this.spend(); // getSignaturesForAddress
+    const sigs = await this.pool.call<{ signature: string; slot: number; err: unknown; blockTime: number | null }[]>("getSignaturesForAddress", [
       bondingCurvePda(mint).toBase58(),
       { limit: this.p.sigs, commitment: "confirmed" },
     ]);
+    // our own rollups already folded every trade up to idx.coin.last_at; RPC is asked only for the gap after it
+    const [c] = await this.sql`select last_at from idx.coin where mint = ${mint}`;
+    const cutoff = c?.last_at ? (c.last_at as Date).getTime() : null;
     const known = new Set((await this.sql`select body->>'tx' tx from tape.events where subject = ${mint} and topic in ('trade.curve', 'trade.amm')`).map((r) => r.tx as string));
-    const todo = sigs.filter((s) => !s.err && !known.has(s.signature)); // newest first: the minutes before the watch matter most
+    const todo = sigs.filter((s) => !s.err && !known.has(s.signature) && (cutoff === null || (s.blockTime ?? 0) * 1000 > cutoff)); // newest first: the minutes before the watch matter most
     this.stats.overlap += sigs.length - todo.length;
     let unread: { from: string; to: string } | null = null;
+    const budget = Math.max(0, this.budgetLeft());
+    const batch = todo.slice(0, budget);
+    if (batch.length < todo.length) {
+      const t = (x: { blockTime: number | null } | undefined) => (x?.blockTime ? new Date(x.blockTime * 1000).toISOString() : started);
+      unread = { from: t(todo.at(-1)), to: t(batch.at(-1) ?? todo[0]) };
+    }
     const read: Trade[] = [];
-    for (const s of todo) {
-      if (this.budgetLeft() <= 0) {
-        const t = (x: { blockTime: number | null } | undefined) => (x?.blockTime ? new Date(x.blockTime * 1000).toISOString() : started);
-        unread = { from: t(todo.at(-1)), to: t(s) };
-        break;
+    if (batch.length) {
+      // every healthy provider takes a share, in parallel, under its own rate and budget
+      this.spend(batch.length);
+      const txs = await this.pool.fanOut<{ meta: { logMessages: string[] | null } | null } | null>(
+        "getTransaction",
+        batch.map((s) => [s.signature, { commitment: "confirmed", maxSupportedTransactionVersion: 1 }]),
+      );
+      for (const [i, s] of batch.entries()) {
+        let tx = txs[i] ?? null;
+        if (!tx) {
+          await sleep(2000);
+          this.spend();
+          tx = await this.pool.call("getTransaction", [s.signature, { commitment: "confirmed", maxSupportedTransactionVersion: 1 }]);
+        }
+        if (!tx?.meta?.logMessages) {
+          this.stats.skipped_null++;
+          continue;
+        }
+        let trades: Trade[];
+        try {
+          trades = tradesFromLogs(mint, s.signature, s.slot, tx.meta.logMessages);
+        } catch {
+          this.stats.decode_errors++;
+          continue;
+        }
+        for (const t of trades) {
+          this.tape.emit("trade.curve", t, { source: "rpc", subject: mint, eventTime: t.ts, dedupe: tradeKey(t) });
+          this.stats.trades++;
+        }
+        read.push(...trades);
       }
-      let tx = await this.rpc<{ meta: { logMessages: string[] | null } | null } | null>("getTransaction", [s.signature, { commitment: "confirmed", maxSupportedTransactionVersion: 1 }]);
-      if (!tx) {
-        await sleep(2000);
-        tx = await this.rpc("getTransaction", [s.signature, { commitment: "confirmed", maxSupportedTransactionVersion: 1 }]);
-      }
-      if (!tx?.meta?.logMessages) {
-        this.stats.skipped_null++;
-        continue;
-      }
-      let trades: Trade[];
-      try {
-        trades = tradesFromLogs(mint, s.signature, s.slot, tx.meta.logMessages);
-      } catch {
-        this.stats.decode_errors++;
-        continue;
-      }
-      for (const t of trades) {
-        this.tape.emit("trade.curve", t, { source: "rpc", subject: mint, eventTime: t.ts, dedupe: tradeKey(t) });
-        this.stats.trades++;
-      }
-      read.push(...trades);
     }
     if (read.length) this.onRead?.(mint, read);
     this.stats.coins++;
