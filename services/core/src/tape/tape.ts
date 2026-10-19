@@ -118,7 +118,7 @@ export class Tape {
       if (this.buf.length === 0) return;
       const batch = this.buf.splice(0, this.buf.length);
       try {
-        await this.ensurePartitions(batch.at(-1)!.env.seen_time);
+        await this.ensurePartitions(batch.map((p) => p.env.seen_time));
         await this.write(batch);
         this.failures = 0;
         this.unhealthy = false;
@@ -171,11 +171,12 @@ export class Tape {
 
   /**
    * Hour partitions, then a list partition per class (docs/tasks/B6-partitions.md). The hour of the event and the
-   * two hours ahead of the Clock exist, so a live write never lands in the default partition.
+   * two hours ahead of the Clock exist for every event in a batch, so a live write never lands in the default partition.
    */
-  async ensurePartitions(atIso = this.clock.iso()) {
+  async ensurePartitions(seenIsos: string[] = []) {
     const hour = (ms: number) => Math.floor(ms / 3_600_000) * 3_600_000;
-    await ensureHourPartition(this.sql, Date.parse(atIso), this.ensured);
+    // every hour in the batch: a batch that crosses an hour must not put rows in the default partition
+    for (const h of new Set(seenIsos.map((s) => hour(Date.parse(s))))) await ensureHourPartition(this.sql, h, this.ensured);
     const now = hour(this.clock.now());
     for (let h = now; h <= now + 2 * 3_600_000; h += 3_600_000) await ensureHourPartition(this.sql, h, this.ensured);
   }

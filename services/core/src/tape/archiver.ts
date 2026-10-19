@@ -76,6 +76,7 @@ export class Archiver {
         this.stats.last_error = `${p.table}: ${String(err)}`;
         out.skipped.push(p.table);
         log.warn("archive skipped", { partition: p.table, err: String(err) });
+        this.tape.emit("ops.alert", { severity: "warn", text: `Archive kept ${p.table}: ${String(err)}`, finding: "archive.failed" }, { source: "system", subject: p.table });
       }
     }
     return out;

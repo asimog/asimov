@@ -116,21 +116,25 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
         timers.push(setInterval(() => void indexJobs(true), env.num("INDEX_SEED_HOURS") * 3_600_000));
         // B7 schedules: compact hourly, leaderboards hourly, light 12 h, full 48 h, weekly reference
         const s = config.schedules;
+        // every index job runs on one chain, so overlapping timers never run compaction or a rebuild at the same time
+        let chain = Promise.resolve();
+        const serial = (what: string, job: () => Promise<unknown>) => {
+          chain = chain.then(job).then(() => undefined, (err) => log.warn(what, { err: String(err) }));
+        };
         const maintain = () => {
-          void compact(sql, clock.iso(), config.retention.rollup_hourly_hours).catch((err) => log.warn("compact", { err: String(err) }));
-          void buildLeaderboards(sql, clock.iso()).catch((err) => log.warn("leaderboards", { err: String(err) }));
+          serial("compact", () => compact(sql, clock.iso(), config.retention.rollup_hourly_hours));
+          serial("leaderboards", () => buildLeaderboards(sql, clock.iso()));
         };
         maintain();
-        timers.push(setInterval(maintain, s.rollup_compact_every_min * 60_000));
-        timers.push(setInterval(maintain, s.leaderboards_every_min * 60_000));
-        timers.push(setInterval(() => void buildLeaderboards(sql, clock.iso()).catch((err) => log.warn("leaderboards", { err: String(err) })), s.index_light_every_min * 60_000));
-        const full = () => {
-          void (async () => {
+        timers.push(setInterval(() => serial("compact", () => compact(sql, clock.iso(), config.retention.rollup_hourly_hours)), s.rollup_compact_every_min * 60_000));
+        timers.push(setInterval(() => serial("leaderboards", () => buildLeaderboards(sql, clock.iso())), s.leaderboards_every_min * 60_000));
+        timers.push(setInterval(() => serial("leaderboards", () => buildLeaderboards(sql, clock.iso())), s.index_light_every_min * 60_000));
+        const full = () =>
+          serial("index full rebuild", async () => {
             await indexJobs(false);
             await compact(sql, clock.iso(), config.retention.rollup_hourly_hours);
             await buildLeaderboards(sql, clock.iso(), { newVersion: true });
-          })().catch((err) => log.warn("index full rebuild", { err: String(err) }));
-        };
+          });
         timers.push(setInterval(full, s.index_full_every_min * 60_000));
         timers.push(setInterval(full, s.index_weekly_every_min * 60_000));
       }

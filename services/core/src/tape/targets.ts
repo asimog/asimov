@@ -20,8 +20,9 @@ const hmac = (key: Buffer | string, data: string) => crypto.createHmac("sha256",
 
 export class LocalTarget implements ArchiveTarget {
   readonly name: string;
-  constructor(private dir: string, private root = env.root) {
-    this.name = `local:${path.isAbsolute(dir) ? dir : path.join(root, dir)}`;
+  constructor(private dir: string, root = env.root) {
+    this.dir = path.isAbsolute(dir) ? dir : path.join(root, dir);
+    this.name = `local:${this.dir}`;
   }
   async put(file: string, body: Buffer) {
     fs.mkdirSync(this.dir, { recursive: true });
@@ -82,6 +83,9 @@ export class GitTarget implements ArchiveTarget {
   private git(...args: string[]) {
     return execFileSync("git", args, { cwd: this.dir, encoding: "utf8" }).trim();
   }
+  private gitBytes(...args: string[]) {
+    return execFileSync("git", args, { cwd: this.dir, encoding: "buffer" });
+  }
   async put(file: string, body: Buffer) {
     fs.mkdirSync(this.dir, { recursive: true });
     if (!fs.existsSync(path.join(this.dir, ".git"))) {
@@ -91,13 +95,14 @@ export class GitTarget implements ArchiveTarget {
     }
     fs.writeFileSync(path.join(this.dir, file), body);
     this.git("add", file);
-    this.git("commit", "-m", `archive ${file}`);
+    // a retry writes the same gzip bytes: nothing to commit is success, not an error
+    if (this.git("status", "--porcelain", "--", file)) this.git("commit", "-m", `archive ${file}`);
     if (this.remote) this.git("push", this.remote, this.branch);
   }
   async get(file: string) {
     if (this.remote) {
       this.git("fetch", this.remote, this.branch);
-      return Buffer.from(this.git("show", `FETCH_HEAD:${file}`), "binary");
+      return this.gitBytes("show", `FETCH_HEAD:${file}`);
     }
     return fs.readFileSync(path.join(this.dir, file));
   }

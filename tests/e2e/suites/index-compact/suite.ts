@@ -64,6 +64,15 @@ export const suite: Suite = {
       });
       add("scores equal before and after compaction", equal, `${Object.keys(before).length} wallets`);
 
+      // a new trade on a coin that was already compacted: the pair is still one sample, not two
+      await db.sql`insert into idx.wallet_coin (wallet, mint, buys, sells, sol_in, sol_out, tok_in, tok_out, first_buy_at, first_buy_price, copy_price, peak_after, mark_price, last_at, early_slot)
+        values ('W1', 'M0', 1, 0, 0.05, 0, 500, 0, ${iso(NOW - 3_600_000)}, 2e-7, 2e-7, 2e-7, 2e-7, ${iso(NOW - 3_600_000)}, false)`;
+      await refresh(db.sql, tape);
+      await tape.flush();
+      const [w1] = await db.sql`select n from idx.wallet where wallet = 'W1' and version = (select max(version) from idx.wallet)`;
+      const nBefore = (before.W1 as Record<string, unknown>).n;
+      add("a trade after compaction does not count its coin twice", w1!.n === nBefore, `W1 n ${w1!.n}, before ${String(nBefore)}`);
+
       const built = await buildLeaderboards(db.sql, iso(NOW));
       const kinds = new Set((await db.sql`select distinct kind from idx.leaderboard where version = ${built.version}`).map((r) => r.kind as string));
       const [w4] = await db.sql`select count(*)::int n from idx.leaderboard l where l.kind = 'wallets' and l.subject = ${EXTRA} and l.version = ${built.version}`;

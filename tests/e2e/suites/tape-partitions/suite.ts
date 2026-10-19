@@ -55,6 +55,22 @@ export const suite: Suite = {
       const next = await count("tape.events_p_2026101913_inputs_hot");
       add("a clock rolled forward creates the next hour's partition before it writes", next === 1, `${next} row in 13:00`);
 
+      // one batch across an hour nobody created yet: 16:59 and 17:01, flushed together
+      const call = (id: string) => tape.emit("callout.created", {
+        callout_id: id, mint: "M3", symbol: null, name: null, author_wallet: "W1", author_user_id: null, author_handle: null, author_x: null,
+        author_followers: null, author_total_callouts: null, text: "", media_url: null, mcap_at_call_usd: null, price_at_call_usd: null,
+        created_at: clock.iso(), chain: "solana", quoted_callout_id: null, author_position: { amount_held: null, cost_basis_usd: null, pnl_usd: null }, via: "poll",
+      }, { source: "feedreader", subject: id });
+      clock.advance!(at(16, 59));
+      call("c3");
+      clock.advance!(at(17, 1));
+      call("c4");
+      await tape.flush();
+      const h16 = await count("tape.events_p_2026101916_inputs_hot");
+      const h17 = await count("tape.events_p_2026101917_inputs_hot");
+      const stray = await count("tape.events_default");
+      add("a batch across an hour boundary lands in both hour partitions, never the default", h16 === 1 && h17 === 1 && stray === 0, `16:00 ${h16}, 17:00 ${h17}, default ${stray}`);
+
       let updateRefused = false;
       try {
         await db.sql`update tape.events set topic = 'x'`;
@@ -68,7 +84,7 @@ export const suite: Suite = {
         deleteRefused = true;
       }
       const total = await count("tape.events");
-      add("UPDATE and DELETE on the Tape are refused", updateRefused && deleteRefused && total === 4, `update ${updateRefused}, delete ${deleteRefused}, ${total} rows`);
+      add("UPDATE and DELETE on the Tape are refused", updateRefused && deleteRefused && total === 6, `update ${updateRefused}, delete ${deleteRefused}, ${total} rows`);
       return { checks, metrics: { partitions: 2 } };
     } finally {
       await tape.close();

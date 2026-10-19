@@ -10,12 +10,17 @@ const windowDays = () => env.num("INDEX_WINDOW_DAYS");
 /** Move every idx.wallet_coin row older than `keepHours` into wallet x coin and wallet x day, then delete it. */
 export async function compact(sql: Sql, now: string, keepHours: number): Promise<{ moved: number; days: number }> {
   const cutoff = new Date(Date.parse(now) - keepHours * 3_600_000).toISOString();
-  const moved = (await sql`
+  // one statement: the rows deleted are exactly the rows copied, and the advisory lock keeps two runs apart
+  return sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(hashtext('idx.compact'))`;
+    const [r] = (await tx`
+    with moved as (delete from idx.wallet_coin where last_at < ${cutoff} returning *),
+    a as (
     insert into idx.wallet_coin_all (wallet, mint, buys, sells, sol_in, sol_out, tok_in, tok_out, first_buy_at, first_buy_price,
       copy_price, peak_after, mark_price, first_sell_at, early_slot, last_at)
     select wallet, mint, buys, sells, sol_in, sol_out, tok_in, tok_out, first_buy_at, first_buy_price,
       copy_price, peak_after, mark_price, first_sell_at, early_slot, last_at
-    from idx.wallet_coin where last_at < ${cutoff}
+    from moved
     on conflict (wallet, mint) do update set
       buys = idx.wallet_coin_all.buys + excluded.buys,
       sells = idx.wallet_coin_all.sells + excluded.sells,
@@ -31,21 +36,22 @@ export async function compact(sql: Sql, now: string, keepHours: number): Promise
       first_sell_at = least(idx.wallet_coin_all.first_sell_at, excluded.first_sell_at),
       early_slot = idx.wallet_coin_all.early_slot or excluded.early_slot,
       last_at = greatest(idx.wallet_coin_all.last_at, excluded.last_at)
-    returning 1`) as unknown as unknown[];
-  const days = (await sql`
+    returning 1),
+    d as (
     insert into idx.wallet_day (wallet, day, buys, sells, sol_in, sol_out, coins, first_at, last_at)
     select wallet, date_trunc('day', coalesce(first_buy_at, last_at))::date, sum(buys)::int, sum(sells)::int,
       sum(sol_in), sum(sol_out), count(*)::int, min(coalesce(first_buy_at, last_at)), max(last_at)
-    from idx.wallet_coin where last_at < ${cutoff}
+    from moved
     group by wallet, 2
     on conflict (wallet, day) do update set
       buys = idx.wallet_day.buys + excluded.buys, sells = idx.wallet_day.sells + excluded.sells,
       sol_in = idx.wallet_day.sol_in + excluded.sol_in, sol_out = idx.wallet_day.sol_out + excluded.sol_out,
       coins = idx.wallet_day.coins + excluded.coins,
       first_at = least(idx.wallet_day.first_at, excluded.first_at), last_at = greatest(idx.wallet_day.last_at, excluded.last_at)
-    returning 1`) as unknown as unknown[];
-  await sql`delete from idx.wallet_coin where last_at < ${cutoff}`;
-  return { moved: moved.length, days: days.length };
+    returning 1)
+    select (select count(*) from a)::int moved, (select count(*) from d)::int days`) as unknown as [{ moved: number; days: number }];
+    return { moved: r.moved, days: r.days };
+  });
 }
 
 type BoardRow = { kind: string; subject: string; score: number | null; body: unknown };
@@ -83,11 +89,14 @@ export async function buildLeaderboards(sql: Sql, now: string, opts: { newVersio
       from idx.coin where creator is not null group by creator order by graduated desc, coins desc, creator limit 100`).entries())
     rows.push({ kind: "creators", subject: r.creator as string, score: r.graduated as number, body: { coins: r.coins, graduated: r.graduated, rank: i + 1 } });
 
-  if (!opts.newVersion) await sql`delete from idx.leaderboard where version = ${version} and window_days = ${window}`;
+  // the swap is one transaction, so a reader never sees an empty board
+  await sql.begin(async (tx) => {
+  if (!opts.newVersion) await tx`delete from idx.leaderboard where version = ${version} and window_days = ${window}`;
   for (let i = 0; i < rows.length; i += 500)
-    await sql`insert into idx.leaderboard ${sql(
-      rows.slice(i, i + 500).map((r) => ({ ...r, version, window_days: window, rank: (r.body as { rank?: number }).rank ?? 0, built_at: now, body: sql.json(r.body as never) })) as never,
+    await tx`insert into idx.leaderboard ${tx(
+      rows.slice(i, i + 500).map((r) => ({ ...r, version, window_days: window, rank: (r.body as { rank?: number }).rank ?? 0, built_at: now, body: tx.json(r.body as never) })) as never,
       "version", "kind", "window_days", "rank", "subject", "score", "body", "built_at",
     )} on conflict (version, kind, window_days, subject) do update set rank = excluded.rank, score = excluded.score, body = excluded.body, built_at = excluded.built_at`;
+  });
   return { version, rows: rows.length };
 }
