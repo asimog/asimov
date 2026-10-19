@@ -30,4 +30,4 @@ Pruning old archive files.
 `git diff --stat`; each command run with its result; what was not run and why. Echo the write list first; stop if you need a file outside it.
 
 ## State
-Open.
+Passed 2026-10-19. `npm run e2e -- archive-targets` passed: local, S3 (signed PUT against a local endpoint) and git targets all hold the same bytes; a failing target leaves the partition in place and reports the error. `pnpm typecheck` clean. The S3 endpoint and keys stay in env; config only names the bucket, region and prefix.

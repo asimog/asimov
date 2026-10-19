@@ -41,7 +41,12 @@ const SCHEMAS = {
     /** hours hourly rollups stay before compaction to wallet x coin and wallet x day (B7) */
     rollup_hourly_hours: posInt,
     /** where archive files go (B6); B6b adds the bucket and git kinds */
-    archive_targets: z.array(z.discriminatedUnion("kind", [z.strictObject({ kind: z.literal("local"), dir: z.string().min(1) })])).min(1),
+    archive_targets: z.array(z.discriminatedUnion("kind", [
+      z.strictObject({ kind: z.literal("local"), dir: z.string().min(1) }),
+      // the endpoint and keys are env (S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY), never config
+      z.strictObject({ kind: z.literal("s3"), bucket: z.string().min(1), region: z.string().min(1), prefix: z.string().optional() }),
+      z.strictObject({ kind: z.literal("git"), dir: z.string().min(1), remote: z.string().optional(), branch: z.string().min(1).default("main") }),
+    ])).min(1),
   }),
   /** Timers, in minutes, for the jobs of B6 and B7. */
   schedules: z.strictObject({

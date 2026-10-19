@@ -2,14 +2,12 @@
 // file, read back and verified (row count and sha256), recorded in tape.archived, checked against every consumer
 // offset, and only then dropped. A failure leaves the partition in place for the next run.
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import zlib from "node:zlib";
 import type { Config } from "../lib/config.ts";
 import type { Sql } from "../lib/db.ts";
-import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import type { Tape } from "../tape/tape.ts";
+import { type ArchiveTarget, targetsFromConfig } from "./targets.ts";
 
 export type Partition = { table: string; token: string; from: string; to: string };
 type Row = Record<string, unknown>;
@@ -19,9 +17,12 @@ const TOKEN = /^events_p_(\d{10})_inputs_hot$/;
 
 export class Archiver {
   private timer: NodeJS.Timeout | null = null;
-  stats = { runs: 0, archived: 0, dropped: 0, skipped: 0, bytes: 0 };
+  stats = { runs: 0, archived: 0, dropped: 0, skipped: 0, bytes: 0, last_error: "" };
 
-  constructor(private tape: Tape, private sql: Sql, private config: Config, private root = env.root) {}
+  private readonly targets: ArchiveTarget[];
+  constructor(private tape: Tape, private sql: Sql, private config: Config, targets?: ArchiveTarget[]) {
+    this.targets = targets ?? targetsFromConfig(config);
+  }
 
   start() {
     const every = this.config.schedules.archiver_every_min * 60_000;
@@ -49,18 +50,22 @@ export class Archiver {
           const file = `tape-inputs_hot-${p.token}.ndjson.gz`;
           const body = gzip(rows);
           const sha256 = crypto.createHash("sha256").update(body).digest("hex");
-          const dir = this.targetDir();
-          fs.mkdirSync(dir, { recursive: true });
-          fs.writeFileSync(path.join(dir, file), body);
-          const check = verify(path.join(dir, file), rows.length, sha256);
-          if (!check.ok) throw new Error(`archive verify failed: ${check.detail}`);
+          // every target must take the same bytes and give them back; one failure leaves the partition in place
+          const verified: string[] = [];
+          for (const target of this.targets) {
+            await target.put(file, body);
+            const check = verify(await target.get(file), rows.length, sha256);
+            if (!check.ok) throw new Error(`${target.name}: ${check.detail}`);
+            verified.push(`${target.name}=${sha256}`);
+          }
           this.stats.bytes += body.length;
           this.stats.archived++;
           out.archived.push(p.table);
+          const targets = verified.join("\n");
           await this.sql`insert into tape.archived (partition, file, rows, sha256, target, from_time, to_time, verified, at)
-            values (${p.table}, ${file}, ${rows.length}, ${sha256}, ${dir}, ${p.from}, ${p.to}, true, ${new Date(now).toISOString()})
+            values (${p.table}, ${file}, ${rows.length}, ${sha256}, ${targets}, ${p.from}, ${p.to}, true, ${new Date(now).toISOString()})
             on conflict (partition) do nothing`;
-          this.tape.emit("tape.archived", { partition: p.table, file, rows: rows.length, sha256, target: dir, from: p.from, to: p.to, at: new Date(now).toISOString() }, { source: "system", subject: p.table });
+          this.tape.emit("tape.archived", { partition: p.table, file, rows: rows.length, sha256, target: targets, from: p.from, to: p.to, at: new Date(now).toISOString() }, { source: "system", subject: p.table });
           await this.tape.flush();
         }
         await this.sql`select tape.drop_partition(${p.table})`;
@@ -68,6 +73,7 @@ export class Archiver {
         out.dropped.push(p.table);
       } catch (err) {
         this.stats.skipped++;
+        this.stats.last_error = `${p.table}: ${String(err)}`;
         out.skipped.push(p.table);
         log.warn("archive skipped", { partition: p.table, err: String(err) });
       }
@@ -97,20 +103,14 @@ export class Archiver {
     )) as unknown as Row[];
   }
 
-  /** The local target; B6b adds the bucket and git targets. */
-  private targetDir(): string {
-    const t = this.config.retention.archive_targets[0]!;
-    return path.isAbsolute(t.dir) ? t.dir : path.join(this.root, t.dir);
-  }
 }
 
 export function gzip(rows: Row[]): Buffer {
   return zlib.gzipSync(rows.map((r) => `${JSON.stringify(r)}\n`).join(""), { level: 9 });
 }
 
-/** Read the file back: same bytes, same row count, every line parses. */
-export function verify(file: string, rows: number, sha256: string): { ok: boolean; detail: string } {
-  const body = fs.readFileSync(file);
+/** Read the bytes back: same checksum, same row count, every line parses. */
+export function verify(body: Buffer, rows: number, sha256: string): { ok: boolean; detail: string } {
   const sha = crypto.createHash("sha256").update(body).digest("hex");
   if (sha !== sha256) return { ok: false, detail: `sha256 ${sha} != ${sha256}` };
   let n = 0;
