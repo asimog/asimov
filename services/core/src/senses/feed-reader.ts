@@ -232,7 +232,7 @@ export class FeedReader {
       const byChain = chain ?? "unknown";
       this.stats.rejected_by_chain[byChain] = (this.stats.rejected_by_chain[byChain] ?? 0) + 1;
       if (sampled(c.calloutId, this.samplePct))
-        this.tape.emit("filter.sampled", { reason, source, chain, callout: { callout_id: c.calloutId, mint: item.coinMint, position_usd: positionUsd, mcap_usd: mcapUsd } }, { source: "feedreader", subject: c.calloutId, causes });
+        this.tape.emit("filter.sampled", { reason, source, chain, callout: { callout_id: c.calloutId, mint: item.coinMint, position_usd: positionUsd, mcap_usd: mcapUsd }, launch: null }, { source: "feedreader", subject: c.calloutId, causes });
       return false;
     }
     this.tape.emit(

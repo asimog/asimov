@@ -2,6 +2,7 @@
 // distinct wallets than the bound through the Scout's trade entry point never grows it past the bound, and a caller or smart wallet
 // that fell out of memory (or a fresh process after a restart) is still recognised from the table.
 import { replayClock } from "../../../../services/core/src/lib/clock.ts";
+import { LaunchFacts } from "../../../../services/core/src/senses/launch-facts.ts";
 import { Scout } from "../../../../services/core/src/senses/scout.ts";
 import { Tape } from "../../../../services/core/src/tape/tape.ts";
 import type { Check } from "../../lib/checks.ts";
@@ -39,6 +40,7 @@ export const suite: Suite = {
           () => false,
           (m) => promoted.push(m),
           BOUND,
+          { facts: new LaunchFacts(null, false) }, // no RPC and no HTTP in this suite
         );
         scouts.push(s);
         return s;

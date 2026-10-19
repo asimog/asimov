@@ -83,6 +83,15 @@ export class ChainReader {
     return true;
   }
 
+  /** The Scout's chain recheck dropped a coin: stop its stream now; the watch loop will not re-add it once memory clears. */
+  unwatch(mint: string) {
+    const s = subject(mint);
+    this.subs.get(s)?.unsubscribe();
+    this.subs.delete(s);
+    this.leftAt.set(mint, this.tape.clock.now());
+    this.stats.watched = this.subs.size;
+  }
+
   private listen(subject: string) {
     const sub = this.nc!.subscribe(subject);
     this.subs.set(subject, sub);

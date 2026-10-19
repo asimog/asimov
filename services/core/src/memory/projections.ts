@@ -135,10 +135,15 @@ async function onWatched(tx: Tx, e: Envelope<BodyOf<"coin.watched">>) {
     on conflict (mint) do update set watched_at = coalesce(mem.coins.watched_at, excluded.watched_at), watch_reason = coalesce(mem.coins.watch_reason, excluded.watch_reason)`;
 }
 
+/** The chain recheck dropped a coin: it leaves the watched set until a new reason promotes it. */
+async function onUnwatched(tx: Tx, e: Envelope<BodyOf<"coin.unwatched">>) {
+  await tx`update mem.coins set watched_at = null, watch_reason = ${e.body.reason} where mint = ${e.body.mint}`;
+}
+
 export const memory: Consumer = {
   name: "memory",
   projection: true,
-  topics: ["coin.seen", "coin.watched", "callout.created", "callout.updated", "callout.reply", "callout.counts", "trade.curve", "trade.amm"],
+  topics: ["coin.seen", "coin.watched", "coin.unwatched", "callout.created", "callout.updated", "callout.reply", "callout.counts", "trade.curve", "trade.amm"],
   batch: 1000,
   async handle(events, tx) {
     const trades: Envelope<BodyOf<"trade.curve">>[] = [];
@@ -146,6 +151,7 @@ export const memory: Consumer = {
       switch (e.topic) {
         case "coin.seen": await onCoin(tx, e as never); break;
         case "coin.watched": await onWatched(tx, e as never); break;
+        case "coin.unwatched": await onUnwatched(tx, e as never); break;
         case "callout.created": await onCallout(tx, e as never); break;
         case "callout.updated": await onUpdate(tx, e as never); break;
         case "callout.reply": await onReply(tx, e as never); break;

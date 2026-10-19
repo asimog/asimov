@@ -11,6 +11,7 @@ type Coin = {
   last_price: number | null; peak_price: number | null; last_at: number; trades: number; mcap_usd: number | null;
   bundle_buys: number; bundle_sol: number; bundle_wallets: Set<string>; buy_sol: number; graduated: boolean;
   bal: Map<string, number>; bought: Map<string, number>; sniper_sol: number; smart: Set<string>; creator_sold: number; creator_bought: number;
+  creator_buy_sol: number; block0_sol: number;
   pending: { wallet: string; due: number; at: number }[]; // first buys still waiting for their copy price
   marks: { wallet: string; due: number; at: number }[]; // first buys still waiting for their mark price (price at first buy + horizon)
   after: Map<string, { peak: number; at: number }>; // buyer -> highest price since their first buy, and when that buy was
@@ -71,7 +72,7 @@ export class Rollup {
     if (!c) {
       c = {
         first_seen_at: now, first_slot: null, from_birth: false, creator: null, curve_account: null, created_ms: null, last_price: null, peak_price: null, last_at: now, trades: 0, mcap_usd: null,
-        bundle_buys: 0, bundle_sol: 0, bundle_wallets: new Set(), buy_sol: 0, graduated: false, bal: new Map(), bought: new Map(), sniper_sol: 0, smart: new Set(), creator_sold: 0, creator_bought: 0, pending: [], marks: [], after: new Map(), flushed: null, slim: false,
+        bundle_buys: 0, bundle_sol: 0, bundle_wallets: new Set(), buy_sol: 0, graduated: false, bal: new Map(), bought: new Map(), sniper_sol: 0, smart: new Set(), creator_sold: 0, creator_bought: 0, creator_buy_sol: 0, block0_sol: 0, pending: [], marks: [], after: new Map(), flushed: null, slim: false,
       };
       this.coins.set(mint, c);
     }
@@ -124,7 +125,11 @@ export class Rollup {
       c.bought.set(t.wallet, (c.bought.get(t.wallet) ?? 0) + t.sol);
       if (this.snipers.has(t.wallet)) c.sniper_sol += t.sol;
       if (this.smart.has(t.wallet)) c.smart.add(t.wallet);
-      if (t.wallet === c.creator) c.creator_bought += tokens;
+      if (t.wallet === c.creator) {
+        c.creator_bought += tokens;
+        c.creator_buy_sol += t.sol;
+      }
+      if (c.from_birth && slot !== null && c.first_slot !== null && slot === c.first_slot && t.wallet !== c.creator) c.block0_sol += t.sol;
     } else {
       w.sells++;
       w.sol_out += t.sol;
@@ -153,6 +158,12 @@ export class Rollup {
     return this.coins.get(mint)?.curve_account ?? null;
   }
 
+  /** What the launch sources know in memory: creator, curve account and creation time. */
+  launchInfo(mint: string) {
+    const c = this.coins.get(mint);
+    return { creator: c?.creator ?? null, curve_account: c?.curve_account ?? null, created_ms: c?.created_ms ?? null, from_birth: c?.from_birth ?? false };
+  }
+
   /** Launch features as seen now (docs/PIPELINE.md section 3). Shares are of SOL bought on the coin so far. */
   features(mint: string, now: number): Features | null {
     const c = this.coins.get(mint);
@@ -172,6 +183,8 @@ export class Rollup {
       bundle_wallets: c.bundle_wallets.size,
       // what the first-slot buyers still hold, as a share of the whole supply: the part that can be dumped on followers
       bundle_share: Math.min(1, [...c.bundle_wallets].reduce((a, w) => a + Math.max(0, c.bal.get(w) ?? 0), 0) / SUPPLY),
+      dev_buy_sol: c.from_birth ? c.creator_buy_sol : null,
+      block0_sniper_share: c.from_birth ? share(c.block0_sol) : null,
       sniper_share: share(c.sniper_sol),
       top_buyer_share: share([...c.bought.values()].reduce((m, v) => Math.max(m, v), 0)), // no spread: a coin can have more buyers than the call stack allows arguments
       creator_sold: c.creator_bought > 0 ? Math.min(1, c.creator_sold / c.creator_bought) : 0,

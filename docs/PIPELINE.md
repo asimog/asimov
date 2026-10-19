@@ -9,7 +9,7 @@ Reading is cheap; writing is what costs space. Every sense reads everything it c
 | Filter set | Fields (all configurable) |
 |---|---|
 | Feed | sources (`recent`, `hot`, `follow`; `trending` and `top_traders` only after we record their endpoints), every chain read and the stored chains chosen in config (`solana` now; `base`, `robinhood`, `ethereum` and `hyperevm` also seen, `docs/research/pumpfun-endpoints.md`), a callout with no chain decided by `unknown_chain`, minimum position in USD (default 10), market cap at call range |
-| Launch | dev buy range, block-0 sniper share, bundle share, blocklists (`blocked_creators`, `blocked_wallets`, `blocked_mints`) |
+| Launch | dev buy range, block-0 sniper share, bundle share, blocklists (`blocked_creators`, `blocked_wallets`, `blocked_mints`), and `on_unknown` per watch reason |
 | Watch | `WATCH_MAX_COINS`, `WATCH_HOURS`, the Scout floors |
 
 ## 2. Senses
@@ -50,6 +50,8 @@ Reads the whole trade firehose (about 232 trades/s) in memory. The firehose does
 | `metrics` | The launch passes the launch filters and the scan floor (`SCOUT_MIN_MCAP_USD`, `SCOUT_MIN_BUYERS`) |
 
 The floors only decide what we record in full. Strategies keep and evolve their own thresholds. Each promotion carries the coin's launch features. Memory stays bounded: callers and smart wallets are persisted in `idx.scout_wallet`, memory keeps at most `SCOUT_HOT_WALLETS` of them (least recently used out, reloaded from the table on start and on each refresh), a wallet not in memory is looked up in the table in small batches, and idle coin windows are dropped.
+
+Before `coin.watched`, the launch facts are checked: dev buy, block-0 sniper share, bundle share, and the creator, mint and trigger wallet against the owner lists. NATS answers first; the RPC pool answers what NATS does not carry (the creation transaction on the curve PDA), and the pump.fun coin lookup is the last resort. A fact no source answered is `unknown`, and `config/filters.json` `launch.on_unknown` decides it per watch reason. A refused launch is counted and sampled as `filter.sampled`. After promotion, Backfill's own read of the first transactions is compared with the NATS facts; a disagreement writes `system.source_disagree`, RPC wins, the filter runs again, and a coin that now fails leaves the watched set with `coin.unwatched` and a `system.note`.
 
 Ways it fails: the firehose drops (`system.note`, kind `scout_gap`); a caller buys from a second wallet (missed until `caller_wallets` or funder links join it); heat floods the watched set (cap, oldest leave with `system.gap`).
 

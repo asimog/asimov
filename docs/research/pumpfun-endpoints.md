@@ -91,3 +91,5 @@ One small slice, read from Node with the Feed Reader's headers: 2 pages of `/hom
 | NATS `homeFeedNew.head.all.prod` | 0 messages in 20 s |
 
 What this means for the build: the callout feed is multi-chain and the chain value is a plain lowercase word (`solana`, `base`, `robinhood`); the trade stream and the launch messages we use are Solana only. A new chain is added after its own slice is recorded here.
+
+The slices committed on 2026-10-19 for the suites: `tests/e2e/fixtures/pump/trades-slice.json` (76 `unifiedTradeEvent.processed` messages, 20 s, fields above), `tests/e2e/fixtures/pump/launches-slice.json` (10 `newCoinCreated.prod` messages, 20 s) and `tests/e2e/fixtures/pump/feed-slice.json` (2 pages of `recent`, one 403 from `hot`, 1000 `followingFeed` messages; the push payload's only chain identifier is `chainId: 1399811149`).

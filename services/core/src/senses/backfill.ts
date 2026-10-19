@@ -74,6 +74,8 @@ export class Backfill {
     perHour: env.int("RPC_BACKFILL_TX_PER_HOUR"),
   };
   stats = { coins: 0, calls: 0, trades: 0, overlap: 0, skipped_null: 0, decode_errors: 0, queued: 0 };
+  /** The Scout's post-promotion recheck: the trades this run read for a coin (docs/PIPELINE.md). */
+  onRead: ((mint: string, trades: Trade[]) => void) | null = null;
   /** The pool paces each endpoint and falls back between them (docs/OPS.md); this class only counts its hourly budget. */
   constructor(private tape: Tape, private sql: Sql, private pool: RpcPool) {}
 
@@ -137,6 +139,7 @@ export class Backfill {
     const todo = sigs.filter((s) => !s.err && !known.has(s.signature)); // newest first: the minutes before the watch matter most
     this.stats.overlap += sigs.length - todo.length;
     let unread: { from: string; to: string } | null = null;
+    const read: Trade[] = [];
     for (const s of todo) {
       if (this.budgetLeft() <= 0) {
         const t = (x: { blockTime: number | null } | undefined) => (x?.blockTime ? new Date(x.blockTime * 1000).toISOString() : started);
@@ -163,7 +166,9 @@ export class Backfill {
         this.tape.emit("trade.curve", t, { source: "rpc", subject: mint, eventTime: t.ts, dedupe: tradeKey(t) });
         this.stats.trades++;
       }
+      read.push(...trades);
     }
+    if (read.length) this.onRead?.(mint, read);
     this.stats.coins++;
     this.tape.emit("budget.spent", { analyzer: "backfill", units: "rpc", amount: this.stats.calls - calls0, job_event_id: null }, { source: "rpc", subject: mint });
     if (unread) this.tape.emit("system.gap", { source: "rpc", scope: mint, ...unread, reason: "rpc backfill hour budget spent" }, { source: "rpc", subject: mint });

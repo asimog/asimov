@@ -31,9 +31,27 @@ export function passes(c: CalloutFacts, f: CalloutFilters): RejectReason | null 
   return null;
 }
 
-/** A hash of the callout id, so the same callout is sampled on every run. */
+/** A hash of the id, so the same item is sampled on every run. */
 export function sampled(calloutId: string, pct: number): boolean {
   if (pct <= 0) return false;
   const n = crypto.createHash("sha256").update(calloutId).digest().readUInt32BE(0);
   return n % 100 < Math.min(100, pct);
+}
+
+export type LaunchFilters = Config["filters"]["launch"];
+export type LaunchFact = "dev_buy" | "block0_snipers" | "bundle";
+export type LaunchFacts = { dev_buy_sol: number | null; block0_sniper_share: number | null; bundle_share: number | null };
+export type LaunchVerdict = { reason: RejectReason | `unknown_${LaunchFact}` | "dev_buy" | "block0_snipers" | "bundle" | null; unknown: LaunchFact[] };
+
+/** The launch door: a threshold reason wins; an unknown fact is decided by `on_unknown` for the watch reason. */
+export function passesLaunch(f: LaunchFacts, lf: LaunchFilters, watchReason: "caller_buy" | "smart_buy" | "follow" | "heat" | "metrics"): LaunchVerdict {
+  const unknown: LaunchFact[] = [];
+  if (f.dev_buy_sol === null) unknown.push("dev_buy");
+  if (f.block0_sniper_share === null) unknown.push("block0_snipers");
+  if (f.bundle_share === null) unknown.push("bundle");
+  if (f.dev_buy_sol !== null && f.dev_buy_sol > lf.max_dev_buy_sol) return { reason: "dev_buy", unknown };
+  if (f.block0_sniper_share !== null && f.block0_sniper_share > lf.max_block0_sniper_share) return { reason: "block0_snipers", unknown };
+  if (f.bundle_share !== null && f.bundle_share > lf.max_bundle_share) return { reason: "bundle", unknown };
+  if (unknown.length && lf.on_unknown[watchReason] === "refuse") return { reason: `unknown_${unknown[0]!}` as LaunchVerdict["reason"], unknown };
+  return { reason: null, unknown };
 }

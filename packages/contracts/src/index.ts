@@ -82,9 +82,13 @@ export const CalloutUpdated = z.object({
   created_at: iso,
 });
 
-/** A callout the door refused, sampled by a hash of its id so a second run samples the same ones. */
+/** An item the door refused, sampled by a hash so a second run samples the same ones. Callout or launch. */
 export const FilterSampled = z.object({
-  reason: z.enum(["unknown_chain", "chain", "min_position", "min_mcap", "max_mcap"]),
+  reason: z.enum([
+    "unknown_chain", "chain", "min_position", "min_mcap", "max_mcap",
+    "blocked_creator", "blocked_mint", "blocked_wallet",
+    "dev_buy", "block0_snipers", "bundle", "unknown_dev_buy", "unknown_block0_snipers", "unknown_bundle", "unknown_creator",
+  ]),
   source: z.string(),
   chain: z.string().nullable(),
   callout: z.object({
@@ -92,7 +96,13 @@ export const FilterSampled = z.object({
     mint: z.string(),
     position_usd: num.nullable(),
     mcap_usd: num.nullable(),
-  }),
+  }).nullable().default(null),
+  launch: z.object({
+    mint: z.string(),
+    watch_reason: z.string(),
+    wallet: z.string().nullable(),
+    facts: z.record(z.string(), z.unknown()),
+  }).nullable().default(null),
 });
 
 export const CalloutCounts = z.object({
@@ -157,6 +167,15 @@ export const ObservationRaw = z.object({
 });
 
 export const SystemNote = z.object({ kind: z.string(), detail: z.unknown() });
+
+/** NATS and the RPC pool disagree about a launch fact (docs/PIPELINE.md). RPC wins; the coin is re-checked. */
+export const SourceDisagree = z.object({
+  mint: z.string(),
+  fact: z.string(),
+  nats: z.unknown(),
+  rpc: z.unknown(),
+  at: iso,
+});
 
 export const JevAnswer = z.object({
   pack: z.string(),
@@ -304,6 +323,10 @@ export const CoinFeatures = z.object({
   bundle_buys: num,
   bundle_wallets: num,
   bundle_share: num,
+  /** SOL the creator bought first in the launch window; null when the coin did not join at birth. */
+  dev_buy_sol: num.nullable(),
+  /** share of SOL bought in the first slot by wallets other than the creator; null when not seen from birth. */
+  block0_sniper_share: num.nullable(),
   sniper_share: num,
   top_buyer_share: num,
   creator_sold: num,
@@ -320,6 +343,9 @@ export const CoinWatched = z.object({
   trigger_tx: z.string().nullable(),
   features: CoinFeatures,
 });
+
+/** A watched coin left the watched set (docs/PIPELINE.md): the chain recheck disagreed and the launch filter failed. */
+export const CoinUnwatched = z.object({ mint: z.string(), reason: z.string(), by: z.enum(["rpc_recheck", "owner"]) });
 
 /** A coin's first AMM trade: it left the bonding curve (docs/PIPELINE.md, Chain Reader). One per coin. */
 export const CoinGraduated = z.object({
@@ -563,6 +589,7 @@ export const TOPICS = {
   "score.updated": ScoreUpdated,
   "precall.detected": PrecallDetected,
   "coin.watched": CoinWatched,
+  "coin.unwatched": CoinUnwatched,
   "coin.graduated": CoinGraduated,
   "holders.snapshot": HoldersSnapshot,
   "index.refreshed": IndexRefreshed,
@@ -594,6 +621,7 @@ export const TOPICS = {
   "system.note": SystemNote,
   "system.gap": SystemGap,
   "system.schema_drift": SystemNote,
+  "system.source_disagree": SourceDisagree,
 } as const;
 export type Topic = keyof typeof TOPICS;
 export type BodyOf<T extends Topic> = z.infer<(typeof TOPICS)[T]>;
@@ -630,7 +658,7 @@ export const SCHEMA_VERSION: Record<Topic, number> = {
   ...(Object.fromEntries(Object.keys(TOPICS).map((t) => [t, 1])) as Record<Topic, number>),
   "outcome.measured": 2,
   "system.gap": 2,
-  "coin.watched": 2,
+  "coin.watched": 3,
 };
 
 /** Canonical JSON (sorted keys, recursively): the only form commit hashes are computed over. */

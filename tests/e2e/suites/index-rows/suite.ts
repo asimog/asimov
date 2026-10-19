@@ -16,7 +16,7 @@ import type { Suite } from "../../lib/suite.ts";
 const MINT = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const features = (o: Partial<BodyOf<"coin.watched">["features"]> = {}): BodyOf<"coin.watched">["features"] => ({
   from_birth: true, age_s: 30, first_slot: 100, creator: null, trades: 10, buyers: 6, holders_est: 6, mcap_usd: 9000, bundle_buys: 1, bundle_wallets: 1,
-  bundle_share: 0.05, sniper_share: 0, top_buyer_share: 0.2, creator_sold: 0, smart_buyers: 0, ...o,
+  bundle_share: 0.05, dev_buy_sol: 1, block0_sniper_share: 0, sniper_share: 0, top_buyer_share: 0.2, creator_sold: 0, smart_buyers: 0, ...o,
 });
 const snapshot = (f: ReturnType<typeof features>) => ({ mint: MINT, supply: 1e9, top: [{ account: "A1", amount: 1e8 }], excluded: [], top10_share: 0.2, features: f });
 

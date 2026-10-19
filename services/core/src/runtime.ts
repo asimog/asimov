@@ -23,6 +23,7 @@ import { scorekeeper } from "./scorekeeper/scorekeeper.ts";
 import { Backfill } from "./senses/backfill.ts";
 import { ChainReader } from "./senses/chain-reader.ts";
 import { FeedReader } from "./senses/feed-reader.ts";
+import { LaunchFacts } from "./senses/launch-facts.ts";
 import { MediaCache } from "./senses/media-cache.ts";
 import { ReplyReader } from "./senses/reply-reader.ts";
 import { Scout } from "./senses/scout.ts";
@@ -69,8 +70,10 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
         const snap = (tries: number) => void snapshotHolders(pool, tape, mint, curveAccount, [eventId], features).catch((err) =>
           tries > 0 ? setTimeout(() => snap(tries - 1), 30_000) : log.warn("holders", { mint, err: String(err).slice(0, 120) }));
         if (pool.size) setTimeout(() => snap(1), env.int("HOLDERS_DELAY_S") * 1000);
-      })
+      }, env.int("SCOUT_HOT_WALLETS"), { config, facts: new LaunchFacts(pool.size ? pool : null), onDemote: (mint) => chain.unwatch(mint) })
     : null;
+  // Backfill's read is the chain's own answer: the Scout re-checks the launch facts against it (B3)
+  if (backfill && scout) backfill.onRead = (mint, trades) => scout.recheck(mint, trades);
   const timers: NodeJS.Timeout[] = [];
   // the door for thinking agents (docs/SYSTEM.md): off unless MCP_TOKENS names at least one lane
   const tokens = parseTokens(env.opt("MCP_TOKENS"));

@@ -105,7 +105,7 @@ export const suite: Suite = {
       `position >= 50 and mcap <= 1M: ${first.stored.length} stored; position >= 0 and no cap: ${changed.stored.length} stored`,
     );
 
-    const ids = (s: { callout: { callout_id: string } }[]) => s.map((x) => x.callout.callout_id).sort().join(",");
+    const ids = (s: { callout: { callout_id: string } | null }[]) => s.map((x) => x.callout?.callout_id ?? "").sort().join(",");
     add(
       "the sample is the same on a second run",
       first.samples.length > 0 && ids(first.samples) === ids(second.samples),
