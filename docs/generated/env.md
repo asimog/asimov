@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-301 keys. Secrets live only in `.env.local` and are not listed here.
+304 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -68,6 +68,8 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `EMBEDDING_BASE_URL` | `${LLM_BASE_URL}` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `EMBEDDING_MODEL` | ` ` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `EMBEDDING_API_KEY` | ` ` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `LLM_USD_HOUR_EMBED` | `0.05` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `EMBEDDING_PRICE_PER_M` | `0.02` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_SYNTH` | `0.2` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_SWARM` | `0.5` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_EXTRACT` | `0.1` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
@@ -161,6 +163,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `MCP_TOKEN_RESEARCHER` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `MCP_TOKEN_REPORTER` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `MCP_TOKEN_INTEGRITY` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `MCP_TOKEN_LIBRARIAN` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `BETTAFISH_FEED_EVERY_MIN` | `30` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `BETTAFISH_FEED_WINDOW_MIN` | `60` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `BETTAFISH_COIN_RUNS_PER_HOUR` | `6` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |

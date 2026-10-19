@@ -2,7 +2,7 @@
 // (docs/SYSTEM.md). Core enforces the capability; the graph refuses anything outside this list before it leaves the process.
 import type { LaneName } from "@asimog/lane";
 
-export const AGENT_NAMES = ["noop", "postmortem", "researcher", "ops", "reporter", "integrity"] as const;
+export const AGENT_NAMES = ["noop", "postmortem", "researcher", "ops", "reporter", "integrity", "librarian"] as const;
 export type AgentName = (typeof AGENT_NAMES)[number];
 
 export const AGENTS: Record<AgentName, { cap: string; lane: LaneName; tokenEnv: string; tools: string[] }> = {
@@ -12,4 +12,6 @@ export const AGENTS: Record<AgentName, { cap: string; lane: LaneName; tokenEnv: 
   ops: { cap: "cap:ops.stop", lane: "OPS", tokenEnv: "MCP_TOKEN_OPS", tools: ["doctor", "state", "events_since", "ops_alert", "ops_stop", "ops_restart_request", "job_event"] },
   reporter: { cap: "cap:report", lane: "OPS", tokenEnv: "MCP_TOKEN_REPORTER", tools: ["state", "ledger_summary", "scores", "board_signals", "soul_read", "draft_report", "job_event"] },
   integrity: { cap: "cap:integrity.write", lane: "OPS", tokenEnv: "MCP_TOKEN_INTEGRITY", tools: ["board_signals", "integrity_evidence", "write_integrity_text", "job_event"] },
+  // no graph and no chat model: it embeds new texts into agents.memory on every tick (E5), metered on the EMBED lane
+  librarian: { cap: "cap:memory.read", lane: "OPS", tokenEnv: "MCP_TOKEN_LIBRARIAN", tools: ["events_since", "job_event"] },
 };

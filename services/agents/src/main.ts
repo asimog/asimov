@@ -1,6 +1,6 @@
 // Agents service: `tsx services/agents/src/main.ts`. Deterministic ticks queue jobs; a worker runs them.
 // Needs the core MCP server (MCP_PORT) and one token per agent (MCP_TOKEN_<AGENT>) in .env.local.
-import { Lane, loadEnv, need } from "@asimog/lane";
+import { Embedder, Lane, loadEnv, need } from "@asimog/lane";
 import { configValues, modelChain } from "../../core/src/lib/config.ts";
 import { makeCheckpointer } from "./checkpoint.ts";
 import { connect, migrate, PgSpend } from "./db.ts";
@@ -23,6 +23,8 @@ const rt = new AgentsRuntime({
   token: (a) => env[AGENTS[a].tokenEnv] ?? env[`MCP_TOKEN_${a.toUpperCase()}`],
   lane: (n, a) => lanes.get(a) ?? (lanes.set(a, new Lane(n, { spend, models: modelChain(models, a) })), lanes.get(a)!),
   checkpointer,
+  // E5: the Librarian embeds only when an embedding model is set (or LLM_STUB is on); spend is metered on the EMBED lane
+  embedder: env.EMBEDDING_MODEL || ["1", "true"].includes(env.LLM_STUB ?? "") ? new Embedder({ spend }) : undefined,
   enabled,
 });
 const loop = async () => {

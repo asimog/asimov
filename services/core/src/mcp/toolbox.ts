@@ -27,13 +27,14 @@ export const CAP = {
   soul: "cap:soul.update",
   exchange: "cap:report.exchange", // the Slow Bridge (docs/SLOW-MIND.md): escalation triggers in, reports out
   swarmRead: "cap:swarm.read", // the MiroShark worker (docs/SLOW-MIND.md M7, M10): its report agent and caller personas, reads only
+  memory: "cap:memory.read", // the Librarian (E5): reads the texts the agents' memory embeds, writes nothing but job events
 } as const;
 export const ALL_CAPS: string[] = Object.values(CAP);
 
 /** Who a capability's writes are recorded as on the Tape. */
 const SOURCE: Record<string, Source> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul", [CAP.exchange]: "slow-bridge", [CAP.swarmRead]: "miroshark" };
 /** Topic prefixes and signal kinds a capability may read through `events_since` and `board_signals`. */
-const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["jev.escalated"] };
+const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["jev.escalated"], [CAP.memory]: ["callout.created", "callout.reply", "report.published", "report.drafted", "wiki.page"] };
 const READ_KINDS: Record<string, string[]> = { [CAP.integrity]: ["integrity.finding"], [CAP.report]: ["synthesis.", "mood.", "swarm."] };
 
 /** Sources written by thinking lanes and core on their behalf. */
@@ -177,7 +178,7 @@ export const TOOLS: Tool[] = [
     return { mint: a.mint, since: a.since, as_of: at, ...b, ...k };
   }),
 
-  tool("events_since", [CAP.propose, CAP.ops, CAP.exchange], "Events of allowed topics after a cursor (seen_time, id), oldest first. The trigger feed for agents.", { topics: z.array(z.string()).min(1).max(8), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
+  tool("events_since", [CAP.propose, CAP.ops, CAP.exchange, CAP.memory], "Events of allowed topics after a cursor (seen_time, id), oldest first. The trigger feed for agents.", { topics: z.array(z.string()).min(1).max(8), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
     const allowed = READ_TOPICS[c.cap] ?? [];
     for (const t of a.topics) if (!allowed.some((p) => t.startsWith(p))) throw new Refusal("out_of_lane", `topic ${t} is not readable with ${c.cap}`);
     const rows = await c.sql`select id, topic, seen_time, subject, body from tape.events

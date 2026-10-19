@@ -3,7 +3,7 @@
 name: asimog
 services:
   pg:
-    image: postgres:18
+    image: pgvector/pgvector:0.8.1-pg18-trixie
     container_name: asimog-pg
     restart: unless-stopped
     environment: { POSTGRES_USER: asimog, POSTGRES_DB: asimog, POSTGRES_HOST_AUTH_METHOD: trust }

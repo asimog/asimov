@@ -55,7 +55,7 @@ Success measures:
 | `agents` | TS | LangGraph thinking agents (Postmortem, Researcher, Ops, Reporter, Integrity writer, Wiki writer) |
 | `relay` | TS | Read-only public fan-out to viewers |
 | `web` | TS | Next.js rooms |
-| Postgres 18 | | Tape, Memory, Board, Index, books, wiki, slow views |
+| Postgres 18 with pgvector | | Tape, Memory, Board, Index, books, wiki, slow views, agents' embedded memory |
 | Neo4j 5 | | MiroShark graph memory |
 | Archive storage | | Hourly Tape archive files (`OPS.md`) |
 

@@ -2,6 +2,13 @@
 
 Dated decisions with their reason. The newest are first. Open questions for the owner are at the end. A decision changes only by a new row here.
 
+## 2026-10-19 (E5, embeddings)
+
+| Decision | Why |
+|---|---|
+| Postgres runs the `pgvector/pgvector` image (same Postgres 18, plus the `vector` extension) | As-of similarity search must sit next to `seen_at` in one SQL query; a separate vector store would need its own time filter and its own backups |
+| Embedding calls use `fetch` against the OpenAI-compatible `/embeddings` endpoint, no new client library | One POST and one JSON answer; the standard library is enough |
+
 ## 2026-10-19 (owner, C phase)
 
 | Decision | Why |

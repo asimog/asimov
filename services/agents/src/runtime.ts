@@ -1,11 +1,12 @@
 // The agents runtime: deterministic triggers fill the job table, a worker claims jobs and runs each agent's graph with
 // its own belt of core tools, its own model lane and a Postgres checkpoint thread per job (docs/SYSTEM.md).
-import { BudgetExceeded, type Lane, type LaneName } from "@asimog/lane";
+import { BudgetExceeded, type Embedder, type Lane, type LaneName } from "@asimog/lane";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Sql } from "./db.ts";
 import { buildGraph } from "./graphs.ts";
 import { claim, enqueue, finish, getCursor, type Job, setCursor } from "./jobs.ts";
 import { AGENT_NAMES, AGENTS, type AgentName } from "./lanes.ts";
+import { itemOf, MEMORY_TOPICS, recall, remember } from "./memory.ts";
 import { type Belt, loadBelt } from "./tools.ts";
 
 const MIN = 60_000;
@@ -25,6 +26,8 @@ export interface AgentsOpts {
   /** the lane for one agent: spend metered under the lane name, model chain per agent (config/models.json) */
   lane: (name: LaneName, agent: AgentName) => Lane;
   checkpointer?: BaseCheckpointSaver;
+  /** the embedder for agents.memory (E5); without it the Librarian idles and graphs get no recall */
+  embedder?: Embedder;
   now?: () => number;
   enabled?: AgentName[];
 }
@@ -36,6 +39,19 @@ export class AgentsRuntime {
   constructor(private o: AgentsOpts) {
     this.now = o.now ?? (() => Date.now());
     this.enabled = o.enabled ?? AGENT_NAMES.filter((a) => a !== "noop");
+  }
+
+  /** Librarian (E5): embed texts seen since its cursor. A budget refusal leaves the cursor, so the batch is retried later. */
+  async index(limit = 50): Promise<number> {
+    if (!this.o.embedder || !this.enabled.includes("librarian")) return 0;
+    const belt = await this.belt("librarian");
+    const cur = await getCursor(this.o.sql, "librarian");
+    const { events } = await belt.call<{ events: { id: string; topic: string; seen_time: string; subject: string | null; body: Record<string, unknown> }[] }>("events_since", { topics: MEMORY_TOPICS, after_seen_time: cur.seen_time ?? undefined, after_id: cur.id ?? undefined, limit });
+    if (!events.length) return 0;
+    const n = await remember(this.o.sql, this.o.embedder, events.flatMap((e) => itemOf(e) ?? []));
+    const last = events.at(-1)!;
+    await setCursor(this.o.sql, "librarian", new Date(last.seen_time).toISOString(), last.id);
+    return n;
   }
 
   belt(agent: AgentName): Promise<Belt> {
@@ -57,6 +73,7 @@ export class AgentsRuntime {
       const slotStart = new Date(n * s.period + s.offset).toISOString();
       if (await enqueue(this.o.sql, agent, { type: "schedule", slot: slotStart }, `${agent}:${slotStart}`)) queued.push(agent);
     }
+    await this.index().catch((err) => console.error(JSON.stringify({ librarian: String(err instanceof Error ? err.message : err).slice(0, 200) })));
     // Postmortem: each closed position that lost money
     if (this.enabled.includes("postmortem")) {
       const belt = await this.belt("postmortem");
@@ -101,7 +118,8 @@ export class AgentsRuntime {
     await ev("started");
     let out: { ok: boolean; cost_usd: number; result?: unknown; error?: string };
     try {
-      const graph = buildGraph(job.agent, { belt, lane }, this.o.checkpointer);
+      const emb = this.o.embedder;
+      const graph = buildGraph(job.agent, { belt, lane, recall: emb ? (q) => recall(this.o.sql, emb, q) : undefined }, this.o.checkpointer);
       const res = await graph.invoke({ trigger: job.trigger }, { configurable: { thread_id: job.id } });
       out = { ok: true, cost_usd: lane.usd - usd0, result: res.result ?? {} };
     } catch (err) {
