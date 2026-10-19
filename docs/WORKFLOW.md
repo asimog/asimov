@@ -18,6 +18,7 @@ A small diff in a protected path is still mode C. Mode A never starts Docker, in
 
 - Every unit of work is a row in `docs/PLAN.md` that links a task file in `docs/tasks/` (template: `docs/tasks/_template.md`).
 - One row per session. The session ends when that row's acceptance command has run and the result is in the row. Commit per row, with the check in the message.
+- Stage files by name (`git add <paths>`), never `git add -A`: the working tree may hold files that are not yours.
 - A task file has one observable. If its objective needs "and", it is two tasks.
 - The current-behaviour field names a file and line. The acceptance field is a command and the line that proves it, never "verify it works".
 
