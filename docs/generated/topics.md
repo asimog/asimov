@@ -60,7 +60,7 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `thesis.formed` | `thesis_id`, `mint`, `strategy_id`, `position_id`, `kind`, `claims`, `prediction`, `plan`, `invalidation`, `commit_id` |
 | `post.queued` | `post_id`, `kind`, `mint`, `house_id`, `thesis_id`, `text`, `checks`, `because`, `paper` |
 | `synthesis.feed` | `synthesis_id`, `window_min`, `preset`, `narratives`, `coin_stances`, `suspicious`, `claims_total`, `claims_dropped` |
-| `mood.feed` | `synthesis_id`, `mood`, `label`, `n_callouts` |
+| `mood.feed` | `synthesis_id`, `mood`, `label`, `n_callouts`, `n_bullish`, `n_bearish`, `bull_share` |
 | `synthesis.coin` | `synthesis_id`, `mint`, `stance`, `narrative`, `claims`, `claims_total`, `claims_dropped`, `preset` |
 | `synthesis.forum_line` | `synthesis_id`, `round`, `agent`, `text`, `cites` |
 | `swarm.wave_p` | `swarm_id`, `mint`, `wave_p`, `samples`, `preset`, `usd`, `truncated` |

@@ -80,7 +80,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | D3 | Done 2026-10-19 (`docs/tasks/D3.md`). One public-text check in core for every MCP write; citation markers as a separate field | `mcp-text` passed: a borrowed id is dropped; 0 text violations in 27 fields of 15 tools |
 | D4 | Done 2026-10-19 (`docs/tasks/D4.md`). Prompt fencing, worker hardening, required env per engine | `worker-refuses` passed: 401, 400, 409, 429, cancel, boot refused, 0 injected prompts outside the fence |
 | D5 | Done 2026-10-19 (`docs/tasks/D5.md`). Bridge on its own timer, deferred escalations, empty swarms fail, real round numbers | `slow-bridge` passed: 15 checks, the 4 new ones included |
-| D6 | Core recomputes swarm and mood numbers; mood emitted or removed; Brier readers fixed (`docs/tasks/D6.md`) | Board values equal raw-count recompute |
+| D6 | Done 2026-10-19 (`docs/tasks/D6.md`). Core recomputes swarm and mood numbers; mood computed in core (owner); Brier readers checked | `slow-numbers` passed: Board wave_p 0.40 = 2/5 full samples; swarm Brier 0.36 on it |
 | D7 | Re-run 5.5 and 5.14 checks (`docs/tasks/D7.md`) | Their suites pass |
 
 ### E. Public features

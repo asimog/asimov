@@ -65,7 +65,9 @@ The gate is the core consumer `attention` (`services/core/src/mind/escalate.ts`)
 
 ## 4. How strategies use slow signals
 
-`synthesis.coin`, `swarm.wave_p` and `mood.feed` are System Two kinds in the signal catalog. Only `medium` and `slow` strategies may name them, always with `missing: skip`. A slow number reaches the Board only after core's checks. The report text is for the site (`/synthesis`, `/simulations`), never for decisions.
+`synthesis.coin`, `swarm.wave_p` and `mood.feed` are System Two kinds in the signal catalog. Only `medium` and `slow` strategies may name them, always with `missing: skip`.
+
+Every slow number is core's own arithmetic. MiroShark sends raw counts per sample (`branch`, `callers`, `actions`, `net_lamports`, `truncated`; the schema refuses any other field, so an engine-sent `wave_p` is refused). Core keeps full samples only: `wave_p` is the share of full branch A samples with at least `SWARM_WAVE_CALLERS` callers (the same setting the Scorekeeper's hit uses), `d_callers` and `d_net_sol` are B's mean minus A's, `samples` counts full A samples and `truncated` says one was cut. `mood.feed` is computed by core from each kept `synthesis.feed`: the distinct callouts cited by bullish stances against those cited by bearish or avoid stances; `mood` = (bull - bear) / (bull + bear), `bull_share` = bull / (bull + bear), labelled fearful or greedy past a third of the way to either end; no cited stance, no mood. A slow number reaches the Board only after core's checks. The report text is for the site (`/synthesis`, `/simulations`), never for decisions.
 
 ## 5. The Slow Bridge
 
@@ -77,7 +79,7 @@ The gate is the core consumer `attention` (`services/core/src/mind/escalate.ts`)
 | jobs | `slow.jobs`: one row per run, idempotent by engine, kind, subject and slot; stale jobs re-queued. A grant with no room (core marked it `deferred`, or the per-hour quota is spent) waits as `deferred` with its reason; each schedule tick first expires deferred jobs older than `SLOW_DEFER_MAX_MIN` (`failed: expired`), then promotes the oldest while quota allows |
 | engines | Clients for the BettaFish worker and the MiroShark REST API; each worker requires a bearer token, caps concurrency, refuses duplicate ids and supports cancel |
 | fan-out | One escalation can start both engines; in the `full` preset the swarm may wait for the BettaFish coin report |
-| mapper | Engine output to core write tools; a zero-action swarm finishes `failed: empty_swarm` and writes nothing; truncated samples are excluded from means (MiroShark's `summarize`); forum lines carry the engine's own round |
+| mapper | Engine output to core write tools; a zero-action swarm finishes `failed: empty_swarm` and writes nothing; core leaves truncated samples out of every mean (MiroShark's `summarize` does the same for its report text only); forum lines carry the engine's own round |
 | exchange | Reports both ways |
 | health | Queue depth, real cost per lane and engine health for `ctl slow` and `ctl doctor` |
 

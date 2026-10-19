@@ -469,7 +469,10 @@ export const SynthesisFeed = z.object({
   claims_total: num,
   claims_dropped: num,
 });
-export const MoodFeed = z.object({ synthesis_id: z.string(), mood: num.min(-1).max(1), label: z.enum(["fearful", "calm", "greedy"]), n_callouts: num });
+/** Computed in core from the callouts cited by the feed's kept bullish and bearish (or avoid) stances (docs/DECISIONS.md, D6). */
+export const MoodFeed = z.object({
+  synthesis_id: z.string(), mood: num.min(-1).max(1), label: z.enum(["fearful", "calm", "greedy"]), n_callouts: num, n_bullish: num, n_bearish: num, bull_share: num.min(0).max(1),
+});
 export const SynthesisCoin = z.object({
   synthesis_id: z.string(),
   mint: z.string(),

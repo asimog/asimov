@@ -11,9 +11,8 @@ export type RunOutput = {
   reports?: ReportOut[];
   synthesis_feed?: Record<string, unknown>; // emit_synthesis_feed arguments
   synthesis_coin?: Record<string, unknown>; // emit_synthesis_coin arguments
-  mood?: Record<string, unknown>; // emit_mood_feed arguments
   forum_lines?: Record<string, unknown>[]; // emit_forum_line arguments
-  swarm?: Record<string, unknown>; // emit_swarm_result arguments
+  swarm?: Record<string, unknown>; // emit_swarm_result arguments: raw per-sample counts, posts, usd
   beliefs?: Record<string, unknown>; // emit_swarm_beliefs arguments (topic, branches)
   cost_usd?: number;
   truncated?: boolean; // the run stopped at its usd_cap and returned what it had

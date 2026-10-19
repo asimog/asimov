@@ -59,7 +59,8 @@ export interface Tool {
   input: z.ZodObject;
   run(a: never, c: ToolCtx): Promise<unknown>;
 }
-const tool = <S extends z.ZodRawShape>(name: string, caps: string[], desc: string, shape: S, run: (a: z.infer<z.ZodObject<S>>, c: ToolCtx) => Promise<unknown>): Tool => ({ name, caps, desc, input: z.object(shape), run: run as Tool["run"] });
+/** `strict`: an unknown argument is refused, not dropped (a number core computes must not arrive from an engine). */
+const tool = <S extends z.ZodRawShape>(name: string, caps: string[], desc: string, shape: S, run: (a: z.infer<z.ZodObject<S>>, c: ToolCtx) => Promise<unknown>, strict = false): Tool => ({ name, caps, desc, input: strict ? z.strictObject(shape) : z.object(shape), run: run as Tool["run"] });
 
 const ANY_LANE = ALL_CAPS.filter((c) => c !== CAP.swarmRead); // the read-only worker token records nothing
 const source = (c: ToolCtx) => SOURCE[c.cap] ?? "agents";
@@ -120,6 +121,20 @@ const keepAll = <T extends Record<string, unknown>>(xs: T[], fields: (keyof T & 
 const cited = (found: Map<string, string>, cites: string[], mint?: string) => cites.length > 0 && cites.every((id) => found.has(id) && (!mint || found.get(id) === mint));
 
 const Cites = z.array(z.string()).max(12);
+const mean = (xs: number[]) => xs.reduce((a, x) => a + x, 0) / xs.length;
+/** A swarm sample is a wave when this many distinct simulated callers call (the Scorekeeper's hit uses the same setting). */
+const WAVE_CALLERS = env.int("SWARM_WAVE_CALLERS");
+/** Mood past a third of the way to either end gets its label. */
+const MOOD_BAND = 1 / 3;
+
+/** Feed mood from counts (D6): distinct callouts cited by kept bullish stances against those cited by bearish or avoid ones. */
+function moodOf(stances: { stance: string; cites: string[] }[]) {
+  const ids = (k: string[]) => new Set(stances.filter((s) => k.includes(s.stance)).flatMap((s) => s.cites));
+  const [bull, bear] = [ids(["bullish"]).size, ids(["bearish", "avoid"]).size];
+  const n = bull + bear;
+  const mood = n ? (bull - bear) / n : 0;
+  return { n_callouts: n, n_bullish: bull, n_bearish: bear, bull_share: n ? bull / n : 0.5, mood, label: mood <= -MOOD_BAND ? ("fearful" as const) : mood >= MOOD_BAND ? ("greedy" as const) : ("calm" as const) };
+}
 const Stance = z.enum(["bullish", "bearish", "neutral", "avoid"]);
 
 export const TOOLS: Tool[] = [
@@ -276,14 +291,10 @@ export const TOOLS: Tool[] = [
     const kept = narratives.length + coin_stances.length + suspicious.length;
     const total = a.narratives.length + a.coin_stances.length + a.suspicious.length + a.dropped_before;
     c.tape.emit("synthesis.feed", { synthesis_id: a.synthesis_id, window_min: a.window_min, preset: a.preset, narratives, coin_stances, suspicious, claims_total: total, claims_dropped: total - kept }, { source: source(c), subject: "global", dedupe: `synthesis.feed:${a.synthesis_id}` });
+    const mood = moodOf(coin_stances);
+    if (mood.n_callouts) c.tape.emit("mood.feed", { synthesis_id: a.synthesis_id, ...mood }, { source: source(c), subject: "global", dedupe: `mood.feed:${a.synthesis_id}` });
     await c.tape.flush();
-    return { claims_kept: kept, claims_dropped: total - kept };
-  }),
-
-  tool("emit_mood_feed", [CAP.synth], "Write the feed mood (computed by code from callout text).", { synthesis_id: z.string(), mood: z.number().min(-1).max(1), label: z.enum(["fearful", "calm", "greedy"]), n_callouts: z.number() }, async (a, c) => {
-    c.tape.emit("mood.feed", a, { source: source(c), subject: "global", dedupe: `mood.feed:${a.synthesis_id}` });
-    await c.tape.flush();
-    return { ok: true };
+    return { claims_kept: kept, claims_dropped: total - kept, mood: mood.n_callouts ? mood : null };
   }),
 
   tool("emit_synthesis_coin", [CAP.synth], "Write a coin synthesis. Claims must cite callouts on that coin seen inside the run's window and pass the text check.", {
@@ -307,14 +318,22 @@ export const TOOLS: Tool[] = [
     return { ok: true };
   }),
 
-  tool("emit_swarm_result", [CAP.swarm], "Write a swarm run: wave probability, impact and the simulated posts.", {
-    swarm_id: z.string(), mint: z.string(), preset: z.string(), samples: z.number().int().min(1), usd: z.number().min(0), truncated: z.boolean(),
-    wave_p: z.number().min(0).max(1), d_callers: z.number(), d_net_sol: z.number(),
+  tool("emit_swarm_result", [CAP.swarm], "Write a swarm run from its raw per-sample counts; core computes the wave probability and impact over full samples. SIMULATED.", {
+    swarm_id: z.string(), mint: z.string(), preset: z.string(), usd: z.number().min(0),
+    samples: z.array(z.strictObject({ branch: z.enum(["A", "B"]), callers: z.number().int().min(0), actions: z.number().int().min(0), net_lamports: z.number(), truncated: z.boolean() })).min(1).max(50),
     posts: z.array(z.object({ branch: z.enum(["A", "B"]), platform: SwarmPlatform, round: z.number().int(), agent: z.string().max(60), archetype: z.string().max(40), text: z.string().max(280) })).max(400),
   }, async (a, c) => {
     const subject = a.mint;
-    c.tape.emit("swarm.wave_p", { swarm_id: a.swarm_id, mint: a.mint, wave_p: a.wave_p, samples: a.samples, preset: a.preset, usd: a.usd, truncated: a.truncated }, { source: source(c), subject, dedupe: `swarm.wave_p:${a.swarm_id}` });
-    c.tape.emit("swarm.impact", { swarm_id: a.swarm_id, mint: a.mint, d_callers: a.d_callers, d_net_sol: a.d_net_sol, samples: a.samples, truncated: a.truncated }, { source: source(c), subject, dedupe: `swarm.impact:${a.swarm_id}` });
+    // D6: every number from the raw counts, over full samples only (a sample cut short saw fewer rounds)
+    const full = a.samples.filter((s) => !s.truncated);
+    const [A, B] = [full.filter((s) => s.branch === "A"), full.filter((s) => s.branch === "B")];
+    if (!A.length) throw new Refusal("no_full_samples", "no full branch A sample: no wave probability");
+    const wave_p = A.filter((s) => s.callers >= WAVE_CALLERS).length / A.length;
+    const d_callers = B.length ? mean(B.map((s) => s.callers)) - mean(A.map((s) => s.callers)) : 0;
+    const d_net_sol = B.length ? (mean(B.map((s) => s.net_lamports)) - mean(A.map((s) => s.net_lamports))) / 1e9 : 0;
+    const truncated = full.length < a.samples.length;
+    c.tape.emit("swarm.wave_p", { swarm_id: a.swarm_id, mint: a.mint, wave_p, samples: A.length, preset: a.preset, usd: a.usd, truncated }, { source: source(c), subject, dedupe: `swarm.wave_p:${a.swarm_id}` });
+    c.tape.emit("swarm.impact", { swarm_id: a.swarm_id, mint: a.mint, d_callers, d_net_sol, samples: A.length, truncated }, { source: source(c), subject, dedupe: `swarm.impact:${a.swarm_id}` });
     let refused = 0;
     a.posts.forEach((p, i) => {
       const kept = keepText(p, ["agent", "archetype", "text"]);
@@ -325,8 +344,8 @@ export const TOOLS: Tool[] = [
       c.tape.emit("swarm.post", { swarm_id: a.swarm_id, mint: a.mint, ...kept, simulated: true }, { source: source(c), subject, dedupe: `swarm.post:${a.swarm_id}:${i}` });
     });
     await c.tape.flush();
-    return { posts_written: a.posts.length - refused, posts_refused: refused };
-  }),
+    return { wave_p, d_callers, d_net_sol, samples: A.length, truncated, posts_written: a.posts.length - refused, posts_refused: refused };
+  }, true),
 
   tool("emit_swarm_beliefs", [CAP.swarm], "Write a swarm run's belief drift: mean stance per archetype per round, per branch and sample. SIMULATED.", {
     swarm_id: z.string(), mint: z.string(), topic: z.string().max(40),

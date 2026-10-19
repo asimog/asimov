@@ -509,7 +509,9 @@ def execute(run_id: str, req: dict) -> None:
         ir = {"template": TITLE, "sections": rep["sections"], "graph": {"graph_id": gid, "features": asimog_graph.FEATURES, "seeded": seeded, **counts},
               "platforms": sorted(platforms()), "branches": {k: [{kk: vv for kk, vv in x.items() if kk != "posts"} for x in v] for k, v in res.items()}}
         out = {"beliefs": {"topic": sym, "branches": {k: [x["drift"] for x in v] for k, v in res.items()}},
-               "swarm": {"samples": sm["samples"], "actions": sm["actions"], "usd": meter.usd, "truncated": truncated, "wave_p": wave_p, "d_callers": d_callers, "d_net_sol": d_net, "posts": posts},
+               # raw counts per sample: core computes wave_p, d_callers and d_net_sol from them (D6); summarize is for the report text only
+               "swarm": {"samples": [{"branch": k, "callers": x["callers"], "actions": x["actions"], "net_lamports": x["net_lamports"], "truncated": x["truncated"]} for k, v in res.items() for x in v],
+                         "usd": meter.usd, "posts": posts},
                "reports": [{"producer": "miroshark.report", "kind": "swarm", "subject": req["subject"], "summary": summary[:590], "cites": cites, "markdown": md, "ir": ir, "simulated": True}],
                "cost_usd": meter.usd, "truncated": truncated}
         with LOCK:

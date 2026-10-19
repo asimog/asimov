@@ -54,13 +54,13 @@ export const suite: Suite = {
       const bf = await fakeEngine((r) => ({ state: "done", output: {
         reports: [{ producer: "bettafish.report", kind: r.kind, subject: r.subject, summary: "PEPE callers early and bullish; DOGE flagged as a likely rug by two callers.", cites: ["co_a1", "co_b1", "co_FAKE"], ir: { sections: ["narratives"] }, markdown: "# Feed" }],
         ...(r.kind === "feed"
-          ? { synthesis_feed: { window_min: r.window_min, narratives: [{ title: "PEPE early", summary: "Two callers early on PEPE.", cites: ["co_a1", "co_a2"] }, { title: "made up", summary: "Invented.", cites: ["co_FAKE"] }], coin_stances: [], suspicious: [] }, mood: { mood: 0.2, label: "calm", n_callouts: 6 } }
+          ? { synthesis_feed: { window_min: r.window_min, narratives: [{ title: "PEPE early", summary: "Two callers early on PEPE.", cites: ["co_a1", "co_a2"] }, { title: "made up", summary: "Invented.", cites: ["co_FAKE"] }], coin_stances: [], suspicious: [] } }
           : { synthesis_coin: { stance: "bullish", narrative: "Early callers buying.", claims: [{ text: "Callers early", cites: ["co_a1"] }] } }),
         cost_usd: 0.01,
       } }));
       const ms = await fakeEngine((r) => ({ state: "done", output: {
         reports: [{ producer: "miroshark.report", kind: "swarm", subject: r.subject, summary: "SIMULATED: the call spreads to six tracked callers in most samples.", cites: ["co_a1"], simulated: true }],
-        swarm: { samples: 3, actions: 12, usd: 0.02, truncated: false, wave_p: 0.67, d_callers: 2, d_net_sol: 1.5, posts: [{ branch: "A", platform: "pumpfun", round: 1, agent: "caller0", archetype: "caller", text: "PEPE still early" }] },
+        swarm: { usd: 0.02, samples: [{ branch: "A", callers: 6, actions: 4, net_lamports: 0, truncated: false }, { branch: "A", callers: 6, actions: 4, net_lamports: 0, truncated: false }, { branch: "A", callers: 1, actions: 4, net_lamports: 0, truncated: false }], posts: [{ branch: "A", platform: "pumpfun", round: 1, agent: "caller0", archetype: "caller", text: "PEPE still early" }] },
         cost_usd: 0.02,
       } }));
       let t = w.clock.now();
@@ -97,7 +97,7 @@ export const suite: Suite = {
       const bfReports = (await w.sql`select report_id from slow.reports where producer like 'bettafish.%' and subject = ${MINT_A}`).map((r) => r.report_id as string);
       add("MiroShark's run lists BettaFish reports on the coin as parents (or runs in parallel with none yet)", !!swarmReq && swarmReq.parent_reports.every((p) => bfReports.includes(p)), JSON.stringify(swarmReq?.parent_reports));
       const [wave] = await w.sql`select body from tape.events where topic = 'swarm.wave_p' and subject = ${MINT_A}`;
-      add("the swarm result reaches the Tape", (wave?.body as { wave_p?: number } | undefined)?.wave_p === 0.67);
+      add("the swarm result reaches the Tape", Math.abs(Number((wave?.body as { wave_p?: number } | undefined)?.wave_p) - 2 / 3) < 1e-9, `wave_p ${(wave?.body as { wave_p?: number } | undefined)?.wave_p} (core's recompute: 2 of 3 samples)`);
       const [msRep] = await w.sql`select e.body from tape.events e where e.topic = 'report.published' and e.body->>'producer' = 'miroshark.report'`;
       add("the MiroShark report is published and marked simulated", (msRep?.body as { simulated?: boolean } | undefined)?.simulated === true);
 
@@ -166,7 +166,7 @@ export const suite: Suite = {
       add("a grant over quota is deferred and runs in the next hour", first === "deferred" && later?.state === "done", `${first} then ${later?.state}${later?.error ? ` (${later.error})` : ""}`);
 
       // 8. a swarm with no simulated action fails and writes no wave_p
-      const empty = await fakeEngine(() => ({ state: "done", output: { swarm: { samples: 3, actions: 0, usd: 0, truncated: false, wave_p: 0.9, d_callers: 0, d_net_sol: 0, posts: [] }, cost_usd: 0.01 } }));
+      const empty = await fakeEngine(() => ({ state: "done", output: { swarm: { usd: 0, samples: [{ branch: "A", callers: 0, actions: 0, net_lamports: 0, truncated: false }], posts: [] }, cost_usd: 0.01 } }));
       const b7 = new Bridge({ sql: w.sql, cores, engines: { bettafish: null, miroshark: new EngineClient("miroshark", empty.url, WORKER_TOKEN) }, now: () => Date.now() + shift, newId: () => `sj_e${++n}`, cfg });
       grant(MINT_B, 2);
       await w.tape.flush();
