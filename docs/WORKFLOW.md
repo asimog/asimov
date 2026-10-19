@@ -27,7 +27,7 @@ A small diff in a protected path is still mode C. Mode A never starts Docker, in
 - Roles: investigator (read-only, returns findings with file:line), writer (edits only its write list), verifier (runs the acceptance command, reports raw results).
 - The writer echoes its write list before starting and stops if it needs any other file. It returns `git diff --stat`, the commands it ran with results, and what it did not run.
 - One writer per file at a time. Fan out only over disjoint write lists.
-- The top agent owns the shared files: `services/core/src/runtime.ts`, `packages/contracts/`, `services/core/src/sql/schema.sql`, `tests/e2e/main.ts`, `docs/PLAN.md`, `docs/DECISIONS.md`. A subagent that needs one changed returns the exact change as a request.
+- The top agent owns the shared files: `services/core/src/runtime.ts`, `packages/contracts/`, `services/core/src/sql/schema.sql`, `tests/e2e/main.ts`, `tests/e2e/suites.ts`, `docs/PLAN.md`, `docs/DECISIONS.md`. A subagent that needs one changed returns the exact change as a request.
 - Freeze shared interfaces (contracts, schema, runtime wiring) before dispatching writers.
 - A retry is a fresh agent with the consolidated brief. Never resume an agent that went outside its write list.
 - Models come from `~/.claude/rules/pstack-models.md`.
