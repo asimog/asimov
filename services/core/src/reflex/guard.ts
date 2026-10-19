@@ -5,10 +5,14 @@
 const OPEN = "<<<";
 const CLOSE = ">>>";
 
-/** Wrap untrusted text in a fence it cannot break: fence marks and control characters inside it are removed. */
+/** Control characters (tab and newline stay), zero-width marks and bidi overrides: they can hide text from a reader. */
+const hidden = (c: number) => (c < 0x20 && c !== 0x09 && c !== 0x0a) || c === 0x7f || (c >= 0x200b && c <= 0x200f) || (c >= 0x202a && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069);
+
+/** Wrap untrusted text in a fence it cannot break: fence marks and hidden characters inside it are removed. */
 export function fence(text: string | null | undefined, max = 800): string {
-  const clean = (text ?? "")
-    .replace(/[\u0000-\u0008\u000b-\u001f\u007f​-‏‪-‮⁦-⁩]/g, "")
+  const clean = Array.from(text ?? "")
+    .filter((c) => !hidden(c.codePointAt(0)!))
+    .join("")
     .replaceAll(OPEN, "")
     .replaceAll(CLOSE, "")
     .slice(0, max);
