@@ -61,7 +61,7 @@ function row(wallet: string, handle: string | null, calls: Call[]): LedgerRow {
 /** `at`: the ledger as it stood then (calls and outcomes seen by `at`). */
 export async function ledger(sql: Sql, o: { horizon?: number; at?: string } = {}) {
   const horizon = o.horizon ?? 5;
-  const upto = o.at ?? "infinity";
+  const upto = o.at ?? "9999-12-31T00:00:00Z";
   const rows = await sql`
     with calls as (
       select e.body->>'callout_id' id, e.body->>'author_wallet' wallet, e.body->>'author_handle' handle, e.body->>'mint' mint,
