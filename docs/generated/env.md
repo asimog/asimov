@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-268 keys. Secrets live only in `.env.local` and are not listed here.
+269 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -203,6 +203,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `INDEX_SNIPER_SHARE` | `0.5` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `BUNDLE_SLOTS` | `3` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_COIN_IDLE_MIN` | `30` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `INDEX_MAX_COINS` | `3000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_FRESH_WARMUP_H` | `24` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_KNOWN_WALLETS` | `500000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `RPC_MAX_TRIES` | `6` | defaults that lived in code until fix plan 2.1; each key has one default, here |

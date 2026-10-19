@@ -22,18 +22,18 @@ Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (st
 
 ### A. Finish as-of reads (fix plan Phase 3)
 
-Every row is built and pushed (2cf6401). A1, A7, A10, A12 and A13 passed their checks on 2026-10-19 (A7, A13 on the 10-minute tape); `npm run checks:status` marks them pending only until they re-run on the current commit. Only A8 is open.
+Every row is built and pushed (2cf6401). A1, A7, A10, A12 and A13 passed their checks on 2026-10-19 (A7, A13 on the 10-minute tape); `npm run checks:status` marks them pending only until they re-run on the current commit. A8's code is done; only its 30-minute soak is unrun.
 
 | # | Work | Task |
 |---|---|---|
 | A1 | The desk wakes on `precall.detected` whatever the consumer order (order proof passed); restart proof passed 2026-10-19 | `docs/tasks/A1-restart.md` |
 | A7 | caller.dna and the ledger agree | `docs/tasks/A7.md` |
-| A8 | Scout bounded (passed); core's heap still grows over a 30-min smoke | `docs/tasks/A8-heap.md` |
+| A8 | Scout bounded (passed); rollup capped at `INDEX_MAX_COINS` (`rollup-bounded` passed; 30-min soak not run) | `docs/tasks/A8-heap.md` |
 | A10 | `coin.graduated` derived on the first AMM trade after curve trades | `docs/tasks/A10.md` |
 | A12 | 2-minute fixtures replay in under 60 s, measured idle | `docs/tasks/A12.md` |
 | A13 | Live-leg replay is deterministic | `docs/tasks/A13.md` |
 
-**Resume here.** Read `docs/WORKFLOW.md`, then take A8, then the B rows in order. B0 is done (`tape-durable` passed). Follow-ups noted for later rows: the Scout's trigger trade has an unknown phase (C8); `strategies-replay`, `callout-case-replay` and the site suites have not run on the 2-minute fixture.
+**Resume here.** Read `docs/WORKFLOW.md`, then the B rows in order. B0 is done (`tape-durable` passed). Follow-ups noted for later rows: the Scout's trigger trade has an unknown phase (C8); `strategies-replay`, `callout-case-replay` and the site suites have not run on the 2-minute fixture.
 
 ### B. Filter at the door and data tiers
 

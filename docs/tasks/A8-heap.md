@@ -30,4 +30,4 @@ RSS tuning, GC flags.
 `git diff --stat`; commands run with results; what was not run and why.
 
 ## State
-Open.
+Code done 2026-10-19, fast check instead of the 30-minute smoke (owner call): `Rollup` now caps full coins at `INDEX_MAX_COINS` (default 3000); older written coins are dropped or slimmed (wallet maps cleared, copy-price and mark state kept). Cause found by reading, not by heap snapshot: every coin keeps `bal`/`bought` maps per wallet for the whole 30-min idle window, equal to the smoke length, so memory could not flatten. `npm run e2e -- rollup-bounded` PASS (1.8 s, mock trades over 400 coins); `index-rows` unchanged. The 30-minute soak (acceptance above) has not run.
