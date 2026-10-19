@@ -15,7 +15,8 @@ This file is a map. Read a doc only when your task touches it.
 | `docs/EXECUTION.md` | Wallets, Trader, Signer, Publisher, books |
 | `docs/UI.md` | The website, design tokens and the banned list |
 | `docs/OPS.md` | Config, data tiers and pruning, deploy, stopping, testing, evals |
-| `docs/PLAN.md` | What to build next, in order, each with its check |
+| `docs/WORKFLOW.md` | How to work: modes, task files, subagents, context, vendor code. Read it before your first task |
+| `docs/PLAN.md` | What to build next, in order, each row with its suite and task file |
 | `docs/DECISIONS.md` | Why things are the way they are; add a row when the owner decides |
 | `docs/LATER.md` | Far-off scope; do not build it unless the owner moves it into the plan |
 | `docs/generated/` | Topics, tables, settings and signal kinds, generated from code. Run `npm run docs:gen` after changing any of them |
@@ -36,18 +37,19 @@ Everything meets on the Tape. Senses write input events; consumers read topics a
 
 - `packages/contracts/`: zod schemas for every topic (`TOPICS`), checked on every write.
 - `services/core/src/`: `tape/`, `lib/` (Clock, env, db, `RpcPool`), `senses/`, `memory/`, `index/`, `board/`, `analyzers/`, `reflex/` (Jev), `mind/` (strategies, Risk Gate), `hands/`, `treasury/`, `scorekeeper/`, `hunt/`, `mcp/`, `soul/`, `cli/ctl.ts`. `runtime.ts` holds the one consumer list.
-- `services/signer`, `relay`, `agents`, `slow-bridge`, `bettafish/engine`, `miroshark/engine`; `packages/lane/`; `apps/web/`; `tests/e2e/`; `agent/skills/` (runtime skills for the firm's thinking agents); `scripts/`.
+- `services/signer`, `relay`, `agents`, `slow-bridge`, `bettafish/engine`, `miroshark/engine` (outside code: read its `VENDOR.md` first); `packages/lane/`; `apps/web/`; `tests/e2e/`; `agent/skills/` (runtime skills for the firm's thinking agents); `scripts/`.
 
 To add a sense: a module in `senses/`, its topics in contracts, `npm run docs:gen`. To add a consumer: its folder, one line in `runtime.ts`, restart-safe. To add a provider: chosen by env, behind a pool if there are several.
 
 ## How to work
 
+Process (modes, task files, subagents, tests) is in `docs/WORKFLOW.md`; test tiers in `docs/OPS.md` section 9. Code rules:
+
 1. **Docs and code agree.** A change that alters behaviour updates its doc in the same change. Docs describe the target; gaps are rows in `docs/PLAN.md`.
 2. **Build the whole feature, keep the code lean.** No mocks or thin slices standing in for the real thing, and no layers, flags or helpers the feature does not need. Use the standard library first; a new dependency needs a reason in `docs/DECISIONS.md`. TypeScript and Python only.
-3. **Test behaviour through the module's interface, failing first.** Prefer short tape replays. A new analyzer writes its ways it fails before its code. Tests prove the general behaviour; never special-case a test input.
+3. **Test behaviour through the module's interface.** Tests prove the general behaviour; never special-case a test input. Use the cheapest tier that proves it.
 4. **Delete what became unused.** No backward compatibility and no migrations: update every caller in the same change.
-5. **Done means checked.** Run `pnpm typecheck`, `npm run lint`, `npm run docs:check` and the relevant short replays, then report what you ran, what you deleted and what you did not run. Full suites run only when the owner asks. If a check cannot run, say which and why instead of reporting done.
-6. **Read before you claim.** Open a file before describing it. Name a file and line for every claim about the code.
+5. **Read before you claim.** Open a file before describing it. Name a file and line for every claim about the code.
 
 ## Boundaries
 

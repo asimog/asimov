@@ -6,6 +6,9 @@ Dated decisions with their reason. The newest are first. Open questions for the 
 
 | Decision | Why |
 |---|---|
+| Process has one home, `docs/WORKFLOW.md`: modes, one PLAN row and task file per session, one writer per file, shared files owned by the top agent | The Section A run spread work across one long session; subagents edited files outside their lists and a merge lost a change |
+| Tests are tiered (fast, slow, soak, milestone) with budgets; bare `npm run e2e` runs the fast tier only; one test run at a time | Hours went to tests running on top of each other and to suites that did not need to run for the change |
+| The BettaFish and MiroShark engines stay in git but are fenced: lint and default search skip them except our adapters, and each has a `VENDOR.md` | About 58k vendor files crowded search and lint; untracking would add a setup step |
 | While prototyping, no large databases are preserved and no data migrations are written: schema changes happen in place and are tested on a new database or the smallest slice of data. Replay and test databases are disposable and the e2e runner drops its own | Building speed; there is no data worth keeping yet |
 | Tape pruning: hot raw trades 4 h while testing, raw feed pages 1 h, Board history 48 h; callouts, decisions and books kept; archive every hour. The append-only rule now reads: no row is ever edited or deleted, and only the archiver drops whole hours after their archive file is checked | Keep Postgres small without losing replays; tune the window after measuring |
 | The Index builds only from its own summaries. Leaderboards update hourly, a light rebuild runs every 12 h, a full rebuild every 48 h, and a deeper refresh (backfill, seed lists, owner updates) weekly | Raw trades are not needed once summarized; top lists stay always available |

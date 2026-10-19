@@ -2,7 +2,7 @@
 
 The work between the code today and the design in the other docs, in order. This is the one plan: it replaces the archived fix plan of 2026-10-18, and every open row of that plan is here (Phase 3 in A, Phase 4 in C, Phase 5 in D, Phase 6 and 1.16 in F, 1.17 in A13). Each unit ends in a check. Security fixes are named here only in outline: the detailed audit notes stay in the gitignored `docs/.archive/`, because the repo is public. Live trading is the last step and never blocks a unit.
 
-Checks per unit follow `OPS.md` section 9: typecheck, lint, `docs:check` and short replays. Full suites run only when the owner asks.
+How a row is worked is in `WORKFLOW.md`: one row per session, its task file in `docs/tasks/`, its check from the cheapest tier in `OPS.md` section 9. A row is done when its suite passed on the commit that closes it (`npm run checks:status`).
 
 ## Done
 
