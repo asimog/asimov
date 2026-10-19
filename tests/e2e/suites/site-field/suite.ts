@@ -7,6 +7,8 @@ type Snap = { mode: string; mandate_sol: number; milestone: string; pool: { aliv
 
 export const suite: Suite = {
   name: "site-field",
+  tier: "milestone",
+  covers: ["apps/web/", "services/relay/"],
   proves: "The Field's HUD numbers, region captions and caller-link count equal the relay snapshot; every tape line in the strip is a line the relay served; every motion cue the scene drew names an event that exists on the Tape; a canvas is drawn or the no-WebGL line is shown.",
   async run() {
     const up = await servers();

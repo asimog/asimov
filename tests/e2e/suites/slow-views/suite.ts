@@ -18,6 +18,8 @@ const SHAPE: Record<string, string[]> = {
 
 export const suite: Suite = {
   name: "slow-views",
+  tier: "fast",
+  covers: ["services/core/src/sql/schema.sql"],
   proves: "Slow views carry the column shapes the upstream engines expect, slow_reader reads only them, and slow.as_of hides later rows.",
   async run() {
     const sql = connect(undefined, 2);

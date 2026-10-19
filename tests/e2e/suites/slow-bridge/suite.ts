@@ -39,6 +39,8 @@ async function fakeEngine(answer: (r: RunRequest) => RunStatus): Promise<Fake> {
 
 export const suite: Suite = {
   name: "slow-bridge",
+  tier: "fast",
+  covers: ["services/slow-bridge/"],
   proves: "The Slow Bridge queues feed runs and escalations once, feeds both engines from one escalation, maps outputs through core's validators, passes reports between engines, and survives a dead engine.",
   async run() {
     const w = await slowEnv("slowbridge");

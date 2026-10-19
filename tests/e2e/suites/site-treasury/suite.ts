@@ -18,6 +18,8 @@ const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).
 
 export const suite: Suite = {
   name: "site-treasury",
+  tier: "milestone",
+  covers: ["apps/web/", "services/relay/"],
   proves: "The Treasury's balance, net, closed count and reconciliation equal /v1/treasury; the proof chain's hashes recompute from the Tape in this suite's own code; the page verifies each link and shows all of them verified.",
   async run() {
     const up = await servers();

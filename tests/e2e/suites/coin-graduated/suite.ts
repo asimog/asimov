@@ -3,11 +3,8 @@
 // The Index rollup, the one writer of idx.coin, marks a coin graduated from its AMM trades.
 import path from "node:path";
 import { Rollup } from "../../../../services/core/src/index/rollup.ts";
-import { connect } from "../../../../services/core/src/lib/db.ts";
-import { env } from "../../../../services/core/src/lib/env.ts";
 import type { Check } from "../../lib/checks.ts";
 import { freshDb } from "../../lib/freshdb.ts";
-import { replay } from "../../lib/replay.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const FIXTURE = path.join(import.meta.dirname, "..", "..", "fixtures", "tapes", "graduated-2m.ndjson.gz");
@@ -18,28 +15,23 @@ const trade = (mint: string, tx: string, at: string, onCurve: boolean) => ({
 
 export const suite: Suite = {
   name: "coin-graduated",
+  tier: "slow",
+  covers: ["services/core/src/analyzers/precall.ts", "services/core/src/index/rollup.ts"],
   proves: "On a recorded tape, the called coin that graduates gets exactly one coin.graduated at its first AMM trade, and every coin.graduated follows curve trades of that coin; the rollup marks AMM coins graduated in idx.coin.",
-  async run() {
+  async run(ctx) {
     const checks: Check[] = [];
     const add = (name: string, pass: boolean, detail = "") => checks.push({ name, pass, detail });
-    const r = await replay(FIXTURE, { tag: "grad" });
-    try {
-      const rows = await r.sql`select subject, body, causes from tape.events where topic = 'coin.graduated' order by seen_time, id`;
-      const mine = rows.filter((x) => x.subject === CALLED);
-      const [first] = await r.sql`select id, body->>'tx' tx from tape.events where topic = 'trade.amm' and subject = ${CALLED} order by seen_time, id limit 1`;
-      add("the called coin graduates exactly once, at its first AMM trade", mine.length === 1 && (mine[0]!.causes as string[])[0] === first?.id && (mine[0]!.body as { tx: string }).tx === first?.tx, `${mine.length} events`);
-      const [bad] = await r.sql`select count(*)::int n from tape.events g where g.topic = 'coin.graduated'
-        and not exists (select 1 from tape.events c where c.topic = 'trade.curve' and c.subject = g.subject and c.body->>'program' is not null and c.seen_time < g.seen_time)`;
-      const [ammOnly] = await r.sql`select count(distinct subject)::int n from tape.events a where a.topic = 'trade.amm'
-        and not exists (select 1 from tape.events c where c.topic = 'trade.curve' and c.subject = a.subject)`;
-      add("no coin.graduated without curve trades before it, and the called coin is the only one", bad!.n === 0 && rows.length === 1, `${rows.length} graduations; ${ammOnly!.n} coins seen only on the AMM get none`);
-      add("the replay ran under 60 s", r.ms < 60_000, `${r.ms} ms, ${r.steps} steps`);
-    } finally {
-      await r.sql.end({ timeout: 2 });
-      const admin = connect(env.str("DATABASE_URL"), 1);
-      await admin.unsafe(`drop database if exists ${r.db} with (force)`);
-      await admin.end();
-    }
+    const r = await ctx.replay("grad", { tape: FIXTURE }); // the runner owns the database and drops it
+    const rows = await r.sql`select subject, body, causes from tape.events where topic = 'coin.graduated' order by seen_time, id`;
+    const mine = rows.filter((x) => x.subject === CALLED);
+    const [first] = await r.sql`select id, body->>'tx' tx from tape.events where topic = 'trade.amm' and subject = ${CALLED} order by seen_time, id limit 1`;
+    add("the called coin graduates exactly once, at its first AMM trade", mine.length === 1 && (mine[0]!.causes as string[])[0] === first?.id && (mine[0]!.body as { tx: string }).tx === first?.tx, `${mine.length} events`);
+    const [bad] = await r.sql`select count(*)::int n from tape.events g where g.topic = 'coin.graduated'
+      and not exists (select 1 from tape.events c where c.topic = 'trade.curve' and c.subject = g.subject and c.body->>'program' is not null and c.seen_time < g.seen_time)`;
+    const [ammOnly] = await r.sql`select count(distinct subject)::int n from tape.events a where a.topic = 'trade.amm'
+      and not exists (select 1 from tape.events c where c.topic = 'trade.curve' and c.subject = a.subject)`;
+    add("no coin.graduated without curve trades before it, and the called coin is the only one", bad!.n === 0 && rows.length === 1, `${rows.length} graduations; ${ammOnly!.n} coins seen only on the AMM get none`);
+    add("the replay ran under 60 s", r.ms < 60_000, `${r.ms} ms, ${r.steps} steps`);
 
     const db = await freshDb("coingrad");
     try {

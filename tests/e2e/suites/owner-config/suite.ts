@@ -13,6 +13,8 @@ const ADMIN = "admin-secret";
 
 export const suite: Suite = {
   name: "owner-config",
+  tier: "fast",
+  covers: ["services/core/src/mind/owner.ts", "services/core/src/cli/ctl.ts", "config/"],
   proves: "ctl limits and ctl lists change the next live gate decision, need the admin token and are on the Tape; a malformed env value stops boot with a named error.",
   async run() {
     const checks: Check[] = [];

@@ -9,6 +9,8 @@ type B = { at: number; range: { from: number; to: number }; total: number; kinds
 
 export const suite: Suite = {
   name: "site-rewind",
+  tier: "milestone",
+  covers: ["apps/web/", "services/relay/"],
   proves: "At three times T the relay's Board has exactly the signals that were live at T (per-kind counts equal an independent query; sampled subjects equal core's liveFor; none produced after T or expired); no tape line is newer than T; the page slider shows the same counts.",
   async run() {
     const up = await servers();

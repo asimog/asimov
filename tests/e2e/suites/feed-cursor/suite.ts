@@ -19,6 +19,8 @@ const item = (i: number, at: number) => ({
 
 export const suite: Suite = {
   name: "feed-cursor",
+  tier: "fast",
+  covers: ["services/core/src/senses/feed-reader.ts"],
   proves: "A restarted feed reader does not re-walk the feed: the startup walk stops at the newest callout already read and the history walk resumes or stays done; callouts posted during the downtime are still read.",
   async run() {
     const checks: Check[] = [];

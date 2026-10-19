@@ -38,6 +38,8 @@ const count = (f: Fake, m: string) => f.seen.filter((x) => x === m).length;
 
 export const suite: Suite = {
   name: "rpc-pool",
+  tier: "fast",
+  covers: ["services/core/src/lib/rpc.ts"],
   proves: "The RPC pool respects each provider's rate limit, monthly budget and refused methods, spills over on trouble, and never leaks a key.",
   async run() {
     const checks: Check[] = [];

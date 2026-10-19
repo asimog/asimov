@@ -15,6 +15,8 @@ const mint = (i: number) => `M${String(i).padStart(8, "0")}111111111111111111111
 
 export const suite: Suite = {
   name: "scout-bounded",
+  tier: "fast",
+  covers: ["services/core/src/senses/scout.ts"],
   proves:
     "The Scout keeps at most SCOUT_HOT_WALLETS wallets in memory however many distinct wallets trade, and a known caller or smart wallet that was evicted, or met after a restart, still promotes its coin from idx.scout_wallet.",
   async run() {

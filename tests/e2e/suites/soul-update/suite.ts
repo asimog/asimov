@@ -10,6 +10,8 @@ const sha = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
 export const suite: Suite = {
   name: "soul-update",
+  tier: "fast",
+  covers: ["services/core/src/soul/"],
   proves: "SOUL.md changes only through soul.update: valid edits make hash-chained versions; protected parts, bad shapes, a broken chain and the wrong capability are refused.",
   async run() {
     const checks: Check[] = [];

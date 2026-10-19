@@ -42,6 +42,8 @@ function randomCurve(r: () => number): Curve {
 
 export const suite: Suite = {
   name: "amm-golden",
+  tier: "fast",
+  covers: ["services/core/src/mind/fill.ts", "services/core/src/analyzers/curve-math.ts"],
   proves: "The TypeScript curve port quotes the same lamports and tokens as @pump-fun/pump-sdk on 1,000 buys and 1,000 sells.",
   async run() {
     const checks: Check[] = [];

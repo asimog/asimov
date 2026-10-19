@@ -5,6 +5,8 @@ import { seedSpecs } from "../../../../services/core/src/mind/seeds.ts";
 
 export const suite: Suite = {
   name: "strategies-replay",
+  tier: "slow",
+  covers: ["services/core/src/mind/"],
   proves: "30 seed strategies load and evaluate on the tape; every intent is gated; ghost fills, exits, rent refunds, markouts and allocation rounds happen with costs counted.",
   tape: true,
   async run(ctx) {

@@ -5,6 +5,8 @@ import type { Suite } from "../../lib/suite.ts";
 
 export const suite: Suite = {
   name: "evolution-replay",
+  tier: "slow",
+  covers: ["services/core/src/mind/evolve.ts", "services/core/src/mind/kernel.ts"],
   proves: "The evolution loop runs on tape time: offspring are born from parents with trades, all pass the validator, none is a near-copy in its niche, and lineage is on the Tape.",
   tape: true,
   async run(ctx) {

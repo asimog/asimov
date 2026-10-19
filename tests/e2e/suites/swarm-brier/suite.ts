@@ -22,6 +22,8 @@ const callout = (id: string, mint: string, wallet: string, at: string) => ({
 
 export const suite: Suite = {
   name: "swarm-brier",
+  tier: "fast",
+  covers: ["services/core/src/scorekeeper/"],
   proves: "swarm.wave_p is Brier-scored against the real feed: a hit when five or more distinct callers call within the horizon, a miss otherwise, never before the horizon has passed. synthesis.coin stances are scored on the price an hour later; a coin with no trades is skipped.",
   async run() {
     const db = await freshDb("swarmbrier");

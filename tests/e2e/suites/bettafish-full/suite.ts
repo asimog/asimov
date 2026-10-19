@@ -11,6 +11,8 @@ import type { Suite } from "../../lib/suite.ts";
 
 export const suite: Suite = {
   name: "bettafish-full",
+  tier: "milestone",
+  covers: ["services/bettafish/engine/"],
   proves: "Insight, Query and Media run in parallel over our data with the forum host steering them; forum lines and each engine's report reach core.",
   async run() {
     const checks: Check[] = [];

@@ -30,6 +30,9 @@ export function inputs(tapeFile?: string) {
 export type Report = {
   suite: string;
   proves: string;
+  tier: string;
+  /** why the suite did not run; a skipped suite never passes */
+  skipped: string | null;
   run_id: string;
   started_at: string;
   duration_ms: number;
@@ -43,7 +46,7 @@ export type Report = {
 export function write(r: Omit<Report, "pass">, files: Record<string, string> = {}): Report & { artifact_dir: string; sha256: string } {
   const sha = (x: string) => crypto.createHash("sha256").update(x).digest("hex");
   const metrics = Object.keys(files).length ? { ...r.metrics, files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, sha(v)])) } : r.metrics;
-  const report: Report = { ...r, metrics, pass: r.checks.every((c) => c.pass) };
+  const report: Report = { ...r, metrics, pass: !r.skipped && r.checks.every((c) => c.pass) };
   const dir = path.join("artifacts", "e2e", r.suite, r.run_id);
   fs.mkdirSync(dir, { recursive: true });
   for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
@@ -81,7 +84,7 @@ table{border-collapse:collapse;width:100%;margin:4px 0}th,td{border-bottom:1px s
 th{color:var(--muted);font-weight:500}.pass{color:var(--pass)}.fail{color:var(--fail)}h2{font:600 13px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em;margin:32px 0 8px}
 div{overflow-x:auto}
 </style>
-<h1>${esc(r.suite)} <span class="${r.pass ? "pass" : "fail"}">${r.pass ? "PASS" : "FAIL"}</span></h1>
+<h1>${esc(r.suite)} <span class="${r.pass ? "pass" : "fail"}">${r.skipped ? `SKIP (${esc(r.skipped)})` : r.pass ? "PASS" : "FAIL"}</span></h1>
 <p>${esc(r.proves)}<br>sha256 ${digest.slice(0, 16)} · run ${esc(r.run_id)} · ${r.duration_ms} ms</p>
 <h2>Checks</h2><div><table>${r.checks.map((c) => `<tr><td class="${c.pass ? "pass" : "fail"}">${c.pass ? "pass" : "FAIL"}</td><th>${esc(c.name)}</th><td>${esc(c.detail)}</td></tr>`).join("")}</table></div>
 <h2>Inputs</h2><div>${table(r.inputs)}</div>

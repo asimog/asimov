@@ -21,11 +21,13 @@ const NEEDED = ["TX_SEND_URL", "WALLET_TRADE", "SIGNER_CLIENT_TOKEN_SWAP", "LIVE
 
 export const suite: Suite = {
   name: "live-roundtrip",
+  tier: "milestone",
+  covers: ["services/core/src/hands/", "services/signer/"],
   proves: "With the owner's keys: 0.01 SOL buy and sell through the Risk Gate, Signer and chain; real fills; token account closed and rent back; books reconcile to the lamport.",
   async run() {
     const missing = NEEDED.filter((k) => !env.opt(k));
     if (process.env.LIVE_TEST !== "1" || missing.length)
-      return { checks: [{ name: "skipped: needs LIVE_TEST=1 and the owner's keys", pass: true, detail: process.env.LIVE_TEST !== "1" ? "LIVE_TEST is not 1" : `missing env: ${missing.join(", ")}` }], metrics: { skipped: true } };
+      return { checks: [], metrics: {}, skipped: `needs LIVE_TEST=1 and the owner's keys: ${process.env.LIVE_TEST !== "1" ? "LIVE_TEST is not 1" : `missing env: ${missing.join(", ")}`}` };
 
     const db = await freshDb("live");
     const clock = liveClock("live");

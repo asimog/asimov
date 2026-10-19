@@ -38,6 +38,8 @@ const questions = (n: number) => Array.from({ length: n }, (_, i) => ({ pack: "c
 
 export const suite: Suite = {
   name: "agent-lanes",
+  tier: "fast",
+  covers: ["services/agents/", "services/core/src/mcp/"],
   proves: "Thinking agents see only their own tools, are refused outside their lane, run from deterministic triggers with per-lane spend limits, and write only through core's validators.",
   async run() {
     const checks: Check[] = [];

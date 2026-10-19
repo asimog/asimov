@@ -19,6 +19,8 @@ function leaves(v: unknown, out: string[] = []): string[] {
 
 export const suite: Suite = {
   name: "site-integrity",
+  tier: "milestone",
+  covers: ["apps/web/", "services/relay/"],
   proves: "The Integrity ledger rows equal /v1/integrity (calls, measured, won); a case page prints every fact of the `ctl case` JSON, in six sections in order, each fact inside its own section; the callout text sits in a fenced block.",
   async run() {
     const up = await servers();

@@ -53,6 +53,8 @@ function swarmAnswer(steps: Map<string, number>) {
 
 export const suite: Suite = {
   name: "miroshark-pumpfun",
+  tier: "slow",
+  covers: ["services/miroshark/engine/"],
   proves: "MiroShark's Wonderwall engine runs our Pump.fun module with camel agents and a stub model: actions move the curve, a callout without a position is refused, branch B carries our callout, and swarm results and the SIMULATED report reach the Tape through the Bridge.",
   async run() {
     const checks: Check[] = [];

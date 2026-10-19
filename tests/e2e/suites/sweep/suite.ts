@@ -8,6 +8,8 @@ import type { Suite } from "../../lib/suite.ts";
 
 export const suite: Suite = {
   name: "sweep",
+  tier: "fast",
+  covers: ["services/core/src/treasury/sweep.ts"],
   proves: "Three sweeps match chain amounts to the lamport; the 50/50 split and the agent runway cap hold; a half-landed sweep is resumed without a second payment; the books still reconcile.",
   async run() {
     const w = await world("sweep");

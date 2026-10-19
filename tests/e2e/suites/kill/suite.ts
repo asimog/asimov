@@ -20,6 +20,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const suite: Suite = {
   name: "kill",
+  tier: "fast",
+  covers: ["services/core/src/treasury/kill.ts"],
   proves: "A live order exists only for a paper fill. halted stops every order and the Signer refuses on its own; exit_only refuses buys and lets exits close positions; only live events trip it; a failed sell is retried until it closes; a confirm timeout never sends twice; resume needs the admin token; the live gate is off by default.",
   async run() {
     const checks: Check[] = [];

@@ -13,6 +13,8 @@ type Sims = { runs: { id: string; simulated: boolean; wave_p: number; d_callers:
 
 export const suite: Suite = {
   name: "slow-rooms",
+  tier: "fast",
+  covers: ["services/relay/src/slow-rooms.ts"],
   proves: "/v1/synthesis serves the forum, coin stances, reports with cites and claim survival per engine; /v1/simulations serves each swarm with simulated: true, impact, belief drift, posts per platform and its Swarm Report.",
   async run() {
     const checks: Check[] = [];

@@ -29,6 +29,8 @@ function answer(system: string, user: string): string {
 
 export const suite: Suite = {
   name: "bettafish-insight",
+  tier: "slow",
+  covers: ["services/bettafish/engine/", "services/slow-bridge/"],
   proves: "The vendored BettaFish Insight engine runs its full plan, search, summary and reflection loop over our slow.* views with a stub model, cites real callout ids, and its output reaches the Tape through the Bridge and core's citation rule.",
   async run() {
     const checks: Check[] = [];

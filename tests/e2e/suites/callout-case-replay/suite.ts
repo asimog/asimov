@@ -14,6 +14,8 @@ const COVERAGE = ["ok", "no_entry", "no_trades", "gap"];
 
 export const suite: Suite = {
   name: "callout-case-replay",
+  tier: "slow",
+  covers: ["services/core/src/hunt/", "services/core/src/scorekeeper/ledger.ts"],
   proves:
     "Every callout outcome is ov2 with a coverage status; the caller ledger's denominators add up and keep losing calls; a case file has six evidence sections, fences untrusted text and rebuilds byte-identical; a late gap supersedes overlapping outcomes without deleting them; a consumer restart and duplicate ingestion change nothing.",
   tape: true,

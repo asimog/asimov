@@ -8,6 +8,8 @@ import type { Suite } from "../../lib/suite.ts";
 
 export const suite: Suite = {
   name: "pump-http",
+  tier: "fast",
+  covers: ["services/core/src/senses/pump-http.ts"],
   proves: "After a 429 the next request on the lane waits for Retry-After, whether it is given in seconds or as an HTTP date.",
   async run() {
     const checks: Check[] = [];

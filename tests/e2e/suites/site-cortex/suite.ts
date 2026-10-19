@@ -7,6 +7,8 @@ const MAPPED = ["callout.created", "trade.curve", "trade.amm", "coin.watched", "
 
 export const suite: Suite = {
   name: "site-cortex",
+  tier: "milestone",
+  covers: ["apps/web/", "services/relay/"],
   proves: "All ten lanes are listed; the lane event counters never run ahead of what the relay streamed (a lane lights only on events); with a quiet stream no lane is active.",
   async run() {
     const up = await servers();

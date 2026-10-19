@@ -8,6 +8,8 @@ import type { Suite } from "../../lib/suite.ts";
 
 export const suite: Suite = {
   name: "analyzers-replay",
+  tier: "slow",
+  covers: ["services/core/src/analyzers/", "services/core/src/reflex/", "services/core/src/memory/", "services/core/src/scorekeeper/"],
   proves: "Every cheap analyzer and every Jev pack question produces signals from the tape, the Scorekeeper resolves outcomes and Brier scores, and the replay checks hold.",
   tape: true,
   async run(ctx) {

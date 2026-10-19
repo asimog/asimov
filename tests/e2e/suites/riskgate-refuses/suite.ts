@@ -38,6 +38,8 @@ const CASES: { name: string; expect: string | "ok"; run: () => ReturnType<typeof
 
 export const suite: Suite = {
   name: "riskgate-refuses",
+  tier: "fast",
+  covers: ["services/core/src/mind/risk.ts", "services/core/src/hands/order-gate.ts"],
   proves: "Every listed bad intent is refused with its own reason code, and clean intents pass.",
   async run() {
     const rows = CASES.map((c) => {

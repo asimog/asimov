@@ -6,6 +6,8 @@ type Lab = { total: number; revealed: number; items: { sha: string; matches: boo
 
 export const suite: Suite = {
   name: "site-lab",
+  tier: "milestone",
+  covers: ["apps/web/", "services/relay/"],
   proves: "The Lab's committed, revealed and mismatch counters equal the API; the arc draws one commit mark per item and one ray per reveal; every thesis card prints its commit hash prefix.",
   async run() {
     const up = await servers();

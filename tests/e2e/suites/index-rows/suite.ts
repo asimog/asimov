@@ -27,6 +27,8 @@ const tr = (wallet: string, mint: string, side: "buy" | "sell", tokens: number, 
 
 export const suite: Suite = {
   name: "index-rows",
+  tier: "fast",
+  covers: ["services/core/src/index/", "services/core/src/analyzers/index-signals.ts"],
   proves: "A5: two holder snapshots for one coin give two different risk.state values, and a restart restores the creator and adds idx.coin deltas. A6: a hand-computed wallet table matches the Index: early_right counts the peak after the first buy, the copy price survives a flush, copy value is marked at a fixed horizon.",
   async run() {
     const db = await freshDb("indexrows");

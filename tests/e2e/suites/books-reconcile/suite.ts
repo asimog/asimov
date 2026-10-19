@@ -14,6 +14,8 @@ const hash = (x: unknown) => crypto.createHash("sha256").update(JSON.stringify(x
 
 export const suite: Suite = {
   name: "books-reconcile",
+  tier: "fast",
+  covers: ["services/core/src/treasury/books.ts", "services/core/src/hands/trader.ts"],
   proves: "A scripted day reconciles to the lamport; FIFO PnL and NAV match hand computation; drift is caught and kills; the ledger rebuilds from the Tape; the proof chain verifies.",
   async run() {
     const w = await world("books");

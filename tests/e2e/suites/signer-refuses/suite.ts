@@ -12,6 +12,8 @@ import type { Suite } from "../../lib/suite.ts";
 const SOL = 1e9;
 export const suite: Suite = {
   name: "signer-refuses",
+  tier: "fast",
+  covers: ["services/signer/"],
   proves: "Every forbidden Signer request is refused and logged with its own reason; allowed shapes sign; the audit chain verifies and detects tampering.",
   async run() {
     const k = newKeys();

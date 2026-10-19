@@ -1,17 +1,19 @@
 // Pre-call desk and house callouts (docs/PIPELINE.md flow and precall, docs/STRATEGY.md pre-call, docs/EXECUTION.md thesis and Publisher).
 // A known caller's buy on a coin they have not called must produce precall.callout_p, scored by Brier; pre_call
 // strategies may enter only then; every house callout is committed before it is queued, passes the text checks,
-// is revealed on close and scored as the caller `house`. A restart halfway changes nothing.
+// is revealed on close and scored as the caller `house`. Order and restart proofs live in replay-determinism.
 import { checkText } from "../../../../services/core/src/hands/text-checks.ts";
 import { ledger } from "../../../../services/core/src/scorekeeper/ledger.ts";
 import { HORIZONS, scoresAsOf } from "../../../../services/core/src/scorekeeper/scorekeeper.ts";
-import { derivedHash, everyReplayChecks, type Check } from "../../lib/checks.ts";
+import { type Check, everyReplayChecks } from "../../lib/checks.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 export const suite: Suite = {
   name: "precall-replay",
+  tier: "slow",
+  covers: ["services/core/src/analyzers/precall.ts", "services/core/src/mind/desk.ts", "services/core/src/scorekeeper/scorekeeper.ts"],
   proves:
-    "Known-caller buys before their callout become precall.callout_p signals with no lookahead and a Brier score; pre_call strategies enter only on those coins; every house callout has a thesis committed before it, passes the text checks, is revealed on close and appears as the caller house in the ledger; a restart changes nothing.",
+    "Known-caller buys before their callout become precall.callout_p signals with no lookahead and a Brier score; pre_call strategies enter only on those coins; every house callout has a thesis committed before it, passes the text checks, is revealed on close and appears as the caller house in the ledger; order and restart proofs are in replay-determinism.",
   tape: true,
   async run(ctx) {
     const checks: Check[] = [];
@@ -93,22 +95,6 @@ export const suite: Suite = {
     const adds = !!house && house.ok + Object.values(house.excluded).reduce((a, b) => a + b, 0) === house.calls;
     checks.push({ name: "the house is a caller in the ledger", pass: adds && house!.calls === callouts.length, detail: house ? `${house.calls} calls, ${house.ok} ok, net_win ${house.net_win}` : "no house row" });
 
-    // 7. restart
-    const r = await ctx.replay("restart", { restartAt: Number(process.env.E2E_RESTART_AT ?? 0.5) });
-    const a = await derivedHash(sql);
-    const b = await derivedHash(r.sql);
-    checks.push({ name: "consumer restart gives the same derived hash", pass: a.sha256 === b.sha256 && a.events > 0, detail: `${a.sha256.slice(0, 16)} vs ${b.sha256.slice(0, 16)}` });
-
-    // 8. consumer order: every stage run in reverse wakes the desk on the same pre-call buys and derives the same events
-    const rv = await ctx.replay("reversed", { reverse: true });
-    const entries = async (s: typeof sql) => JSON.stringify(await s`
-      select i.seen_time, i.body->>'strategy_id' sid, i.body->>'mint' mint, i.body->>'size_sol' size from tape.events i
-      join mind.strategies st on st.id = i.body->>'strategy_id'
-      where i.topic = 'intent.created' and i.body->>'side' = 'buy' and st.family = 'pre_call' order by 1, 2, 3`);
-    const [ea, eb] = [await entries(sql), await entries(rv.sql)];
-    const c = await derivedHash(rv.sql);
-    checks.push({ name: "pre-call entries do not depend on consumer order", pass: ea === eb && ea !== "[]", detail: `${JSON.parse(ea).length} vs ${JSON.parse(eb).length} entries, ${ea === eb ? "identical" : "different"}` });
-    checks.push({ name: "reversed consumer order gives the same derived hash", pass: a.sha256 === c.sha256, detail: `${a.sha256.slice(0, 16)} vs ${c.sha256.slice(0, 16)}` });
     const [det] = await sql`select count(*)::int n from tape.events where topic = 'precall.detected'`;
     checks.push({ name: "one precall.detected per precall signal", pass: det!.n === got!.n, detail: `${det!.n} events, ${got!.n} signals` });
 

@@ -8,6 +8,8 @@ type Card = { id: string; sym: string; mcap_usd: number | null; age_min: number 
 
 export const suite: Suite = {
   name: "site-cards",
+  tier: "milestone",
+  covers: ["apps/web/", "services/relay/"],
   proves: "20 sample calls each render a 1200 x 630 PNG card over HTTP; the images differ from each other; the card data names no caller wallet or handle and says PAPER for the house position.",
   async run() {
     const up = await servers();

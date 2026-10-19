@@ -7,6 +7,8 @@ const LABELS = ["Field", "Cortex", "Lab", "Ledger", "Integrity", "Treasury", "Re
 
 export const suite: Suite = {
   name: "site-shell",
+  tier: "milestone",
+  covers: ["apps/web/", "services/relay/"],
   proves: "Every room loads on desktop and phone without an uncaught error, in the dark world, with no sideways scroll; the nav links to every room and the footer says paper trading.",
   async run() {
     const up = await servers();

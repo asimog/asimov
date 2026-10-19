@@ -5,6 +5,8 @@ import type { Suite } from "../../lib/suite.ts";
 
 export const suite: Suite = {
   name: "commit-reveal",
+  tier: "slow",
+  covers: ["services/core/src/mind/desk.ts", "services/core/src/hands/thesis.ts", "services/core/src/hands/publisher.ts"],
   proves: "Every decision commit is published as a hash before the outcome, and every reveal matches its hash when recomputed from the revealed content.",
   tape: true,
   async run(ctx) {

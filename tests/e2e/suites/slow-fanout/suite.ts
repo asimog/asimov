@@ -24,6 +24,8 @@ const p95 = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math.fl
 
 export const suite: Suite = {
   name: "slow-fanout",
+  tier: "slow",
+  covers: ["services/slow-bridge/", "services/agents/"],
   proves: "One escalation starts both slow engines on the same coin; Tape ingestion keeps its rate and latency while they run and after they are killed.",
   async run() {
     const checks: Check[] = [];
