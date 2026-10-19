@@ -17,6 +17,9 @@ Never drop a partition whose file did not verify or that a consumer has not read
 ## Read first
 `ctl.ts:55-90`, `services/core/src/tape/consumer.ts` (offsets), `tests/e2e/lib/replay.ts`.
 
+## Prior art (read-only; ideas only)
+`.upstreamref/repos/nautechsystems__nautilus_trader/schema/sql/partitions.sql:36-80`: the database itself refuses to drop a partition that holds rows unless forced (`delete_block_partition`, a `SECURITY DEFINER` function). Do the same for the Tape: drop only through one SQL function `tape.drop_partition(name)` that refuses unless `tape.archived` holds a verified row for that partition and no consumer offset is behind it. The archiver calls it; a hand-typed `DROP` is still possible for a superuser, which F1's roles close. Nautilus' `force` flag is not copied: there is no override. Request to the top agent: the function in `schema.sql`.
+
 ## Forbidden
 Shared files owned by the top agent unless listed above (see `_template.md`).
 
