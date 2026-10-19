@@ -33,6 +33,7 @@ export default function LedgerPage() {
               <thead><tr><th scope="col">When</th><th scope="col">Kind</th><th scope="col">Coin</th><th scope="col">Text</th></tr></thead>
               <tbody>
                 {data.posts.map((p, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: posts have no id and the list is rendered whole each time
                   <tr key={i}>
                     <td className="mono">{fmt.ago(now - p.t)}</td>
                     <td><span className="chip" data-tone={p.kind === "callout" ? "accent" : p.kind === "reply" ? "stress" : undefined}>{p.kind === "reply" ? "data reply" : p.kind}</span></td>

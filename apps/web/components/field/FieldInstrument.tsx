@@ -36,14 +36,17 @@ export function FieldInstrument() {
         {webgl ? <FieldScene overlay={overlay} mobile={mobile} /> : <p className="empty field-fallback">This browser has no WebGL. Every number below is still live.</p>}
         <svg className="field-leaders" aria-hidden="true">
           {overlay.current.boxes.map((b, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: boxes are a fixed pool bound to refs by position
             <line key={i} ref={(el) => void (b.line = el)} />
           ))}
         </svg>
         <div className="field-labels" aria-hidden="true">
           {Array.from({ length: LABELS }, (_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: labels are a fixed pool bound to refs by position
             <span key={i} ref={(el) => void (overlay.current.labels[i] = el)} className="field-label mono" />
           ))}
           {overlay.current.boxes.map((b, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: boxes are a fixed pool bound to refs by position
             <span key={`b${i}`} ref={(el) => void (b.el = el)} className="field-box mono" />
           ))}
           <span ref={(el) => void (overlay.current.regions[0] = el)} className="field-region micro">

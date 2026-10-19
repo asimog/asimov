@@ -38,12 +38,14 @@ function Arc({ items }: { items: Item[] }) {
   return (
     <svg viewBox={`0 120 ${W} ${H - 120}`} className="lab-arc" role="img" aria-label={`${items.length} commits on the arc, ${items.filter((i) => i.revealed).length} revealed`}>
       {threads.map((d, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: arc threads are derived from a fixed list, never reordered
         <path key={i} d={d} className="arc-thread" />
       ))}
       <path d={`M ${pt(A0, R).join(" ")} A ${R} ${R} 0 0 1 ${pt(A1, R).join(" ")}`} className="arc-line" />
       {ticks.map((a, i) => {
         const [x1, y1] = pt(a, R);
         const [x2, y2] = pt(a, R + (i % 4 === 0 ? 14 : 6));
+        // biome-ignore lint/suspicious/noArrayIndexKey: ticks are a fixed positional scale, never reordered
         return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} className="arc-tick" />;
       })}
       {xs.map((it) => {
@@ -98,6 +100,7 @@ export default function LabPage() {
                 <p className="thesis-claim"><span className="num">{t.thesis!.p.toFixed(2)}</span> {t.thesis!.what}</p>
                 <ul>
                   {t.thesis!.claims.map((c, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: claims render once per thesis, never reordered
                     <li key={i}><span className="micro">{c.class.replace("_", " ")}</span> {c.text}</li>
                   ))}
                 </ul>

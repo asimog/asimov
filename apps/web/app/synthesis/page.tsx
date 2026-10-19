@@ -22,6 +22,7 @@ type Synthesis = {
 /** Text with its [cid:co_x] marks turned into links to the callout's case file. */
 function Cited({ text }: { text: string }) {
   const parts = text.split(/\[cid:([\w-]+)\]/g);
+  // biome-ignore lint/suspicious/noArrayIndexKey: text parts are split from one string, position is identity
   return <>{parts.map((p, i) => (i % 2 ? <Link key={i} className="mono" href={`/case/${p}`}>[{p}]</Link> : <Fragment key={i}>{p}</Fragment>))}</>;
 }
 const Cites = ({ ids }: { ids: string[] }) => (ids.length ? <span className="micro"> {ids.map((c) => <Link key={c} className="mono" href={`/case/${c}`}>{c} </Link>)}</span> : null);
@@ -58,6 +59,7 @@ export default function SynthesisPage() {
           <h2 className="micro">Feed narratives</h2>
           {!data ? <p className="empty">Loading.</p> : !data.feed?.narratives.length ? <p className="empty">No feed synthesis yet. One runs every feed slot.</p> : (
             <ol className="case-list">
+              {/* biome-ignore lint/suspicious/noArrayIndexKey: narratives have no id and the list is rendered whole each time */}
               {data.feed.narratives.map((n, i) => <li key={i}><strong>{n.title}</strong> <Cited text={n.summary} /><Cites ids={n.cites} /></li>)}
             </ol>
           )}
@@ -102,6 +104,7 @@ export default function SynthesisPage() {
         {!data ? <p className="empty">Loading.</p> : !data.reports.length ? <p className="empty">No report yet.</p> : data.reports.map((r) => (
           <details key={r.id} className="case-section">
             <summary><span className="chip">{r.producer}</span> <span className="mono">{r.subject}</span> {r.summary} <span className="micro">{fmt.ago(now - r.t)}{r.parents.length ? `, read ${r.parents.length} swarm report${r.parents.length > 1 ? "s" : ""} (SIMULATED)` : ""}</span></summary>
+            {/* biome-ignore lint/suspicious/noArrayIndexKey: report paragraphs are split from one string, never reordered */}
             {r.markdown ? <div className="prose">{r.markdown.split(/\n{2,}/).map((p, i) => <p key={i}><Cited text={p.replace(/^#+\s*/, "")} /></p>)}</div> : null}
             <Cites ids={r.cites} />
           </details>

@@ -105,7 +105,7 @@ export const suite: Suite = {
       const posts = await w.sql`select body from tape.events where topic = 'swarm.post'`;
       add("simulated posts reach the Tape marked simulated", posts.length > 0 && posts.every((p) => (p.body as { simulated: boolean }).simulated === true), `${posts.length} posts`);
       const [rep] = await w.sql`select body from tape.events where topic = 'report.published' and body->>'producer' = 'miroshark.report'`;
-      add("the swarm report is published as SIMULATED", (rep?.body as { simulated?: boolean; summary?: string } | undefined)?.simulated === true && String((rep?.body as { summary?: string }).summary).startsWith("SIMULATED"), String((rep?.body as { summary?: string } | undefined)?.summary).slice(0, 160));
+      add("the swarm report is published as SIMULATED", (rep?.body as { simulated?: boolean; summary?: string } | undefined)?.simulated === true && String((rep?.body as { summary?: string } | undefined)?.summary).startsWith("SIMULATED"), String((rep?.body as { summary?: string } | undefined)?.summary).slice(0, 160));
       // P6: the Twitter platform beside pumpfun, with upstream's market-media bridge and cross-platform digest
       const twCalls = llm.calls.filter((c) => c.tools.includes("create_post"));
       add("a Twitter platform runs beside pumpfun with the same personas", twCalls.length > 0 && posts.some((p) => (p.body as { platform?: string }).platform === "twitter"), `${twCalls.length} twitter turns`);

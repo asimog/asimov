@@ -270,7 +270,10 @@ export const TOOLS: Tool[] = [
     c.tape.emit("swarm.impact", { swarm_id: a.swarm_id, mint: a.mint, d_callers: a.d_callers, d_net_sol: a.d_net_sol, samples: a.samples, truncated: a.truncated }, { source: source(c), subject, dedupe: `swarm.impact:${a.swarm_id}` });
     let refused = 0;
     a.posts.forEach((p, i) => {
-      if (checkProse(p.text, 280).length) return void refused++;
+      if (checkProse(p.text, 280).length) {
+        refused++;
+        return;
+      }
       c.tape.emit("swarm.post", { swarm_id: a.swarm_id, mint: a.mint, ...p, simulated: true }, { source: source(c), subject, dedupe: `swarm.post:${a.swarm_id}:${i}` });
     });
     await c.tape.flush();

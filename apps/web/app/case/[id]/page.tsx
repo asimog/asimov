@@ -17,6 +17,7 @@ const SECTIONS = [
 
 function Value({ v }: { v: unknown }) {
   if (v === null || v === undefined) return <span className="micro">none</span>;
+  // biome-ignore lint/suspicious/noArrayIndexKey: case fields render once from a fixed snapshot, never reordered
   if (Array.isArray(v)) return v.length ? <ol className="case-list">{v.map((x, i) => <li key={i}><Value v={x} /></li>)}</ol> : <span className="micro">none</span>;
   if (typeof v === "object")
     return (

@@ -18,6 +18,6 @@ count() { grep -E "^[^ ]+\.tsx?:[0-9]+:[0-9]+ (lint|assist)/" | awk '{print $1" 
 before=$(cd "$tmp" && npx --prefix "$root" biome check $(cd "$tmp" && ls -d $files 2>/dev/null || true) --max-diagnostics=1000 2>&1 | count || true)
 # shellcheck disable=SC2086
 after=$(npx biome check $files --max-diagnostics=1000 2>&1 | count || true)
-new=$(join -1 2 -2 2 -a 2 -e 0 -o 0,1.1,2.1 <(echo "$before" | awk '{print $1, $2"|"$3}' | sort -k2) <(echo "$after" | awk '{print $1, $2"|"$3}' | sort -k2) | awk '$3 > $2 {print $1": "$3-$2" new"}')
+new=$(join -1 2 -2 2 -a 2 -e 0 -o 0,1.1,2.1 <(echo "$before" | grep . | awk '{print $1, $2"|"$3}' | sort -k2) <(echo "$after" | grep . | awk '{print $1, $2"|"$3}' | sort -k2) | awk '$3 > $2 {print $1": "$3-$2" new"}')
 if [ -n "$new" ]; then echo "$new" | tr '|' ' '; exit 1; fi
 echo "no new lint findings in $(echo "$files" | wc -l) changed files"

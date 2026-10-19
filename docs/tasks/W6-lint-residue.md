@@ -30,4 +30,4 @@ Warnings and infos; refactors; any e2e run (do not run `npm run e2e`).
 `git diff --stat`; the two acceptance commands with their output; any finding left with a `biome-ignore` and why. Do not commit.
 
 ## State
-Dispatched 2026-10-19.
+Done 2026-10-19: 0 lint errors; 21 index keys kept with a biome-ignore naming why; agent-lanes regex escapes restored.

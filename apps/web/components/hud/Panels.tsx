@@ -19,6 +19,7 @@ export function Panel({ title, figure, children, state }: { title: string; figur
 const Skeleton = ({ rows = 5 }: { rows?: number }) => (
   <ul className="skeleton" aria-hidden="true">
     {Array.from({ length: rows }, (_, i) => (
+      // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows are identical placeholders
       <li key={i} style={{ inlineSize: `${92 - ((i * 17) % 40)}%` }} />
     ))}
   </ul>
@@ -93,6 +94,7 @@ export function Markouts() {
       {!snap ? <Skeleton /> : !m.length ? <p className="empty">Each paper fill is marked 1 s, 10 s, 60 s and 5 min later.</p> : (
         <div className="heat" role="img" aria-label={`${m.length} fills, median 60 second markout ${med == null ? "unknown" : (med / 100).toFixed(1)} percent`}>
           {m.slice(0, 96).map((x, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: heat cells are positional and carry no id
             <span key={i} data-sign={x.h60 >= 0 ? "up" : "down"} style={{ opacity: Math.min(1, 0.25 + Math.abs(x.h60) / 2500) }} />
           ))}
         </div>

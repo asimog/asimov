@@ -65,12 +65,14 @@ export default function SimulationsPage() {
           <h3 className="micro">Simulated posts</h3>
           {!r.posts.length ? <p className="empty">The agents posted nothing.</p> : (
             <ol className="case-list">
+              {/* biome-ignore lint/suspicious/noArrayIndexKey: simulated posts have no id and the list is a fixed slice */}
               {r.posts.slice(0, 24).map((p, i) => <li key={i}><span className="chip">SIMULATED {p.branch} · {p.platform}</span> <span className="mono">{p.agent}</span> {p.text}</li>)}
             </ol>
           )}
           {r.report ? (
             <details className="case-section">
               <summary><span className="chip" data-tone="stress">SIMULATED</span> Swarm Report: {r.report.summary}</summary>
+              {/* biome-ignore lint/suspicious/noArrayIndexKey: report paragraphs are split from one string, never reordered */}
               {r.report.markdown ? <div className="prose">{r.report.markdown.split(/\n{2,}/).map((p, i) => (/^#/.test(p) ? <h4 key={i} className="micro">{p.replace(/^#+\s*/, "")}</h4> : <p key={i}>{p}</p>))}</div> : null}
             </details>
           ) : null}

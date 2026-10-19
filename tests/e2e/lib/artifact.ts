@@ -3,6 +3,7 @@
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { redact } from "../../../services/core/src/lib/env.ts";
 import type { Check } from "./checks.ts";
@@ -16,6 +17,25 @@ function stable(x: unknown): unknown {
   return x;
 }
 
+/**
+ * The code a run tested: git's tree hash of services/, packages/ and tests/ as they are on disk, untracked files included.
+ * A run on uncommitted work matches the commit that later records exactly that work.
+ */
+export function codeTree(): string {
+  const index = path.join(os.tmpdir(), `asimog-index-${process.pid}`);
+  try {
+    if (fs.existsSync(".git/index")) fs.copyFileSync(".git/index", index);
+    const env = { ...process.env, GIT_INDEX_FILE: index };
+    execSync("git add -A services packages tests", { env, stdio: "ignore" });
+    const tree = execSync("git write-tree", { env, encoding: "utf8" }).trim();
+    return ["services", "packages", "tests"].map((p) => execSync(`git rev-parse ${tree}:${p}`, { encoding: "utf8" }).trim().slice(0, 12)).join(".");
+  } catch {
+    return "unknown";
+  } finally {
+    fs.rmSync(index, { force: true });
+  }
+}
+
 export function inputs(tapeFile?: string) {
   const sha = (b: Buffer | string) => crypto.createHash("sha256").update(b).digest("hex");
   let commit = "unknown";
@@ -24,7 +44,7 @@ export function inputs(tapeFile?: string) {
   } catch {}
   const cfg = redact();
   for (const k of Object.keys(cfg)) if (/KEY|PASS|TOKEN|SECRET|SEED|URL/.test(k)) delete cfg[k];
-  return { tape: tapeFile ? { file: tapeFile, sha256: sha(fs.readFileSync(tapeFile)) } : null, commit, config_sha256: sha(JSON.stringify(stable(cfg))) };
+  return { tape: tapeFile ? { file: tapeFile, sha256: sha(fs.readFileSync(tapeFile)) } : null, commit, code_tree: codeTree(), config_sha256: sha(JSON.stringify(stable(cfg))) };
 }
 
 export type Report = {

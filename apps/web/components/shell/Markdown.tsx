@@ -4,8 +4,11 @@ import type { ReactNode } from "react";
 
 function inline(s: string): ReactNode[] {
   return s.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, i) =>
+    // biome-ignore lint/suspicious/noArrayIndexKey: parts are split from one string, position is identity
     part.startsWith("`") ? <code key={i}>{part.slice(1, -1)}</code>
+    // biome-ignore lint/suspicious/noArrayIndexKey: parts are split from one string, position is identity
     : part.startsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong>
+    // biome-ignore lint/suspicious/noArrayIndexKey: parts are split from one string, position is identity
     : part.startsWith("*") && part.length > 2 ? <em key={i}>{part.slice(1, -1)}</em>
     : part,
   );
@@ -16,6 +19,7 @@ export function Markdown({ text }: { text: string }) {
   const out: ReactNode[] = [];
   let list: string[] = [];
   const flush = () => {
+    // biome-ignore lint/suspicious/noArrayIndexKey: list lines are split from one string, position is identity
     if (list.length) out.push(<ul key={out.length}>{list.map((l, i) => <li key={i}>{inline(l)}</li>)}</ul>);
     list = [];
   };

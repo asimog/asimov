@@ -22,23 +22,24 @@ Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (st
 
 ### A. Finish as-of reads (fix plan Phase 3)
 
-Every row is built and pushed. The rows below still wait for their check to be run (or re-run) on the final code.
+Every row is built and pushed (2cf6401). These still wait for their check on the current code; each task file holds the state and the acceptance command. `npm run checks:status` shows which have passed.
 
-| # | Work | Check | State |
-|---|---|---|---|
-| A1 | Pre-call analyzer emits `precall.detected`; the desk consumes it; no lost wakes | A replay shows the same pre-call entries whatever the consumer order | Order check passed (95 vs 95 entries, same hash). The restart check failed once because a rebuild re-seeded each consumer's random stream; fixed (`Clock.fork` remembers its forks), re-run pending |
-| A7 | Small measurement mismatches (caller.dna exclusions, push-first handles, case file as-of, one median helper) | Ledger and dna agree on one fixture | Built; `analyzers-replay` check written, not run |
-| A8 | Scout wallet set persisted, bounded hot set | Memory flat over a 30 min smoke | Scout bounded (`scout-bounded` passed; hot set flat at about 10k). The first smoke showed RSS rising 251 to 369 MB; the rollup's wallet memory is now bounded too (`INDEX_KNOWN_WALLETS`) and stats log heap; the second smoke's numbers are in `artifacts/smoke/a8b/core.log` |
-| A10 | `coin.graduated` on the first AMM trade | Graduated fixture shows the event | Derived by the flow analyzer; on `graduated-2m` exactly one, the called coin. The rollup's `idx.coin.graduated` write was restored after a merge collision; re-run `coin-graduated` |
-| A12 | A second short fixture with a graduated called coin; trim fixtures to 1 to 2 minutes; keep one long fixture for milestones | Replays under 60 s | Fixtures `discovery-2m` (default, with 1-minute horizons in `discovery-2m.env`) and `graduated-2m` cut; the replay now runs one read and one transaction per Tape time. Timing not yet measured on an idle machine (the last run was 109 s under load) |
-| A13 | Replay steps every consumer to the same time (1.17) | Live-leg replay is deterministic | Lockstep replay built; `replay-determinism` gained a live-leg pair (gate, Trader, books, kill on the mock chain, seeded keys), not run |
+| # | Work | Task |
+|---|---|---|
+| A1 | The desk wakes on `precall.detected` whatever the consumer order (order proof passed); restart proof pending | `docs/tasks/A1-restart.md` |
+| A7 | caller.dna and the ledger agree | `docs/tasks/A7.md` |
+| A8 | Scout bounded (passed); core's heap still grows over a 30-min smoke | `docs/tasks/A8-heap.md` |
+| A10 | `coin.graduated` derived on the first AMM trade after curve trades | `docs/tasks/A10.md` |
+| A12 | 2-minute fixtures replay in under 60 s, measured idle | `docs/tasks/A12.md` |
+| A13 | Live-leg replay is deterministic | `docs/tasks/A13.md` |
 
-**Successor prompt (resume here).** Main holds Section A built. Read `AGENTS.md`, this file, `docs/DECISIONS.md` and `docs/OPS.md` section 9 first. Then, on an idle machine (no smoke running): `npm run e2e -- precall-replay analyzers-replay replay-determinism coin-graduated` on the default 2-minute fixture. Fix what fails, note each replay's time against the 60 s check, move the passing rows above to Done, then go on with section B in order, under the `/ra-mode` instructions of 2026-10-19 (sections A to G, H out of scope). Known follow-ups: the Scout's trigger trade has an unknown phase (`program: null`), so the desk may treat an AMM trigger as a curve trade (fold into C8); other replay suites (`strategies-replay`, `commit-reveal`, `evolution-replay`, `callout-case-replay`, the site suites) have not run on the 2-minute fixture and may need their thresholds tied to the fixture's settings.
+**Resume here.** Read `docs/WORKFLOW.md`, then take the first open task above (one per session), then B0. Follow-ups noted for later rows: the Scout's trigger trade has an unknown phase (C8); `strategies-replay`, `callout-case-replay` and the site suites have not run on the 2-minute fixture.
 
 ### B. Filter at the door and data tiers
 
 | # | Work | Check |
 |---|---|---|
+| B0 | The Tape never drops an accepted event silently (`docs/tasks/B0.md`) | `tape-durable`: database stopped mid-run, zero dropped |
 | B1 | Config module for `config/*.json` (feeds, filters, retention, schedules, models) with `config.loaded` | A bad file stops boot with the field named |
 | B2 | Feed sources and filters (recent, hot, trending, follow, top traders; chain; minimum position; mcap at call) | A replay with filters stores only passing callouts; rejected ones counted and sampled |
 | B3 | Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion | Filtered launches never reach the watched set |

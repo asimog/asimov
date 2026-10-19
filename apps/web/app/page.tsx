@@ -5,7 +5,7 @@ export default function FieldPage() {
   return (
     <main>
       <FieldInstrument />
-      <div className="strip" aria-label="Instrument strip">
+      <section className="strip" aria-label="Instrument strip">
         <Tape />
         <Positions />
         <Markouts />
@@ -13,7 +13,7 @@ export default function FieldPage() {
         <Pool />
         <Scores />
         <Rates />
-      </div>
+      </section>
     </main>
   );
 }

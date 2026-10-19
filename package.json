@@ -36,6 +36,7 @@
     "lint": "biome check .",
     "lint:changed": "bash scripts/lint-new.sh",
     "preflight": "tsx scripts/preflight.ts",
+    "checks:status": "tsx scripts/checks-status.ts",
     "typecheck": "tsc -p services/core --noEmit && tsc -p apps/web --noEmit && tsc -p services/signer --noEmit && tsc -p services/relay --noEmit",
     "agents": "tsx services/agents/src/main.ts",
     "agents:smoke": "tsx services/agents/src/smoke.ts",

@@ -62,7 +62,7 @@ async function doctor() {
   rows.push(["Chrome or Edge found", ["C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe", process.env.CHROME_PATH ?? ""].some((p) => p && fs.existsSync(p)), process.env.CHROME_PATH ?? "default paths"]);
   rows.push(["started by verify-asimog", fs.existsSync(STACK), fs.existsSync(STACK) ? fs.readFileSync(STACK, "utf8") : "no: attached to the owner's servers (read-only, fine to drive, never stop)"]);
   // freshness and ownership (rows 3 and 5) are notes; the rest are fatal
-  rows.forEach(([n, p, d], i) => console.log(`${p ? "ok  " : i === 3 || i === 5 ? "note" : "FAIL"} ${n}: ${d}`));
+  for (const [i, [n, p, d]] of rows.entries()) console.log(`${p ? "ok  " : i === 3 || i === 5 ? "note" : "FAIL"} ${n}: ${d}`);
   if (rows.some(([, p], i) => !p && i !== 3 && i !== 5)) process.exitCode = 1;
 }
 

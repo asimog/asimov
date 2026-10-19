@@ -68,9 +68,11 @@ function Glyph() {
   return (
     <svg viewBox="0 0 12 13" width="14" height="15" aria-hidden="true">
       {pts.map(([x, y], i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: points are a fixed constant list
         <line key={i} x1="6" y1="7" x2={x} y2={y} stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
       ))}
       {pts.map(([x, y], i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: points are a fixed constant list
         <circle key={`p${i}`} cx={x} cy={y} r="0.9" fill="currentColor" />
       ))}
       <circle cx="6" cy="7" r="1.5" fill="none" stroke="currentColor" strokeWidth="0.6" />

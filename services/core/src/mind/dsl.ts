@@ -80,11 +80,11 @@ export function validate(raw: unknown): { ok: true; spec: Spec } | { ok: false; 
     if (unit && (!f || !info.unit.includes(f))) reasons.push(`${where}: ${sig}.${f ?? "?"} is not a [0,1] field`);
     if (!unit && field && !info.fields.includes(field) && !info.unit.includes(field)) reasons.push(`${where}: unknown field ${sig}.${field}`);
   };
-  s.universe.all.forEach((c, i) => checkSig(c.sig, c.field, `universe.${i}`, false));
-  s.score.sum.forEach((t, i) => checkSig(t.sig, t.field, `score.${i}`, true));
+  for (const [i, c] of s.universe.all.entries()) checkSig(c.sig, c.field, `universe.${i}`, false);
+  for (const [i, t] of s.score.sum.entries()) checkSig(t.sig, t.field, `score.${i}`, true);
   if (!s.score.sum.some((t) => t.w > 0)) reasons.push("score: needs at least one positive weight");
   const whens = [...s.exits.map((e) => e.when), ...s.stop.any];
-  whens.forEach((w, i) => "sig" in w && checkSig(w.sig, w.field, `exit.${i}`, false));
+  for (const [i, w] of whens.entries()) if ("sig" in w) checkSig(w.sig, w.field, `exit.${i}`, false);
   const held = whens.flatMap((w) => ("held_min_gte" in w ? [w.held_min_gte] : []));
   if (!held.length) reasons.push("exits: needs a held_min_gte exit");
   if (held.some((h) => h > HORIZON_MAX_MIN[s.horizon])) reasons.push(`exits: held_min_gte over the ${s.horizon} horizon (${HORIZON_MAX_MIN[s.horizon]} min)`);
@@ -192,7 +192,7 @@ export function specDistance(a: Spec, b: Spec): number {
 function vector(s: Spec): Record<string, number> {
   const v: Record<string, number> = { enter: s.enter_if.score_gte, kelly: s.size.kelly_fraction };
   for (const t of s.score.sum) v[`w:${t.sig}:${t.field ?? ""}`] = t.w;
-  s.universe.all.forEach((c) => typeof c.v === "number" && (v[`u:${c.sig}:${c.field ?? ""}:${c.op}`] = c.v));
+  for (const c of s.universe.all) if (typeof c.v === "number") v[`u:${c.sig}:${c.field ?? ""}:${c.op}`] = c.v;
   s.exits.forEach((e, i) => {
     const w = e.when as Record<string, unknown>;
     for (const k of ["mult_gte", "mult_lte", "held_min_gte", "called_s_gte"]) if (typeof w[k] === "number") v[`x${i}:${k}`] = w[k] as number;
