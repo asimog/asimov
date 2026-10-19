@@ -82,6 +82,9 @@ export const suite: Suite = {
       const [feed] = await w.sql`select body from tape.events where topic = 'synthesis.feed'`;
       const b = feed?.body as { narratives?: { cites: string[] }[]; claims_dropped?: number } | undefined;
       const allCites = (b?.narratives ?? []).flatMap((n) => n.cites);
+      const [mood] = await w.sql`select body from tape.events where topic = 'mood.feed'`;
+      const mb = mood?.body as { n_callouts?: number; mood?: number; label?: string } | undefined;
+      add("the feed mood comes from the worker's cited coin stances, computed by core", (mb?.n_callouts ?? 0) > 0 && typeof mb?.mood === "number", JSON.stringify(mb ?? "no mood.feed"));
       add("synthesis.feed keeps the cited claim and drops the one citing an invented id", !!b && b.narratives?.length === 1 && allCites.length > 0 && !allCites.includes("co_FAKE") && (b.claims_dropped ?? 0) >= 1, JSON.stringify({ cites: allCites, dropped: b?.claims_dropped }));
       const [rep] = await w.sql`select producer, cites, markdown from slow.reports where producer = 'bettafish.insight'`;
       add("the Insight report is published to the exchange", !!rep && (rep.cites as string[]).every((c) => c !== "co_FAKE") && String(rep.markdown).length > 0, JSON.stringify(rep?.cites));

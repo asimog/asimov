@@ -248,6 +248,27 @@ def stance_of(texts: list[str]) -> str:
     return "avoid" if re.search(r"\b(rug|bundl\w*|scam)\b", joined) else "bearish" if re.search(r"\b(dump|sell|exit)\b", joined) else "bullish" if re.search(r"\b(early|buy|strong)\b", joined) else "neutral"
 
 
+def coin_stances(paragraphs: list) -> list[dict]:
+    """Feed stances per coin: the paragraphs that cite a coin's callouts, read with stance_of. Core checks each cite and
+    computes the feed mood from these (D6)."""
+    ids = list(dict.fromkeys(c for _, x in paragraphs for c in cites(x)))
+    if not ids:
+        return []
+    import asimog_db
+
+    mint_of = {r["note_id"]: r["mint"] for r in asimog_db.query("select note_id, mint from slow.pumpfun_callout where note_id = any($1::text[])", ids)}
+    by: dict[str, dict] = {}
+    for _, x in paragraphs:
+        for c in cites(x):
+            if c in mint_of:
+                v = by.setdefault(mint_of[c], {"texts": [], "cites": []})
+                if x not in v["texts"]:
+                    v["texts"].append(x)
+                if c not in v["cites"]:
+                    v["cites"].append(c)
+    return [{"mint": m, "symbol": None, "stance": stance_of(v["texts"]), "why": plain(v["texts"][0], 400), "cites": v["cites"][:12]} for m, v in by.items()][:30]
+
+
 def to_output(req: dict, results: list) -> dict:
     """Engine states -> RunOutput: one report per engine, plus feed or coin synthesis from the paragraphs."""
     reports, paragraphs = [], []
@@ -266,7 +287,7 @@ def to_output(req: dict, results: list) -> dict:
         out["synthesis_feed"] = {
             "window_min": int(req.get("window_min") or 60),
             "narratives": [{"title": plain(t, 120), "summary": plain(x, 600), "cites": cites(x)} for t, x in paragraphs][:12],
-            "coin_stances": [], "suspicious": [],
+            "coin_stances": coin_stances(paragraphs), "suspicious": [],
         }
     else:
         out["synthesis_coin"] = {"stance": stance_of([x for _, x in paragraphs]), "narrative": re.sub(r"\s+", " ", CID.sub("", paragraphs[0][1] if paragraphs else ""))[:600], "claims": [{"text": re.sub(r"\s+", " ", CID.sub("", x))[:400], "cites": cites(x)} for _, x in paragraphs][:20]}

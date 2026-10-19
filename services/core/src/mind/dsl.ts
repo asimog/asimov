@@ -2,6 +2,7 @@
 // No eval, no code in specs. Every number a spec can reach is bounded here.
 import { z } from "zod";
 import { FEE } from "../analyzers/curve-math.ts";
+import { liveFor } from "../board/board.ts";
 import { env } from "../lib/env.ts";
 import { type Bin, binFor, CALIB } from "./calibrate.ts";
 
@@ -113,6 +114,14 @@ export type BoardValues = Record<string, Record<string, unknown> | undefined>;
 /** The key under which the desk puts a signal's confidence into its Board value; a score term below TERM_MIN_CONF counts as missing. */
 export const CONF = "__confidence";
 const TERM_MIN_CONF = env.num("TERM_MIN_CONF");
+
+/** The Board a decision reads for one coin: global signals, then the coin, its callout and its caller, each value with its confidence. */
+export async function boardValues(tx: Parameters<typeof liveFor>[0], at: string, mint: string, calloutId: string | null | undefined, caller: string | null | undefined): Promise<BoardValues> {
+  const rows = await Promise.all([liveFor(tx, "global", at), liveFor(tx, mint, at), calloutId ? liveFor(tx, calloutId, at) : {}, caller ? liveFor(tx, caller, at) : {}]);
+  const out: BoardValues = {};
+  for (const r of rows) for (const [k, v] of Object.entries(r)) out[k] = { ...(v.value as Record<string, unknown>), [CONF]: v.confidence };
+  return out;
+}
 
 /** Read a field of a signal value. `p.X` reads a choice probability; the default is the kind's first unit field. */
 export function read(board: BoardValues, sig: string, field?: string): number | string | boolean | undefined {

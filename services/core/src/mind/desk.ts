@@ -5,13 +5,12 @@
 import crypto from "node:crypto";
 import { type BodyOf, canonical, type Envelope, type InPlay } from "@asimog/contracts";
 import { curveFromPrice } from "../analyzers/curve-math.ts";
-import { liveFor } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 import { type Bin, CALIB, calibrate } from "./calibrate.ts";
-import { type BoardValues, CONF, evaluateEntry, type Spec, validate, whenHolds } from "./dsl.ts";
+import { type BoardValues, boardValues, evaluateEntry, type Spec, validate, whenHolds } from "./dsl.ts";
 import { evolve, type Member } from "./evolve.ts";
 import { F, fillBuy, fillSell, type Market, markoutCostBps, quoteFor, sampleLatencyMs } from "./fill.ts";
 import { type AllocRow, allocate, lcb, type Stats, statsOf } from "./kernel.ts";
@@ -496,14 +495,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     return best?.[0] ?? null;
   }
 
-  async function boardFor(tx: Tx, mint: string, at: string): Promise<BoardValues> {
-    const cc = coinCallout.get(mint);
-    const author = callerOf(mint);
-    const rows = await Promise.all([liveFor(tx, "global", at), liveFor(tx, mint, at), cc ? liveFor(tx, cc.callout_id, at) : {}, author ? liveFor(tx, author, at) : {}]);
-    const out: BoardValues = {};
-    for (const r of rows) for (const [k, v] of Object.entries(r)) out[k] = { ...(v.value as Record<string, unknown>), [CONF]: v.confidence };
-    return out;
-  }
+  const boardFor = (tx: Tx, mint: string, at: string): Promise<BoardValues> => boardValues(tx, at, mint, coinCallout.get(mint)?.callout_id, callerOf(mint));
 
   async function entries(tx: Tx, mint: string, now: number, e: Envelope) {
     const cc = coinCallout.get(mint);

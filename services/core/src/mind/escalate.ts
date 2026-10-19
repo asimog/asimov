@@ -7,13 +7,12 @@
 // stable hash of the mint, are recorded as `control` with no job.
 import crypto from "node:crypto";
 import type { BodyOf, Envelope } from "@asimog/contracts";
-import { liveFor } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 import { type Bin, binFor, CALIB } from "./calibrate.ts";
-import { type BoardValues, CONF, read, type Spec, scoreOf } from "./dsl.ts";
+import { type BoardValues, boardValues, read, type Spec, scoreOf } from "./dsl.ts";
 import { loadLimits } from "./risk.ts";
 
 export type GateConfig = {
@@ -104,13 +103,6 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
     return now - c.at_ms <= (c.reason === "callout" ? cfg.calloutMs : cfg.windowMs) ? c.reason : null;
   }
 
-  async function boardOf(tx: Tx, mint: string, at: string): Promise<BoardValues> {
-    const c = coins.get(mint);
-    const rows = await Promise.all([liveFor(tx, "global", at), liveFor(tx, mint, at), c?.callout_id ? liveFor(tx, c.callout_id, at) : {}, c?.caller ? liveFor(tx, c.caller, at) : {}]);
-    const out: BoardValues = {};
-    for (const r of rows) for (const [k, v] of Object.entries(r)) out[k] = { ...(v.value as Record<string, unknown>), [CONF]: v.confidence };
-    return out;
-  }
 
   /** The calibrated win chance: each live strategy's score read through its family's map; the highest, or null without maps. */
   async function calibrated(tx: Tx, board: BoardValues, at: string): Promise<number | null> {
@@ -150,7 +142,7 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
     const now = Date.parse(e.seen_time);
     const why = inPlay(mint, now);
     if (!why) return;
-    const board = await boardOf(tx, mint, e.seen_time);
+    const board = await boardValues(tx, e.seen_time, mint, coins.get(mint)?.callout_id, coins.get(mint)?.caller);
     const fast = FAST.map((k) => read(board, k)).filter((x): x is number => typeof x === "number");
     const cal = await calibrated(tx, board, e.seen_time);
     const p = cal ?? (fast.length ? fast.reduce((a, x) => a + x, 0) / fast.length : null);
@@ -173,7 +165,8 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
       .filter((x) => x.rank > 0)
       .sort((a, b) => b.rank - a.rank || (a.mint < b.mint ? -1 : 1))
       .slice(0, cfg.hotSize);
-    for (const x of ranked) await grant(tx, e, x.mint, 1, ["hot_set", `rank ${x.rank.toFixed(3)}`], x.rank);
+    // a coin whose last grant still waits for room gets no second one: deferred grants would only pile up
+    for (const x of ranked.filter((r) => !granted.get(r.mint)?.deferred)) await grant(tx, e, x.mint, 1, ["hot_set", `rank ${x.rank.toFixed(3)}`], x.rank);
     stats.hot += ranked.length;
   }
 
