@@ -45,7 +45,7 @@ export const suite: Suite = {
       await tape.flush();
 
       clock.advance!(NOON);
-      const archiver = new Archiver(tape, db.sql, config);
+      const archiver = new Archiver(tape, db.sql, config, undefined, ["lagging", "fresh"]);
       const table = "tape.events_p_2026101907_inputs_hot";
       const exists = async () => (await db.sql`select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'tape' and c.relname = ${table.split(".")[1]}`).length > 0;
 
@@ -58,6 +58,10 @@ export const suite: Suite = {
 
       // offsets past the partition: it drops
       await db.sql`update tape.consumer_offsets set last_seen_time = ${new Date(Date.UTC(2026, 9, 19, 8, 30)).toISOString()} where consumer = 'lagging'`;
+      // a consumer the runtime runs but that has never written a bookmark still keeps the partition
+      const unread = await archiver.runOnce();
+      add("a consumer with no bookmark yet blocks the drop", unread.skipped.includes(table) && (await exists()), `${unread.skipped.length} skipped`);
+      await db.sql`insert into tape.consumer_offsets (consumer, last_seen_time) values ('fresh', ${new Date(Date.UTC(2026, 9, 19, 8, 30)).toISOString()})`;
       const dropped = await archiver.runOnce();
       add("with the offsets past it the partition is dropped", dropped.dropped.includes(table) && !(await exists()), `${dropped.dropped.length} dropped`);
 

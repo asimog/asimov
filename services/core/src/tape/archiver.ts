@@ -20,7 +20,8 @@ export class Archiver {
   stats = { runs: 0, archived: 0, dropped: 0, skipped: 0, bytes: 0, last_error: "" };
 
   private readonly targets: ArchiveTarget[];
-  constructor(private tape: Tape, private sql: Sql, private config: Config, targets?: ArchiveTarget[]) {
+  /** `consumers`: every consumer the runtime runs; one with no bookmark yet counts as behind, so its hours stay. */
+  constructor(private tape: Tape, private sql: Sql, private config: Config, targets?: ArchiveTarget[], private consumers: string[] = []) {
     this.targets = targets ?? targetsFromConfig(config);
   }
 
@@ -70,6 +71,9 @@ export class Archiver {
           this.tape.emit("tape.archived", { partition: p.table, file, rows: rows.length, sha256, target: targets, from: p.from, to: p.to, at: new Date(now).toISOString() }, { source: "system", subject: p.table });
           await this.tape.flush();
         }
+        const unread = await this.sql`select n.consumer from unnest(${this.consumers}::text[]) n(consumer)
+          left join tape.consumer_offsets o using (consumer) where o.consumer is null`;
+        if (unread.length) throw new Error(`no bookmark yet for ${unread.map((r) => r.consumer).join(", ")}`);
         await this.sql`select tape.drop_partition(${p.table})`;
         this.stats.dropped++;
         out.dropped.push(p.table);

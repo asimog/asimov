@@ -59,7 +59,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
   const treasury = treasuryWiring(sql, tape, clock); // null without keys: paper runs as before
   const consumers = [...buildConsumers(tape), ...(treasury?.consumers ?? [])];
   const config = configValues(); // main.ts already validated it; the senses read the same values
-  const archiver = env.bool("ARCHIVER") ? new Archiver(tape, sql, config) : null;
+  const archiver = env.bool("ARCHIVER") ? new Archiver(tape, sql, config, undefined, consumers.map((c) => c.name)) : null;
   const feed = env.bool("SENSE_FEED") ? new FeedReader(tape, config) : null;
   const replies = env.bool("SENSE_REPLIES") ? new ReplyReader(tape, sql) : null;
   const media = env.bool("SENSE_MEDIA") ? new MediaCache(tape, sql) : null;

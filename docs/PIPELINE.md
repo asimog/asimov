@@ -75,7 +75,7 @@ Asimog's own dataset of who to trust: a rolling 30-day record with a 7-day half-
 | Compaction | rows older than `retention.rollup_hourly_hours` (48) move to wallet x coin (lifetime) and wallet x day, then leave the hot table | Every `rollup_compact_every_min` |
 | Wallet scores | wallet | Hourly, versioned |
 | Coin and creator records | coin, creator | Hourly |
-| Leaderboards | top wallets, top traders, top callers, top callouts, top creators, as versioned rows | Every `leaderboards_every_min`; light rebuild keeps the version |
+| Leaderboards | top wallets, top traders (compacted days plus the hourly rows not yet compacted), top callers, top callouts, top creators, as versioned rows | Every `leaderboards_every_min`; light rebuild keeps the version |
 | Light rebuild | scores and leaderboards recomputed from rollups | Every 12 h |
 | Full rebuild | every score from compacted rollups, archives if needed, and a new leaderboard version | Every 48 h |
 | Deeper refresh | 30-day callout backfill, leaderboard seed lists, owner lists and owner updates | Weekly; every weekly version kept |

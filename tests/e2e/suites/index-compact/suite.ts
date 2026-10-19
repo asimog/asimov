@@ -83,6 +83,13 @@ export const suite: Suite = {
         `kinds ${[...kinds].sort().join(",")}; W4 on board ${w4!.n}, raw rows ${rawW4!.n}`,
       );
 
+      // the traders board counts the last 48 h too: W1's net is its compacted days plus its hourly rows
+      const [want] = await db.sql`select (select coalesce(sum(sol_out - sol_in), 0) from idx.wallet_day where wallet = 'W1')
+        + (select coalesce(sum(sol_out - sol_in), 0) from idx.wallet_coin where wallet = 'W1') net,
+        (select count(*)::int from idx.wallet_coin where wallet = 'W1') hot`;
+      const [got] = await db.sql`select score from idx.leaderboard where kind = 'traders' and subject = 'W1' and version = ${built.version}`;
+      add("the traders board includes the hourly rows not yet compacted", want!.hot > 0 && !!got && Math.abs((got.score as number) - (want!.net as number)) < 1e-12, `W1 board ${got?.score}, expected ${want!.net}, hourly rows ${want!.hot}`);
+
       const v1 = built.version;
       await buildLeaderboards(db.sql, iso(NOW + 1000), { newVersion: true });
       const [versions] = await db.sql`select count(distinct version)::int n from idx.leaderboard`;

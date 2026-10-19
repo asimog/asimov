@@ -69,9 +69,12 @@ export async function buildLeaderboards(sql: Sql, now: string, opts: { newVersio
       order by copy_win_lcb desc nulls last, copy_net desc nulls last, wallet limit 100`).entries())
     rows.push({ kind: "wallets", subject: r.wallet as string, score: (r.copy_win_lcb as number | null) ?? (r.copy_net as number | null), body: { copy_net: r.copy_net, n: r.n, archetype: r.archetype, rank: i + 1 } });
 
-  // traders: what the wallets actually made in the window, from wallet x day
-  for (const [i, r] of (await sql`select wallet, sum(sol_out - sol_in) net, sum(coins)::int coins from idx.wallet_day
-      where day >= ${since.slice(0, 10)} group by wallet order by net desc, wallet limit 100`).entries())
+  // traders: what the wallets actually made in the window, from wallet x day plus the hourly rows not yet compacted
+  for (const [i, r] of (await sql`select wallet, sum(net) net, sum(coins)::int coins from (
+        select wallet, sol_out - sol_in net, coins from idx.wallet_day where day >= ${since.slice(0, 10)}
+        union all
+        select wallet, sol_out - sol_in, 1 from idx.wallet_coin where coalesce(first_buy_at, last_at) >= ${since}
+      ) t group by wallet order by net desc, wallet limit 100`).entries())
     rows.push({ kind: "traders", subject: r.wallet as string, score: r.net as number, body: { net_sol: r.net, coins: r.coins, rank: i + 1 } });
 
   // callers: wallets the firm has seen calling
