@@ -20,7 +20,7 @@ Every room is an instrument: one dominant form edge to edge, a strip of 6 to 8 d
 | `/ledger` | Ledger | A ruled table | Every trade, callout, update, markout and cost |
 | `/treasury` | Treasury | Sweeps, balances, reconciliation, the proof chain | Where the money goes, with proofs |
 | `/charter` | Charter | Constitution, soul versions, disclosure registry | Who it is and what binds it |
-| `/integrity` | Rug feed | Risk evidence from scraped comments and risk signals; case files in six sections | Which coins look unsafe, with evidence and limits |
+| `/integrity` | Rug feed | Per coin, three blocks that never mix: observed (scraped replies that report a rug or dev dump, text and time only, no handle or wallet, `@mentions` masked), computed (the latest `risk.state` numbers with method version, confidence and a stale mark), AI judgment ("the model judged", from BettaFish). Fed by the relay's `/v1/rugfeed` over 24 h. Then the caller ledger and case files in six sections | Which coins look unsafe, with evidence and limits |
 | `/wiki` | Wiki | Pages for top traders, callers, creators, coins, narratives | Who trades how: styles, strategies, hold times, records |
 | `/synthesis` | Synthesis | Forum lines and coin stances with cited case files | What BettaFish read |
 | `/simulations` | Simulations | Swarm runs, branches, belief drift, SIMULATED report | What MiroShark simulated |

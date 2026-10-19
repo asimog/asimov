@@ -9,6 +9,7 @@ import { env } from "../../core/src/lib/env.ts";
 import { log } from "../../core/src/lib/log.ts";
 import { scoresAsOf } from "../../core/src/scorekeeper/scorekeeper.ts";
 import { rooms } from "./rooms.ts";
+import { rugFeed } from "./rug-feed.ts";
 import { slowRooms } from "./slow-rooms.ts";
 
 const sql = postgres(env.str("DATABASE_URL"), { max: env.int("RELAY_DB_POOL"), idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } });
@@ -251,6 +252,8 @@ app.get("/v1/snapshot", async (c) => c.json(await snapshot()));
 app.get("/v1/lab", async (c) => c.json(await lab()));
 app.get("/v1/ledger", async (c) => c.json(await ledgerRoom()));
 app.get("/v1/integrity", async (c) => c.json(await integrity()));
+const rugs = rugFeed({ sql, cached, sym });
+app.get("/v1/rugfeed", async (c) => c.json(await rugs()));
 const r = rooms({ sql, cached, sym, line, mandate: MANDATE_SOL });
 app.get("/v1/treasury", async (c) => c.json(await r.treasury()));
 const slow = slowRooms({ sql, cached, sym });
