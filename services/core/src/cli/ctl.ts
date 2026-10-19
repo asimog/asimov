@@ -14,6 +14,7 @@ import { buildConsumers } from "../runtime.ts";
 import { coverage, ledger } from "../scorekeeper/ledger.ts";
 import { slowScores } from "../scorekeeper/slow-scores.ts";
 import { ensureGenesis, verifyChain, versions } from "../soul/soul.ts";
+import { hotPartitions, ndjsonLine, TAPE_COLUMNS } from "../tape/archiver.ts";
 import { Tape } from "../tape/tape.ts";
 import { balances, nav, recordDeposit } from "../treasury/books.ts";
 import { killState, ownerKill, resume } from "../treasury/kill.ts";
@@ -60,11 +61,11 @@ async function exportTape(file: string, from?: string, to?: string) {
   const ws = fs.createWriteStream(file);
   gz.pipe(ws);
   let n = 0;
-  const cursor = sql`select id, topic, v, event_time, seen_time, source, subject, causes, mode, body from tape.events
-    where seen_time >= ${from ?? "epoch"} and seen_time <= ${to ?? "infinity"} order by seen_time, id`.cursor(2000);
+  const cursor = sql`select ${sql.unsafe(TAPE_COLUMNS)} from tape.events
+    where seen_time >= ${from ?? "1970-01-01T00:00:00Z"} and seen_time <= ${to ?? "9999-12-31T00:00:00Z"} order by seen_time, id`.cursor(2000);
   for await (const rows of cursor)
     for (const r of rows) {
-      gz.write(`${JSON.stringify({ ...r, event_time: new Date(r.event_time as string).toISOString(), seen_time: new Date(r.seen_time as string).toISOString() })}\n`);
+      gz.write(ndjsonLine(r));
       n++;
     }
   gz.end();
@@ -89,15 +90,9 @@ function tierOf(schema: string, name: string): number {
 /** Oldest inputs_hot partition and how long it has sat past its window. Read-only. */
 async function archiveLag(windowHours: number) {
   const now = Date.now();
-  const parts = (await sql`select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'tape' and c.relkind = 'r' and c.relname ~ '^events_p_[0-9]{10}_inputs_hot$'`) as unknown as { relname: string }[];
-  let oldest: { part: string; to: number } | null = null;
-  for (const p of parts) {
-    const t = /events_p_(\d{10})_inputs_hot/.exec(p.relname)?.[1];
-    if (!t) continue;
-    const to = Date.UTC(Number(t.slice(0, 4)), Number(t.slice(4, 6)) - 1, Number(t.slice(6, 8)), Number(t.slice(8, 10)) + 1);
-    if (!oldest || to < oldest.to) oldest = { part: p.relname, to };
-  }
+  // sorted oldest first, so the first partition is the one that lags most
+  const first = (await hotPartitions(sql))[0];
+  const oldest = first ? { part: first.table.slice("tape.".length), to: Date.parse(first.to) } : null;
   const lag = oldest ? Math.max(0, Math.floor((now - (oldest.to + windowHours * 3_600_000)) / 1000)) : 0;
   return { lag_s: lag, oldest_partition: oldest?.part ?? null, oldest_to: oldest ? new Date(oldest.to).toISOString() : null };
 }

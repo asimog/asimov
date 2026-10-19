@@ -41,10 +41,11 @@ export class Archiver {
     const now = this.tape.clock.now();
     const closedBefore = now - this.config.retention.hot_window_hours * HOUR;
     const out = { archived: [] as string[], dropped: [] as string[], skipped: [] as string[] };
-    for (const p of await this.partitions()) {
+    for (const p of await hotPartitions(this.sql)) {
       if (Date.parse(p.to) > closedBefore) continue;
       try {
-        const prior = await this.sql`select partition, verified from tape.archived where partition = ${p.table}`;
+        // an unverified record (a crash mid-run, an older build) is exported again, never trusted
+        const prior = await this.sql`select 1 from tape.archived where partition = ${p.table} and verified`;
         if (!prior.length) {
           const rows = await this.rows(p.table);
           const file = `tape-inputs_hot-${p.token}.ndjson.gz`;
@@ -64,7 +65,8 @@ export class Archiver {
           const targets = verified.join("\n");
           await this.sql`insert into tape.archived (partition, file, rows, sha256, target, from_time, to_time, verified, at)
             values (${p.table}, ${file}, ${rows.length}, ${sha256}, ${targets}, ${p.from}, ${p.to}, true, ${new Date(now).toISOString()})
-            on conflict (partition) do nothing`;
+            on conflict (partition) do update set file = excluded.file, rows = excluded.rows, sha256 = excluded.sha256,
+              target = excluded.target, verified = true, at = excluded.at`;
           this.tape.emit("tape.archived", { partition: p.table, file, rows: rows.length, sha256, target: targets, from: p.from, to: p.to, at: new Date(now).toISOString() }, { source: "system", subject: p.table });
           await this.tape.flush();
         }
@@ -82,32 +84,34 @@ export class Archiver {
     return out;
   }
 
-  /** The leaf inputs_hot partitions, parsed from their names (the name is the contract with Tape.ensurePartitions). */
-  private async partitions(): Promise<Partition[]> {
-    const rows = (await this.sql`
-      select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'tape' and c.relkind = 'r' and c.relname ~ '^events_p_[0-9]{10}_inputs_hot$'`) as unknown as { relname: string }[];
-    const out: Partition[] = [];
-    for (const r of rows) {
-      const m = TOKEN.exec(r.relname);
-      if (!m) continue;
-      const t = m[1]!;
-      const start = Date.UTC(Number(t.slice(0, 4)), Number(t.slice(4, 6)) - 1, Number(t.slice(6, 8)), Number(t.slice(8, 10)));
-      out.push({ table: `tape.${r.relname}`, token: t, from: new Date(start).toISOString(), to: new Date(start + HOUR).toISOString() });
-    }
-    return out.sort((a, b) => (a.token < b.token ? -1 : 1));
-  }
-
   private async rows(table: string): Promise<Row[]> {
-    return (await this.sql.unsafe(
-      `select id, topic, v, class, event_time, seen_time, source, subject, causes, mode, body from ${table} order by seen_time, id`,
-    )) as unknown as Row[];
+    return (await this.sql.unsafe(`select ${TAPE_COLUMNS} from ${table} order by seen_time, id`)) as unknown as Row[];
   }
+}
 
+/** The columns every Tape export carries: the archive and `ctl export` write the same file shape. */
+export const TAPE_COLUMNS = "id, topic, v, class, event_time, seen_time, source, subject, causes, mode, body";
+
+/** One NDJSON line for a Tape row; dates serialise as ISO strings. */
+export const ndjsonLine = (r: Row) => `${JSON.stringify(r)}\n`;
+
+/** The leaf inputs_hot partitions, parsed from their names (the name is the contract with ensureHourPartition). */
+export async function hotPartitions(sql: Sql): Promise<Partition[]> {
+  const rows = (await sql`
+    select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'tape' and c.relkind = 'r' and c.relname ~ '^events_p_[0-9]{10}_inputs_hot$'`) as unknown as { relname: string }[];
+  const out: Partition[] = [];
+  for (const r of rows) {
+    const t = TOKEN.exec(r.relname)?.[1];
+    if (!t) continue;
+    const start = Date.UTC(Number(t.slice(0, 4)), Number(t.slice(4, 6)) - 1, Number(t.slice(6, 8)), Number(t.slice(8, 10)));
+    out.push({ table: `tape.${r.relname}`, token: t, from: new Date(start).toISOString(), to: new Date(start + HOUR).toISOString() });
+  }
+  return out.sort((a, b) => (a.token < b.token ? -1 : 1));
 }
 
 export function gzip(rows: Row[]): Buffer {
-  return zlib.gzipSync(rows.map((r) => `${JSON.stringify(r)}\n`).join(""), { level: 9 });
+  return zlib.gzipSync(rows.map(ndjsonLine).join(""), { level: 9 });
 }
 
 /** Read the bytes back: same checksum, same row count, every line parses. */
