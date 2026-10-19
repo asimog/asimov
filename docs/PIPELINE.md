@@ -8,7 +8,7 @@ Reading is cheap; writing is what costs space. Every sense reads everything it c
 
 | Filter set | Fields (all configurable) |
 |---|---|
-| Feed | sources (`recent`, `hot`, `follow`; `trending` and `top_traders` only after we record their endpoints), every chain read and the stored chains chosen in config (`solana` now; `base` and `robinhood` also seen, `docs/research/pumpfun-endpoints.md`), minimum position in USD (default 10), market cap at call range |
+| Feed | sources (`recent`, `hot`, `follow`; `trending` and `top_traders` only after we record their endpoints), every chain read and the stored chains chosen in config (`solana` now; `base`, `robinhood`, `ethereum` and `hyperevm` also seen, `docs/research/pumpfun-endpoints.md`), a callout with no chain decided by `unknown_chain`, minimum position in USD (default 10), market cap at call range |
 | Launch | dev buy range, block-0 sniper share, bundle share, blocklists (`blocked_creators`, `blocked_wallets`, `blocked_mints`) |
 | Watch | `WATCH_MAX_COINS`, `WATCH_HOURS`, the Scout floors |
 
@@ -18,9 +18,7 @@ All senses write the Tape and nothing else. None decides anything.
 
 ### Feed Reader
 
-Reads the callout feed JSON the web client reads, for each configured source.
-
-- Push channel when available, else polls every `FEED_POLL_MS` with a cursor kept in a table (`tape.feed_cursors`), so a restart resumes: the startup walk stops at the newest callout already read, and the history walk resumes from its saved page or stays done.
+Reads the callout feed JSON the web client reads, for each configured source. `recent` is `/home-feed/new`; `hot` is the ranked `/home-feed`; `follow` is the NATS `followingFeed` push. Each HTTP source keeps its own cursor in `tape.feed_cursors` (`recent`, `hot`), so a restart resumes that source: the startup walk stops at the newest callout already read, and the history walk resumes from its saved page or stays done. The door runs before any write; a refused callout is counted by reason and chain and a hash sample is written as `filter.sampled`. A bot challenge (403) or a 429 skips that source for that poll, is counted with its status, and is tried again on the next poll; nothing gets around the check.
 - Dedupe by callout and update id. Changed counts write `callout.counts` with a dedupe key.
 - When page 1 is all new, it walks older pages until it meets a known callout; if it runs out, it writes `system.gap` (source `feed`).
 - One honest user agent naming the firm. Backoff per path prefix; `Retry-After` honoured, including date values.

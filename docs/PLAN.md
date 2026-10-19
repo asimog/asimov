@@ -45,7 +45,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 |---|---|---|
 | B0 | Done 2026-10-19. The Tape never drops an accepted event silently (`docs/tasks/B0.md`) | `tape-durable`: database stopped mid-run, zero dropped |
 | B1 | Done 2026-10-19. Config module for `config/*.json` (feeds, filters, retention, schedules; `models.json` comes with E4) with `config.loaded` (`docs/tasks/B1.md`) | `config-load`: a bad field stops boot naming `launch.max_dev_buy_sol`; `config.loaded` carries each file hash |
-| B2 | Feed sources (`recent`, `hot`, `follow`; every chain read, `solana` stored) and configurable callout filters (chain, minimum position, mcap at call), from a recorded real slice (`docs/tasks/B2.md`) | `feed-filters` on the slice: only passing callouts stored; rejected counted by reason and chain and sampled; a threshold change needs no code |
+| B2 | Done 2026-10-19. Feed sources (`recent`, `hot`, `follow`; every chain read, `solana` stored) and configurable callout filters (chain, minimum position, mcap at call), from the recorded real slice (`docs/tasks/B2.md`) | `feed-filters` passed on the slice: only passing callouts stored; rejected counted by reason and chain and sampled; a threshold change needs no code |
 | B3 | Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion, facts from NATS then the RPC pool then the pump.fun API, with a rule for unknown (`docs/tasks/B3.md`) | Filtered launches never reach the watched set |
 | B4 | `follow_wallets` list and the follow feed (`docs/tasks/B4.md`) | A followed wallet's buy promotes its coin |
 | B5 | Backfill fans out across providers in parallel and checks our rollups first (`docs/tasks/B5.md`) | Fewer RPC calls for a coin we already rolled up |

@@ -57,7 +57,7 @@ export const suite: Suite = {
       const second = await run();
       const secondReqs = requests.splice(0);
       const [n] = await db.sql`select count(*)::int n, count(distinct body->>'callout_id')::int ids from tape.events where topic = 'callout.created'`;
-      const [cur] = await db.sql`select (select newest_at from tape.feed_cursors where name = 'poll') newest, (select token from tape.feed_cursors where name = 'history') token`;
+      const [cur] = await db.sql`select (select newest_at from tape.feed_cursors where name = 'recent') newest, (select token from tape.feed_cursors where name = 'history') token`;
       checks.push({ name: "both runs exit cleanly", pass: first === 0 && second === 0, detail: `exit codes ${first}, ${second}` });
       checks.push({ name: "the first run walks the whole feed once", pass: new Set(firstReqs).size === 100 / PAGE, detail: `${firstReqs.length} requests over ${new Set(firstReqs).size} pages` });
       checks.push({ name: "a restart fetches page 1 only", pass: secondReqs.length > 0 && secondReqs.every((r) => r === "page1"), detail: `${secondReqs.length} requests: ${secondReqs.join(", ")}` });

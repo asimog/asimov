@@ -9,6 +9,7 @@ import { replies } from "./hands/replies.ts";
 import { snapshotHolders } from "./index/holders.ts";
 import { refresh, seed } from "./index/refresh.ts";
 import type { Clock } from "./lib/clock.ts";
+import { configValues } from "./lib/config.ts";
 import type { Sql } from "./lib/db.ts";
 import { env } from "./lib/env.ts";
 import { log } from "./lib/log.ts";
@@ -54,7 +55,8 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
   const tape = new Tape(sql, clock);
   const treasury = treasuryWiring(sql, tape, clock); // null without keys: paper runs as before
   const consumers = [...buildConsumers(tape), ...(treasury?.consumers ?? [])];
-  const feed = env.bool("SENSE_FEED") ? new FeedReader(tape) : null;
+  const config = configValues(); // main.ts already validated it; the senses read the same values
+  const feed = env.bool("SENSE_FEED") ? new FeedReader(tape, config) : null;
   const replies = env.bool("SENSE_REPLIES") ? new ReplyReader(tape, sql) : null;
   const media = env.bool("SENSE_MEDIA") ? new MediaCache(tape, sql) : null;
   const pool = new RpcPool();

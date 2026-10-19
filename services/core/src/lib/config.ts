@@ -21,6 +21,8 @@ const SCHEMAS = {
     /** Callout door (B2): checked before a callout is written. */
     callout: z.strictObject({
       chains: z.array(z.string().min(1)).min(1),
+      /** a callout whose source carries no chain (`followingFeed` today): pass, or refuse until we record the chain */
+      unknown_chain: unknownRule,
       min_position_usd: z.number().min(0),
       min_mcap_usd: z.number().min(0),
       max_mcap_usd: z.number().positive().nullable(),
@@ -56,6 +58,11 @@ export type Config = { [F in ConfigFile]: z.infer<(typeof SCHEMAS)[F]> };
 type Loaded = { [F in ConfigFile]: { sha256: string; value: Config[F] } };
 
 export const CONFIG_DIR = path.join(env.root, "config");
+
+/** The parsed values only (senses and tests); the hashes stay with loadConfig. */
+export function configValues(dir = CONFIG_DIR): Config {
+  return values(readConfig(dir));
+}
 
 /** Reads and checks every file; the first failure throws with the file and the field path. Touches no database. */
 export function readConfig(dir = CONFIG_DIR): Loaded {

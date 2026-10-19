@@ -82,6 +82,19 @@ export const CalloutUpdated = z.object({
   created_at: iso,
 });
 
+/** A callout the door refused, sampled by a hash of its id so a second run samples the same ones. */
+export const FilterSampled = z.object({
+  reason: z.enum(["unknown_chain", "chain", "min_position", "min_mcap", "max_mcap"]),
+  source: z.string(),
+  chain: z.string().nullable(),
+  callout: z.object({
+    callout_id: z.string(),
+    mint: z.string(),
+    position_usd: num.nullable(),
+    mcap_usd: num.nullable(),
+  }),
+});
+
 export const CalloutCounts = z.object({
   callout_id: z.string(),
   mint: z.string(),
@@ -514,6 +527,7 @@ export const TOPICS = {
   "callout.reply": CalloutReply,
   "media.cached": MediaCached,
   "callout.counts": CalloutCounts,
+  "filter.sampled": FilterSampled,
   "caller.position": CallerPosition,
   "trade.curve": Trade,
   "trade.amm": Trade,

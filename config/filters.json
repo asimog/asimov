@@ -1,6 +1,7 @@
 {
   "callout": {
     "chains": ["solana"],
+    "unknown_chain": "pass",
     "min_position_usd": 10,
     "min_mcap_usd": 0,
     "max_mcap_usd": null
