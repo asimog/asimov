@@ -147,7 +147,9 @@ Jev answers typed questions about a small state in about 150 ms with calibrated 
 | `guard` | Every text entering an LLM and every outbound post | Injection, names a person, promises returns, missing disclosure |
 | `verify` | Each slow-mind claim | Does the cited text support it |
 
-Routing: confidence at or above 0.7 counts fully, 0.5 to 0.7 at half weight, below 0.5 is `uncertain` and may escalate. Big orders ask twice with options shuffled. Budget `JEV_*`; on cap, packs fall back to math signals.
+Untrusted text never reaches Jev raw. The Guard's rules (`reflex/guard.ts`) refuse plain injection attempts in a callout's text, name or symbol before any model reads it, and write `guard.refused`; every untrusted field that passes is fenced (`<<<...>>>`, with fence marks and control characters removed), so it cannot close its own quote. The `guard` pack then judges each outbound post.
+
+Routing: confidence at or above 0.7 counts fully, 0.5 to 0.7 at half weight, below 0.5 is `uncertain` and may escalate. Big orders ask twice with options shuffled. Budget `JEV_*`; on cap, packs fall back to math signals, and the first refusal of the hour writes `budget.exhausted`.
 
 ## 7. Scorekeeper
 

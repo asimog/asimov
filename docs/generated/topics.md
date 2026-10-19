@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-78 topics.
+80 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -55,6 +55,8 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `holders.snapshot` | `mint`, `supply`, `top`, `excluded`, `top10_share`, `features` |
 | `index.refreshed` | `version`, `window_days`, `wallets`, `coins`, `smart` |
 | `budget.spent` | `analyzer`, `units`, `amount`, `job_event_id` |
+| `guard.refused` | `subject`, `where`, `rules` |
+| `budget.exhausted` | `analyzer`, `hour`, `used`, `cap` |
 | `thesis.formed` | `thesis_id`, `mint`, `strategy_id`, `position_id`, `kind`, `claims`, `prediction`, `plan`, `invalidation`, `commit_id` |
 | `post.queued` | `post_id`, `kind`, `mint`, `house_id`, `thesis_id`, `text`, `checks`, `because`, `paper` |
 | `synthesis.feed` | `synthesis_id`, `window_min`, `preset`, `narratives`, `coin_stances`, `suspicious`, `claims_total`, `claims_dropped` |

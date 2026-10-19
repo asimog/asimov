@@ -337,6 +337,10 @@ export const SystemGap = z.object({
   reason: z.string(),
 });
 
+/** Untrusted text refused by the Guard's rules before any model read it (C11). */
+export const GuardRefused = z.object({ subject: z.string(), where: z.string(), rules: z.array(z.string()).min(1) });
+/** A model budget ran out for this hour; its packs fall back to math signals until the next hour (C11). */
+export const BudgetExhausted = z.object({ analyzer: z.string(), hour: iso, used: num, cap: num });
 export const BudgetSpent = z.object({ analyzer: z.string(), units: z.string(), amount: num, job_event_id: z.string().nullable() });
 
 /** Launch features the Scout measured before promoting a coin (docs/PIPELINE.md section 3). All seen at promotion time. */
@@ -626,6 +630,8 @@ export const TOPICS = {
   "holders.snapshot": HoldersSnapshot,
   "index.refreshed": IndexRefreshed,
   "budget.spent": BudgetSpent,
+  "guard.refused": GuardRefused,
+  "budget.exhausted": BudgetExhausted,
   "thesis.formed": ThesisFormed,
   "post.queued": PostQueued,
   "synthesis.feed": SynthesisFeed,
@@ -704,7 +710,7 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "books.reconciled": "derived", "proof.published": "derived", "markout.measured": "derived", "calibration.map": "derived", "commit.made": "derived",
   "commit.revealed": "derived", "position.closed": "derived", "strategy.born": "derived", "strategy.retired": "derived",
   "kernel.allocation": "derived", "outcome.measured": "derived", "score.updated": "derived", "precall.detected": "derived",
-  "holders.snapshot": "derived", "index.refreshed": "derived", "budget.spent": "derived", "thesis.formed": "derived",
+  "holders.snapshot": "derived", "index.refreshed": "derived", "budget.spent": "derived", "guard.refused": "derived", "budget.exhausted": "derived", "thesis.formed": "derived",
   "post.queued": "derived", "synthesis.feed": "derived", "mood.feed": "derived", "synthesis.coin": "derived",
   "synthesis.forum_line": "derived", "swarm.wave_p": "derived", "swarm.impact": "derived", "swarm.post": "derived",
   "proposal.strategy": "derived", "jevq.proposed": "derived", "report.drafted": "derived", "integrity.text": "derived",
