@@ -77,7 +77,7 @@ The post-callout families are a control group. We expect them to lose; their res
 P(caller calls within H | they bought) x E[net of our entry at exit | they called]  minus the cost of a miss
 ```
 
-Caller record fields: `buy_to_call_rate`, `lag_med_s`, `post_call_net`, `dump_rate`, `creator_share`, `n_calls`. A caller with a high `creator_share` promotes their own coins: skip. A caller with a high `dump_rate` sells into followers: exit on their first sell.
+Caller record fields (`analyzers/precall.ts`): `buy_to_call_rate`, `lag_med_s`, `post_call_net` (our entry at the first trade after their buy, sold into their callout, after `INDEX_ROUND_TRIP_COST`), `miss_net` (the same buy with no callout, sold at the end of the horizon), `dump_rate` (calls they sold into within the horizon), `creator_share` (calls on coins they launched), `n_calls`. Rate and nets are shrunk to the population by `PRECALL_PRIOR_N`. `precall.callout_p` names the buyer with the highest `edge` = rate x (post_call_net - 1) - (1 - rate) x (1 - miss_net), and gives `edge_norm` (0.5 + 2.5 x edge, clamped to [0, 1]) as a score input. A caller with a high `creator_share` promotes their own coins: skip. A caller with a high `dump_rate` sells into followers: exit on their first sell.
 
 ## 4. Calibration
 

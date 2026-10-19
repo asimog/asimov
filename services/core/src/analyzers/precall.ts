@@ -16,6 +16,7 @@ const P = {
   horizonMin: env.num("PRECALL_HORIZON_MIN"),
   priorN: env.num("PRECALL_PRIOR_N"),
   peakAt: env.num("PRECALL_PEAK_MULT"),
+  cost: env.num("INDEX_ROUND_TRIP_COST"), // fees both ways plus slippage, as the Index charges a copy trade
 };
 const TRADES = ["trade.curve", "trade.amm"];
 const MIN = 60_000;
@@ -32,26 +33,81 @@ async function qualifies(tx: Tx, wallet: string, mint: string, at: string) {
 }
 
 /**
- * Closed record: first qualifying buy per coin whose horizon ended by `nowMs`, and whether a callout by the same
- * wallet followed within the horizon. `wallet = null` gives the population over every known caller.
+ * Closed record (docs/STRATEGY.md section 3): each first qualifying buy per coin whose horizon ended by `nowMs`. Per buy:
+ * did the same wallet call it within the horizon and how fast; our net had we bought at the first trade after their buy
+ * and sold into their callout (the first trade at or after it), or, with no callout, at the last trade of the horizon;
+ * whether they sold within the horizon after calling (a dump). `wallet = null` gives the population over every known caller.
  */
-async function record(tx: Tx, wallet: string | null, nowMs: number) {
+export async function callerRecord(tx: Tx, wallet: string | null, nowMs: number) {
   const H = P.horizonMin;
+  const now = iso(nowMs);
+  const at = tx`(case when t.source = 'rpc' then t.event_time else t.seen_time end)`;
+  const price = (cond: ReturnType<typeof tx>, order: ReturnType<typeof tx>) => tx`(select (x.body->>'price_sol')::float from tape.events x
+    where x.subject = c.mint and x.topic = any(${TRADES}) and x.body->>'price_sol' is not null and x.seen_time <= ${now} and ${cond} order by ${order} limit 1)`;
   const rows = await tx`
     with b as (
-      select distinct on (t.body->>'wallet', t.subject) t.body->>'wallet' w, t.subject mint, (case when t.source = 'rpc' then t.event_time else t.seen_time end) at
+      select distinct on (t.body->>'wallet', t.subject) t.body->>'wallet' w, t.subject mint, ${at} at
       from tape.events t
-      where t.topic = any(${TRADES}) and t.body->>'side' = 'buy' and t.seen_time <= ${iso(nowMs)} and (case when t.source = 'rpc' then t.event_time else t.seen_time end) <= ${iso(nowMs - H * MIN)}
+      where t.topic = any(${TRADES}) and t.body->>'side' = 'buy' and t.seen_time <= ${now} and ${at} <= ${iso(nowMs - H * MIN)}
         and t.seen_time > ${iso(nowMs - P.windowDays * 86_400_000)}
         ${wallet ? tx`and t.body->>'wallet' = ${wallet}` : tx``}
-        and exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.seen_at < (case when t.source = 'rpc' then t.event_time else t.seen_time end))
-        and not exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.mint = t.subject and c.seen_at <= (case when t.source = 'rpc' then t.event_time else t.seen_time end))
-      order by t.body->>'wallet', t.subject, (case when t.source = 'rpc' then t.event_time else t.seen_time end))
-    select extract(epoch from (select min(c.seen_at) from mem.callouts c where c.wallet = b.w and c.mint = b.mint
-      and c.seen_at > b.at and c.seen_at <= b.at + make_interval(mins => ${H}) and c.seen_at <= ${iso(nowMs)}) - b.at)::float lag_s
-    from b`;
-  const lags = rows.flatMap((r) => (r.lag_s == null ? [] : [r.lag_s as number]));
-  return { buys: rows.length, called: lags.length, lags };
+        and exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.seen_at < ${at})
+        and not exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.mint = t.subject and c.seen_at <= ${at})
+      order by t.body->>'wallet', t.subject, ${at}),
+    c as (
+      select b.*, (select min(k.seen_at) from mem.callouts k where k.wallet = b.w and k.mint = b.mint
+        and k.seen_at > b.at and k.seen_at <= b.at + make_interval(mins => ${H}) and k.seen_at <= ${now}) c_at
+      from b)
+    select extract(epoch from (c_at - at))::float lag_s,
+      ${price(tx`x.seen_time > c.at`, tx`x.seen_time, x.id`)} entry,
+      case when c_at is null then ${price(tx`x.seen_time <= c.at + make_interval(mins => ${H})`, tx`x.seen_time desc, x.id desc`)}
+        else ${price(tx`x.seen_time >= c.c_at`, tx`x.seen_time, x.id`)} end exit,
+      c_at is not null and exists (select 1 from tape.events s where s.subject = c.mint and s.topic = any(${TRADES}) and s.body->>'wallet' = c.w
+        and s.body->>'side' = 'sell' and s.seen_time > c.c_at and s.seen_time <= least(c.c_at + make_interval(mins => ${H}), ${now}::timestamptz)) dumped
+    from c`;
+  const net = (r: Record<string, unknown>) => (r.entry && r.exit ? ((r.exit as number) / (r.entry as number)) * (1 - P.cost) : null);
+  const called = rows.filter((r) => r.lag_s != null);
+  const missed = rows.filter((r) => r.lag_s == null);
+  const [k] = wallet
+    ? await tx`select count(*)::int n,
+        count(*) filter (where exists (select 1 from tape.events w where w.topic = 'coin.watched' and w.subject = c.mint and w.body->'features'->>'creator' = ${wallet} and w.seen_time <= ${now}))::int own
+      from mem.callouts c where c.wallet = ${wallet} and c.seen_at <= ${now}`
+    : [{ n: 0, own: 0 }];
+  return {
+    buys: rows.length,
+    called: called.length,
+    lags: called.map((r) => r.lag_s as number),
+    called_nets: called.flatMap((r) => net(r) ?? []),
+    missed_nets: missed.flatMap((r) => net(r) ?? []),
+    dumps: called.filter((r) => r.dumped).length,
+    n_calls: k!.n as number,
+    own_calls: k!.own as number,
+  };
+}
+type Rec = Awaited<ReturnType<typeof callerRecord>>;
+const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+
+/**
+ * The caller fields (docs/STRATEGY.md section 3), each shrunk to the population by PRECALL_PRIOR_N pseudo-buys:
+ * buy_to_call_rate, post_call_net, miss_net and the expected net of copying their buy now.
+ */
+export function callerFields(r: Rec, pop: { rate: number; called_net: number; missed_net: number }) {
+  const n = P.priorN;
+  const shrink = (xs: number[], prior: number) => (n * prior + xs.reduce((a, b) => a + b, 0)) / (n + xs.length);
+  const rate = (pop.rate * n + r.called) / (n + r.buys);
+  const post = shrink(r.called_nets, pop.called_net);
+  const miss = shrink(r.missed_nets, pop.missed_net);
+  return {
+    buy_to_call_rate: rate,
+    post_call_net: post,
+    miss_net: miss,
+    // P(call | bought) x the net if they call, minus the cost of a miss
+    edge: rate * (post - 1) - (1 - rate) * (1 - miss),
+    dump_rate: r.called ? r.dumps / r.called : null,
+    creator_share: r.n_calls ? r.own_calls / r.n_calls : null,
+    n_calls: r.n_calls,
+    lag_med_s: median(r.lags),
+  };
 }
 
 export function precallAnalyzers(tape: Tape, clock: Clock): Consumer {
@@ -67,12 +123,14 @@ export function precallAnalyzers(tape: Tape, clock: Clock): Consumer {
       { source: "analyzer", subject: e.body.mint, causes: [e.id], after: e.seen_time, dedupe: `graduated:${e.body.mint}` });
   }
 
-  const pop = new Map<number, number>(); // minute bucket -> population rate; a pure cache, so a restart recomputes the same value
-  async function popRate(tx: Tx, nowMs: number) {
+  type Pop = { rate: number; called_net: number; missed_net: number };
+  const pop = new Map<number, Pop>(); // minute bucket -> population record; a pure cache, so a restart recomputes the same value
+  async function popRecord(tx: Tx, nowMs: number) {
     const bucket = Math.floor(nowMs / MIN);
     if (!pop.has(bucket)) {
-      const r = await record(tx, null, bucket * MIN);
-      pop.set(bucket, (r.called + 1) / (r.buys + 2));
+      const r = await callerRecord(tx, null, bucket * MIN);
+      // with no history the population is break-even before costs
+      pop.set(bucket, { rate: (r.called + 1) / (r.buys + 2), called_net: mean(r.called_nets) ?? 1 - P.cost, missed_net: mean(r.missed_nets) ?? 1 - P.cost });
     }
     return pop.get(bucket)!;
   }
@@ -122,14 +180,15 @@ export function precallAnalyzers(tape: Tape, clock: Clock): Consumer {
         and exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.seen_at < (case when t.source = 'rpc' then t.event_time else t.seen_time end))
         and not exists (select 1 from mem.callouts c where c.wallet = t.body->>'wallet' and c.mint = t.subject and c.seen_at <= ${e.seen_time})
       order by 1`;
-    const rate = await popRate(tx, now);
-    const a0 = rate * P.priorN;
+    const pr = await popRecord(tx, now);
     const each = [];
     for (const b of buyers) {
-      const r = await record(tx, b.w as string, now);
-      each.push({ wallet: b.w as string, p: (a0 + r.called) / (P.priorN + r.buys), ...r });
+      const r = await callerRecord(tx, b.w as string, now);
+      const f = callerFields(r, pr);
+      each.push({ wallet: b.w as string, p: f.buy_to_call_rate, f, ...r });
     }
-    const top = each.reduce((a, b) => (b.p > a.p || (b.p === a.p && b.wallet < a.wallet) ? b : a));
+    // the buyer whose buy is worth most to copy, by expected net, not by call odds alone
+    const top = each.reduce((a, b) => (b.f.edge > a.f.edge || (b.f.edge === a.f.edge && b.wallet < a.wallet) ? b : a));
     const peaks = (await tx`select (body->>'peak_multiple')::float peak from (
         select distinct on (body->>'callout_id') body from tape.events
         where topic = 'outcome.measured' and seen_time <= ${e.seen_time} and body->>'author_wallet' = ${top.wallet} and (body->>'horizon_min')::int = 3
@@ -145,10 +204,18 @@ export function precallAnalyzers(tape: Tape, clock: Clock): Consumer {
         buy_sol: e.body.sol,
         n_buys: top.buys,
         n_called: top.called,
-        lag_med_s: median(top.lags),
+        lag_med_s: top.f.lag_med_s,
+        buy_to_call_rate: top.f.buy_to_call_rate,
+        post_call_net: top.f.post_call_net,
+        miss_net: top.f.miss_net,
+        edge: top.f.edge,
+        edge_norm: Math.min(1, Math.max(0, 0.5 + 2.5 * top.f.edge)), // a [0,1] score input: 0.5 at break-even, 1 at +20% expected
+        dump_rate: top.f.dump_rate,
+        creator_share: top.f.creator_share,
+        n_calls: top.f.n_calls,
         med_peak: median(peaks),
         p_peak: peaks.length ? peaks.filter((x) => x >= P.peakAt).length / peaks.length : null,
-        pop_rate: rate,
+        pop_rate: pr.rate,
         callers_buying: each.length,
         horizon_min: H,
       },
@@ -160,8 +227,7 @@ export function precallAnalyzers(tape: Tape, clock: Clock): Consumer {
     });
     // the detection is about this buyer: its own chance to call is what the Scorekeeper grades
     const found = each.find((x) => x.wallet === e.body.wallet);
-    const r = found ?? (await record(tx, e.body.wallet, now));
-    const ownP = found ? found.p : (a0 + r.called) / (P.priorN + r.buys);
+    const ownP = found ? found.p : callerFields(await callerRecord(tx, e.body.wallet, now), pr).buy_to_call_rate;
     await tape.emitIn(tx, "precall.detected", { mint: e.body.mint, caller: e.body.wallet, trade_id: e.id, buy_sol: e.body.sol, p: ownP, horizon_min: H },
       { source: "analyzer", subject: e.body.mint, causes: [e.id], after: e.seen_time, dedupe: `precall.detected:${e.id}` });
   }

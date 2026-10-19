@@ -93,14 +93,16 @@ const FAMILIES: Family[] = [
     universe: {
       all: [
         { sig: "precall.callout_p", field: "p", op: "exists" },
+        { sig: "precall.callout_p", field: "creator_share", op: "<", v: 0.5 }, // a caller who mostly promotes their own coins: skip
         { sig: "curve.progress", field: "progress", op: "<", v: 0.85 },
         { sig: "flow.state", field: "top_share", op: "<", v: 0.6 },
       ],
     },
     score: {
       sum: [
-        { w: 0.6, sig: "precall.callout_p", field: "p", missing: "skip" },
-        { w: 0.3, sig: "precall.callout_p", field: "p_peak", missing: "skip" },
+        { w: 0.6, sig: "precall.callout_p", field: "edge_norm", missing: "skip" }, // the expected net of copying the buy
+        { w: 0.2, sig: "precall.callout_p", field: "p", missing: "skip" },
+        { w: 0.2, sig: "precall.callout_p", field: "p_peak", missing: "skip" },
         { w: 0.2, sig: "flow.state", field: "heat", missing: "skip" },
         { w: 0.2, sig: "caller.dna", field: "followers_norm", missing: "skip" },
         { w: -0.3, sig: "flow.state", field: "top_share", missing: "skip" },

@@ -67,7 +67,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | C7 | Done 2026-10-19. Refuse buys with no `risk.state` (4.7) (`docs/tasks/C7.md`) | `riskgate-refuses`, `owner-config` passed: no risk state refused, clean rug checks still trade |
 | C8 | Done 2026-10-19 (`docs/tasks/C8.md`). AMM impact term; graduated coins stay ghost until then | `amm-impact` passed on the real slice: +127 bps at 0.01 SOL, +599 bps at 10 SOL; gate refuses past 300 bps |
 | C9 | Done 2026-10-19 (`docs/tasks/C9.md`). Index features: creator launches and rug rate, funder links, bundler and copier archetypes | `index-features` passed: `mass_deployer` refused; funders from the real slice; bundler and copier labelled |
-| C10 | Rebuilt `pre_call` score and caller record fields | Hand-checked records for three callers |
+| C10 | Done 2026-10-19 (`docs/tasks/C10.md`). Rebuilt `pre_call` score and caller record fields | `caller-records` passed: three callers match hand-worked records |
 | C11 | Done 2026-10-19 (`docs/tasks/C11.md`). Jev guard pack, fenced symbols, `budget.exhausted` | `jev-guard` passed: test injections refused and recorded before Jev |
 | C12 | Done 2026-10-19. `config/limits.default.json` replaces limit defaults in code (`docs/tasks/C12.md`) | `owner-config` passed: limits show reads the file defaults |
 

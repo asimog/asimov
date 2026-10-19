@@ -46,7 +46,7 @@ export const suite: Suite = {
     };
     try {
       const sig = (kind: string, value: unknown) => putSignal(db.sql as unknown as Tx, clock, { kind, subject: MINT, value, confidence: 0.9, validMs: 3_600_000, inputs: [], analyzer: "test" });
-      await sig("precall.callout_p", { p: 1, p_peak: 1 });
+      await sig("precall.callout_p", { p: 1, p_peak: 1, edge_norm: 1, creator_share: 0 });
       await sig("curve.progress", { progress: 0.2, mcap_usd: 9000 });
       await sig("flow.state", { buyers_60s: 20, heat: 1, top_share: 0 });
       await sig("risk.state", { bundle_share: 0, top10_share: 0.1, creator_sold: 0, score: 0 });
