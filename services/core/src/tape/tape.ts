@@ -1,4 +1,13 @@
 // The Tape: append-only typed events (docs/SYSTEM.md). Writer batches inserts; consumers resume from offsets.
+//
+// Two ways to write, two dedupe rules:
+// - `emit` (buffered): an accepted event stays queued until its batch commits. A failed batch goes back to the front of the queue and is
+//   retried with backoff, so nothing is dropped; while it cannot be written `unhealthy` is true (stats) and one `ops.alert` is queued.
+//   With `dedupe`, a repeat key is skipped and counted in `deduped`; a retried batch cannot write twice (event ids and dedupe keys are
+//   inside the same transaction, so a rolled-back attempt leaves neither).
+// - `emitIn` (inside a consumer transaction): it commits or rolls back with the consumer's offset. With `dedupe`, a repeat returns the
+//   envelope it would have written and writes nothing.
+// A listener (`onFlush`) runs after commit; its error is logged and never re-runs or fails the write.
 import crypto from "node:crypto";
 import { type BodyOf, type Envelope, SCHEMA_VERSION, type Source, TOPICS, type Topic } from "@asimog/contracts";
 import type { Clock } from "../lib/clock.ts";
@@ -26,7 +35,11 @@ export class Tape {
   private readonly batchMs = env.int("TAPE_BATCH_MS");
   private readonly listeners = new Set<(e: Envelope[]) => void>();
   written = 0;
-  dropped = 0;
+  /** repeats skipped because their dedupe key was already used (not losses) */
+  deduped = 0;
+  /** true while a batch cannot be written; the queue keeps every accepted event */
+  unhealthy = false;
+  private failures = 0;
 
   constructor(
     readonly sql: Sql,
@@ -91,21 +104,30 @@ export class Tape {
     return () => this.listeners.delete(fn);
   }
 
+  /** events accepted and not yet committed */
+  get queued(): number {
+    return this.buf.length;
+  }
+
+  /** One attempt per call. A failed batch is put back in front and retried by a timer, so this never rejects and never loses events. */
   flush(): Promise<void> {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     this.chain = this.chain.then(async () => {
       if (this.buf.length === 0) return;
       const batch = this.buf.splice(0, this.buf.length);
-      for (let attempt = 0; ; attempt++) {
-        try {
-          return await this.write(batch);
-        } catch (err) {
-          if (attempt >= 3) {
-            this.dropped += batch.length;
-            return log.error("tape write failed", { events: batch.length, err: String(err) });
-          }
-          await new Promise((r) => setTimeout(r, 200 * 2 ** attempt));
+      try {
+        await this.write(batch);
+        this.failures = 0;
+        this.unhealthy = false;
+      } catch (err) {
+        this.buf.unshift(...batch);
+        this.failures++;
+        log.error("tape write failed, will retry", { queued: this.buf.length, failures: this.failures, err: String(err) });
+        this.timer = setTimeout(() => void this.flush(), Math.min(200 * 2 ** this.failures, 5000));
+        if (!this.unhealthy) {
+          this.unhealthy = true;
+          this.buf.push({ env: this.envelope("ops.alert", { severity: "page", text: "The Tape cannot write; accepted events are queued in memory", finding: "tape.unhealthy" }, { source: "system", subject: "tape.unhealthy" }) });
         }
       }
     });
@@ -124,7 +146,7 @@ export class Tape {
         for (const r of rows) allowed.add(r.event_id as string);
       }
       const rows = batch.filter((p) => allowed.has(p.env.id)).map((p) => p.env);
-      this.dropped += batch.length - rows.length;
+      this.deduped += batch.length - rows.length;
       if (!rows.length) return;
       await tx`insert into tape.events ${tx(
         rows.map((e) => ({ ...e, body: tx.json(e.body as never) })) as never,
@@ -135,7 +157,14 @@ export class Tape {
       allowed = new Set(rows.map((r) => r.id));
     });
     const out = batch.filter((p) => allowed.has(p.env.id)).map((p) => p.env);
-    if (out.length) for (const fn of this.listeners) fn(out);
+    if (out.length)
+      for (const fn of this.listeners) {
+        try {
+          fn(out);
+        } catch (err) {
+          log.error("tape listener failed", { err: String(err) });
+        }
+      }
   }
 
   async close() {

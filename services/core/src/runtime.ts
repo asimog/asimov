@@ -122,7 +122,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     stats() {
       const of = (name: string) => (consumers.find((c) => c.name === name) as { stats?: unknown } | undefined)?.stats;
       const m = process.memoryUsage();
-      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, dropped: tape.dropped }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
+      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, deduped: tape.deduped, queued: tape.queued, unhealthy: tape.unhealthy }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
     },
   };
   return rt;

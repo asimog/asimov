@@ -82,6 +82,7 @@ Cross-cutting: Clock, budgets, kill state, Scorekeeper.
 - Each event has `event_time` (when it happened) and `seen_time` (when we learned it), a `topic` and a body validated against its zod schema in `packages/contracts`.
 - Consumers keep their own offset. The handler and the offset commit in one transaction, so a crash never applies a batch twice.
 - Senses and Reflex write through the buffered Tape writer. Deciders write with `emitIn` inside their consumer transaction, so a decision and its offset commit together. A decision is stamped at least 1 ms after its cause. A projection that writes a Tape event gives it a dedupe key, so a rebuild never writes it twice.
+- The buffered writer never drops an accepted event. A failed batch stays queued and is retried with backoff; while it cannot be written, stats show `tape.unhealthy: true` and one `ops.alert` (`tape.unhealthy`) is queued. A listener error after commit is logged and never re-runs or fails the write. Dedupe rules for `emit` and `emitIn` are in the header of `tape.ts`.
 - Each consumer draws randomness and ids from its own Clock stream (`clock.fork(name)`), so one consumer's draws never shift another's.
 - The live loop never loses a wake: a NOTIFY that lands while a group is draining makes it drain again.
 - **Inputs** (what the world told us) and **derived** topics (our decisions) are kept apart. A replay loads inputs and re-derives the rest.
