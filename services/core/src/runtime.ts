@@ -20,6 +20,7 @@ import { startMcp } from "./mcp/server.ts";
 import { parseTokens, Toolbox } from "./mcp/toolbox.ts";
 import { memory } from "./memory/projections.ts";
 import { desk } from "./mind/desk.ts";
+import { escalationGate } from "./mind/escalate.ts";
 import { reflexSignals, reflexTrigger } from "./reflex/reflex.ts";
 import { scorekeeper } from "./scorekeeper/scorekeeper.ts";
 import { Backfill } from "./senses/backfill.ts";
@@ -46,12 +47,12 @@ export interface Runtime {
 /** Consumers in dependency order. Each gets its own clock stream (Clock.fork), named after it. */
 export function buildConsumers(tape: Tape): Consumer[] {
   const own = (name: string) => tape.for(tape.clock.fork(name));
-  const t = Object.fromEntries(["analyzers.cheap", "analyzers.precall", "analyzers.index", "analyzers.slow", "reflex.trigger", "reflex.signals", "desk", "publisher", "replies", "scorekeeper"].map((n) => [n, own(n)]));
+  const t = Object.fromEntries(["analyzers.cheap", "analyzers.precall", "analyzers.index", "analyzers.slow", "reflex.trigger", "reflex.signals", "desk", "attention", "publisher", "replies", "scorekeeper"].map((n) => [n, own(n)]));
   const at = (n: string) => [t[n]!, t[n]!.clock] as const;
   return [
     memory, cheapAnalyzers(t["analyzers.cheap"]!.clock), precallAnalyzers(...at("analyzers.precall")), indexSignals(t["analyzers.index"]!.clock), slowSignals(t["analyzers.slow"]!.clock),
     reflexTrigger(...at("reflex.trigger")), reflexSignals(t["reflex.signals"]!.clock),
-    desk(...at("desk")), publisher(...at("publisher")), replies(...at("replies")), scorekeeper(...at("scorekeeper")),
+    desk(...at("desk")), escalationGate(...at("attention")), publisher(...at("publisher")), replies(...at("replies")), scorekeeper(...at("scorekeeper")),
   ];
 }
 
@@ -157,7 +158,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     stats() {
       const of = (name: string) => (consumers.find((c) => c.name === name) as { stats?: unknown } | undefined)?.stats;
       const m = process.memoryUsage();
-      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, deduped: tape.deduped, queued: tape.queued, unhealthy: tape.unhealthy }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, archive: archiver?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
+      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, deduped: tape.deduped, queued: tape.queued, unhealthy: tape.unhealthy }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, archive: archiver?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), attention: of("attention"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
     },
   };
   return rt;

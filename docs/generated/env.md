@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-282 keys. Secrets live only in `.env.local` and are not listed here.
+293 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -168,6 +168,17 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `SLOW_RUN_TIMEOUT_S` | `1800` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `SLOW_POLL_MS` | `3000` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `SLOW_TICK_S` | `30` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `SWARM_RUNS_PER_HOUR` | `6` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `SLOW_STAGE1_USD_PER_RUN` | `0.005` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `SLOW_STAGE2_USD_PER_RUN` | `0.03` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `SLOW_STAGE3_USD_PER_RUN` | `0.10` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `SLOW_USD_PER_DAY` | `0.50` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `ESC_P_LOW` | `0.35` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `ESC_P_HIGH` | `0.65` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `ESC_DISAGREE` | `0.3` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `HOT_SET_SIZE` | `5` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `HOT_SET_EVERY_S` | `90` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `SOL_USD` | `150` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `BETTAFISH_SENTIMENT` | `on` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `SWARM_HORIZON_MIN` | `120` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `SWARM_WAVE_CALLERS` | `5` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |

@@ -6,7 +6,7 @@ import { env } from "../lib/env.ts";
 import { type Bin, binFor, CALIB } from "./calibrate.ts";
 
 /** Signal catalog: kinds a spec may name, their subject, the fields usable as [0,1] score inputs, and their System. */
-type SigInfo = { subject: "mint" | "callout" | "caller"; system: 1 | 2; unit: string[]; fields: string[] };
+type SigInfo = { subject: "mint" | "callout" | "caller" | "global"; system: 1 | 2; unit: string[]; fields: string[] };
 export const CATALOG: Record<string, SigInfo> = {
   "age.opportunity": { subject: "callout", system: 1, unit: ["first_on_coin"], fields: ["minutes", "pre_move_pct", "first_on_coin"] },
   "echo.score": { subject: "callout", system: 1, unit: ["score", "text", "follow"], fields: ["score", "text", "follow", "edge", "earlier"] },
@@ -36,6 +36,10 @@ export const CATALOG: Record<string, SigInfo> = {
     unit: ["p.ai_agents", "p.animals", "p.celebrity", "p.politics", "p.culture", "p.tech", "p.other"],
     fields: ["choice"],
   },
+  // System Two (docs/SLOW-MIND.md section 4): medium and slow strategies only, always with missing: skip
+  "synthesis.coin": { subject: "mint", system: 2, unit: [], fields: ["stance", "claims_total", "claims_dropped"] },
+  "swarm.wave_p": { subject: "mint", system: 2, unit: ["wave_p"], fields: ["samples", "truncated"] },
+  "mood.feed": { subject: "global", system: 2, unit: ["bull_share"], fields: ["mood", "label", "n_callouts"] },
 };
 
 /** Compressed horizons (docs/STRATEGY.md): the longest a position of each horizon may be held. */
@@ -82,16 +86,17 @@ export function validate(raw: unknown): { ok: true; spec: Spec } | { ok: false; 
   if (!parsed.success) return { ok: false, reasons: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) };
   const s = parsed.data;
   const reasons: string[] = [];
-  const checkSig = (sig: string, field: string | undefined, where: string, unit: boolean) => {
+  const checkSig = (sig: string, field: string | undefined, where: string, unit: boolean, missing?: "skip" | number) => {
     const info = CATALOG[sig];
     if (!info) return reasons.push(`${where}: unknown signal ${sig}`);
     if (s.horizon === "fast" && info.system !== 1) reasons.push(`${where}: fast strategies use System One signals only (${sig})`);
+    if (info.system === 2 && missing !== undefined && missing !== "skip") reasons.push(`${where}: a System Two signal needs missing: skip (${sig})`);
     const f = field ?? info.unit[0];
     if (unit && (!f || !info.unit.includes(f))) reasons.push(`${where}: ${sig}.${f ?? "?"} is not a [0,1] field`);
     if (!unit && field && !info.fields.includes(field) && !info.unit.includes(field)) reasons.push(`${where}: unknown field ${sig}.${field}`);
   };
   for (const [i, c] of s.universe.all.entries()) checkSig(c.sig, c.field, `universe.${i}`, false);
-  for (const [i, t] of s.score.sum.entries()) checkSig(t.sig, t.field, `score.${i}`, true);
+  for (const [i, t] of s.score.sum.entries()) checkSig(t.sig, t.field, `score.${i}`, true, t.missing);
   if (!s.score.sum.some((t) => t.w > 0)) reasons.push("score: needs at least one positive weight");
   const whens = [...s.exits.map((e) => e.when), ...s.stop.any];
   for (const [i, w] of whens.entries()) if ("sig" in w) checkSig(w.sig, w.field, `exit.${i}`, false);

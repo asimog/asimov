@@ -82,7 +82,7 @@ export const suite: Suite = {
       add("the MiroShark worker starts with its model from our env", await eng.healthy(), log.slice(-300));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
       const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: null, miroshark: eng }, now: () => Date.now(), newId: () => "sj_ms1", cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 400, pollMs: 500 } });
-      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.5 }, { source: "reflex", subject: MINT_A });
+      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.5, stage: 1, arm: "run", deferred: false }, { source: "reflex", subject: MINT_A });
       await w.tape.flush();
       await bridge.schedule();
       await bridge.drain();

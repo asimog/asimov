@@ -48,6 +48,15 @@ Every stage also stops at `SLOW_USD_PER_DAY`. A run over its cap stops and retur
 3. Value of information beats cost: chance the decision changes times expected net change, above the stage's cost in SOL.
 4. Quota and caps have room. A denied escalation is deferred, not dropped.
 
+The gate is the core consumer `attention` (`services/core/src/mind/escalate.ts`); it writes only `jev.escalated` (`stage`, `arm`, `deferred`, `gate_reasons`, `voi`) and the desk never waits for it. Its numbers:
+
+- In play: a `precall.detected`, a `coin.watched` from a smart or followed wallet within `ENTRY_WINDOW_MIN`, or a live callout within the last minute. One stage 1 grant per coin per window.
+- p: the highest calibrated win chance over live strategies (each one's score read through its family's map, once the map has enough bins); without maps, the mean of the fast chances `precall.callout_p.p`, `callers.wave_p.p`, `hawkes.wave_p.p`. Disagreement is the spread of those fast chances.
+- VOI = P(change) x stake, with P(change) = 1 - |2p - 1| and stake = the owner's `max_order_sol`. Cost = `SLOW_STAGE<n>_USD_PER_RUN` / `SOL_USD`. A grant needs VOI above cost.
+- Room: run grants per stage in the last hour of Tape time stay under `BETTAFISH_COIN_RUNS_PER_HOUR` (stage 1) or `SWARM_RUNS_PER_HOUR` (stage 2); past it the grant is written `deferred` with the reason `quota`.
+- Stage 1 is job `synthesis_coin` (BettaFish `nano`); a `synthesis.coin` on a coin with a stage 1 run grant re-runs the test for stage 2, job `swarm_run` (BettaFish `lite` plus a small swarm). Stage 3 is never automatic.
+- Control: `sha256(mint)` mod 2 puts half the coins in `control`; they get the same event with `arm: control`, `job: null` and no run. The hot set grants go through the same split and quota.
+
 **The hot set.** The top `HOT_SET_SIZE` coins (5) by pre-call chance times caller quality get a stage 1 run every `HOT_SET_EVERY_S` (90), so a fresh result is usually on the Board when the callout lands. The Bridge emits `synthesis.partial` as soon as a first cited piece is ready.
 
 **Proving value.** A stable hash of the coin sends half of the eligible coins to run and keeps half as control. After 50 escalations per stage, fee-adjusted markouts and net results of escalated coins are compared with control. A stage that does not beat its cost gets a quota of zero.

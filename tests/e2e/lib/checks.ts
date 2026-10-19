@@ -55,7 +55,8 @@ export async function everyReplayChecks(sql: Sql, netCalls: string[]): Promise<C
       or (source like 'riskgate.%' and topic = 'order.rejected')
       or (source = 'scorekeeper' and (topic like 'outcome.%' or topic like 'score.%'))
       or (source = 'analyzer' and topic in ('precall.detected', 'coin.graduated'))
-      or (source = 'publisher' and topic in ('thesis.formed', 'post.queued', 'commit.made', 'commit.revealed')))`;
+      or (source = 'publisher' and topic in ('thesis.formed', 'post.queued', 'commit.made', 'commit.revealed'))
+      or (source = 'attention' and topic = 'jev.escalated'))`;
   checks.push({ name: "lanes_respected", pass: lanes!.n === 0, detail: `${lanes!.n} events from the wrong source` });
   return checks;
 }

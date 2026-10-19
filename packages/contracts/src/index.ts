@@ -500,7 +500,11 @@ export const ReportPublished = z.object({
   preset: z.string(), sha256: z.string(), summary: z.string(), cites: z.array(z.string()), parent_reports: z.array(z.string()), simulated: z.boolean(), cites_dropped: z.number().int(),
 });
 export const AttentionGrant = z.object({ job: z.enum(["session_read", "swarm_run", "synthesis_deep", "x_lookup"]), subject: z.string(), voi: z.number(), cost_est: z.number(), budget_left: z.number() });
-export const JevEscalated = z.object({ subject: z.string(), gate_reasons: z.array(z.string()), job: z.enum(["synthesis_coin", "swarm_run"]), voi: z.number() });
+/** The escalation gate's choice (docs/SLOW-MIND.md section 3). `control` coins record the choice with no job; `deferred` waits for room. */
+export const JevEscalated = z.object({
+  subject: z.string(), gate_reasons: z.array(z.string()), job: z.enum(["synthesis_coin", "swarm_run"]).nullable(), voi: z.number(),
+  stage: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]), arm: z.enum(["run", "control"]), deferred: z.boolean(),
+});
 export const OpsRestartRequested = z.object({ scope: z.string(), reason: z.string() });
 export const OpsStopRequested = z.object({ action: z.enum(["pause", "kill"]), scope: z.string(), reason: z.string() });
 export const SoulUpdated = z.object({ version: num, sha256: z.string(), prev_sha256: z.string().nullable(), chain_sha256: z.string(), reason: z.string(), by: z.string(), diff_ref: z.string().nullable() });

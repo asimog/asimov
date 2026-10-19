@@ -2,7 +2,7 @@
 
 Generated from `services/core/src/mind/dsl.ts (CATALOG)` by `npm run docs:gen`. Do not edit by hand.
 
-18 kinds.
+21 kinds.
 
 | Kind | Subject | System |
 |---|---|---|
@@ -24,3 +24,6 @@ Generated from `services/core/src/mind/dsl.ts (CATALOG)` by `npm run docs:gen`. 
 | `jev.callout.countdown` | callout | One |
 | `jev.callout.injection` | callout | One |
 | `jev.callout.narrative` | callout | One |
+| `synthesis.coin` | mint | Two |
+| `swarm.wave_p` | mint | Two |
+| `mood.feed` | global | Two |

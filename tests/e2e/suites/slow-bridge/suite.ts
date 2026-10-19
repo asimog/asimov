@@ -80,7 +80,7 @@ export const suite: Suite = {
 
       // 2. one escalation feeds both engines at once; the swarm gets the BettaFish report as a parent
       t += 60_000;
-      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "synthesis_coin", voi: 0.4 }, { source: "reflex", subject: MINT_A });
+      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "synthesis_coin", voi: 0.4, stage: 1, arm: "run", deferred: false }, { source: "reflex", subject: MINT_A });
       await w.tape.flush();
       t += 1000;
       await bridge.schedule();

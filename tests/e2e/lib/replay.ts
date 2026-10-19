@@ -19,7 +19,7 @@ import { newKeys } from "./txs.ts";
 import { liveLeg, SOL } from "./world.ts";
 
 /** Topics produced by our own deciders. A replay re-derives them, so recorded copies are skipped. */
-export const DERIVED = ["precall.detected", "coin.graduated", "intent.", "order.", "markout.", "commit.", "position.", "strategy.", "kernel.", "outcome.", "score.", "thesis.", "post.queued"];
+export const DERIVED = ["precall.detected", "coin.graduated", "intent.", "order.", "markout.", "commit.", "position.", "strategy.", "kernel.", "outcome.", "score.", "thesis.", "post.queued", "jev.escalated"];
 export const isDerived = (topic: string) => DERIVED.some((p) => topic.startsWith(p));
 
 export type Row = { id: string; topic: string; v: number; class?: string; event_time: string; seen_time: string; source: string; subject: string | null; causes: string[]; mode: string; body: unknown };

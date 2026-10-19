@@ -55,6 +55,8 @@ Dated decisions with their reason. The newest are first. Open questions for the 
 | Feeds and filters are configurable (sources hot, trending, follow, top traders; chain; minimum position 10 USD; mcap at call; launch filters) | The raw global feed is too much to ingest |
 | Backfill uses several RPC providers in parallel, after checking our own data | Faster history, fewer calls |
 | Models per agent type in config, with OpenRouter free models as the last fallback on a separate key | No hard-coded model; service keeps running |
+| Slow-mind spend while phase D is built uses low test limits: `SLOW_STAGE1_USD_PER_RUN=0.005`, `SLOW_STAGE2_USD_PER_RUN=0.03`, `SLOW_STAGE3_USD_PER_RUN=0.10`, `SLOW_USD_PER_DAY=0.50`; gate `ESC_P_LOW=0.35`, `ESC_P_HIGH=0.65`, `ESC_DISAGREE=0.3`; hot set `HOT_SET_SIZE=5` every `HOT_SET_EVERY_S=90`. The gate turns USD into SOL with an owner-set `SOL_USD` (150), not a price feed | A wrong cap costs little while the gate and caps are new; raise them after spend is measured |
+| Feed mood (`mood.feed`) is computed in core from the bullish and bearish callout stances in each `synthesis.feed`, not taken from the engine (D6) | Every number reaching the Board comes from code |
 
 ## 2026-10-18
 

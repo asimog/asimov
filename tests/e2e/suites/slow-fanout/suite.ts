@@ -86,7 +86,7 @@ export const suite: Suite = {
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
       let n = 0;
       const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: bf, miroshark: ms }, now: () => Date.now(), newId: () => `sj_fan${n++}`, cfg: { feedEveryMin: 1440, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 600, pollMs: 300 } });
-      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "synthesis_coin", voi: 0.5 }, { source: "reflex", subject: MINT_A });
+      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "synthesis_coin", voi: 0.5, stage: 1, arm: "run", deferred: false }, { source: "reflex", subject: MINT_A });
       await w.tape.flush();
       await bridge.schedule();
       await w.sql`update slow.jobs set state = 'done' where kind = 'feed'`; // the feed slot is not under test

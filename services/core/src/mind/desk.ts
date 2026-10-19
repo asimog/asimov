@@ -499,7 +499,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   async function boardFor(tx: Tx, mint: string, at: string): Promise<BoardValues> {
     const cc = coinCallout.get(mint);
     const author = callerOf(mint);
-    const rows = await Promise.all([liveFor(tx, mint, at), cc ? liveFor(tx, cc.callout_id, at) : {}, author ? liveFor(tx, author, at) : {}]);
+    const rows = await Promise.all([liveFor(tx, "global", at), liveFor(tx, mint, at), cc ? liveFor(tx, cc.callout_id, at) : {}, author ? liveFor(tx, author, at) : {}]);
     const out: BoardValues = {};
     for (const r of rows) for (const [k, v] of Object.entries(r)) out[k] = { ...(v.value as Record<string, unknown>), [CONF]: v.confidence };
     return out;

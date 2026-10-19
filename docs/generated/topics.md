@@ -76,7 +76,7 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `report.published` | `report_id`, `producer`, `kind`, `subject`, `window_from`, `window_to`, `preset`, `sha256`, `summary`, `cites`, `parent_reports`, `simulated`, `cites_dropped` |
 | `swarm.beliefs` | `swarm_id`, `mint`, `topic`, `simulated`, `branches` |
 | `attention.grant` | `job`, `subject`, `voi`, `cost_est`, `budget_left` |
-| `jev.escalated` | `subject`, `gate_reasons`, `job`, `voi` |
+| `jev.escalated` | `subject`, `gate_reasons`, `job`, `voi`, `stage`, `arm`, `deferred` |
 | `soul.updated` | `version`, `sha256`, `prev_sha256`, `chain_sha256`, `reason`, `by`, `diff_ref` |
 | `job.queued` | `job_id`, `agent`, `trigger_event`, `cost_usd`, `result_ref`, `error` |
 | `job.started` | `job_id`, `agent`, `trigger_event`, `cost_usd`, `result_ref`, `error` |
