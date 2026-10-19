@@ -11,7 +11,7 @@ import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
 import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
 import type { Check } from "../../lib/checks.ts";
 import { llmStub, type StubReq } from "../../lib/llm-stub.ts";
-import { CAP, MINT_A, PRICES, slowEnv } from "../../lib/slow.ts";
+import { CAP, MINT_A, slowEnv, WORKER_ENV, WORKER_TOKEN } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const BACKEND = path.join(env.root, "services", "miroshark", "engine", "backend");
@@ -67,7 +67,7 @@ export const suite: Suite = {
     const port = 7900 + Math.floor(Math.random() * 90);
     const worker = spawn(PY, ["asimog_worker.py", "--port", String(port)], {
       cwd: BACKEND,
-      env: { ...process.env, ...PRICES, ASIMOG_FORK: "1", PYTHONUTF8: "1", LLM_API_KEY: "stub", LLM_BASE_URL: llm.url, LLM_MODEL_NAME: "gpt-4o-mini", WONDERWALL_MODEL_NAME: "gpt-4o-mini", SWARM_CALLER_AGENTS: "3", SWARM_FOLLOWER_AGENTS: "4", SWARM_ROUNDS: "3", SWARM_SAMPLES: "1", SWARM_BRANCHES: "A,B", SWARM_WAVE_CALLERS: "2", SWARM_TIMEOUT_S: "300", SWARM_PLATFORMS: "pumpfun,twitter", SWARM_GRAPH_FEATURES: "minimal", NEO4J_URI: env.opt("NEO4J_URI") ?? "bolt://127.0.0.1:7687", NEO4J_USER: env.opt("NEO4J_USER") ?? "neo4j", NEO4J_PASSWORD: env.opt("NEO4J_PASSWORD") ?? "", SWARM_REPORT: "agent", SMART_MODEL_NAME: "gpt-4o-mini", CORE_MCP_URL: mcp.url, SWARM_CORE_TOKEN: w.tok(CAP.swarmRead), MCP_AGENT_TOOLS_ENABLED: "true", SWARM_PERSONA_TOOLS: "coin_dossier,reports_for", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" },
+      env: { ...process.env, ...WORKER_ENV, ASIMOG_FORK: "1", PYTHONUTF8: "1", LLM_API_KEY: "stub", LLM_BASE_URL: llm.url, LLM_MODEL_NAME: "gpt-4o-mini", WONDERWALL_MODEL_NAME: "gpt-4o-mini", SWARM_CALLER_AGENTS: "3", SWARM_FOLLOWER_AGENTS: "4", SWARM_ROUNDS: "3", SWARM_SAMPLES: "1", SWARM_BRANCHES: "A,B", SWARM_WAVE_CALLERS: "2", SWARM_TIMEOUT_S: "300", SWARM_PLATFORMS: "pumpfun,twitter", SWARM_GRAPH_FEATURES: "minimal", NEO4J_URI: env.opt("NEO4J_URI") ?? "bolt://127.0.0.1:7687", NEO4J_USER: env.opt("NEO4J_USER") ?? "neo4j", NEO4J_PASSWORD: env.opt("NEO4J_PASSWORD") ?? "", SWARM_REPORT: "agent", SMART_MODEL_NAME: "gpt-4o-mini", CORE_MCP_URL: mcp.url, SWARM_CORE_TOKEN: w.tok(CAP.swarmRead), MCP_AGENT_TOOLS_ENABLED: "true", SWARM_PERSONA_TOOLS: "coin_dossier,reports_for", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let log = "";
@@ -77,7 +77,7 @@ export const suite: Suite = {
       await w.seed();
       // the report exchange, BettaFish -> MiroShark: a coin report the swarm must seed from and its report agent must read
       await w.inProc(CAP.exchange).call("report_publish", { report_id: "sj_bf0_0", producer: "bettafish.report", kind: "coin", subject: MINT_A, preset: "lite", summary: "PEPE has two early callers and real buyers.", cites: ["co_a1"], markdown: "# Coin synthesis\n\nBF-MARKER two early callers [cid:co_a1]." });
-      const eng = new EngineClient("miroshark", `http://127.0.0.1:${port}`);
+      const eng = new EngineClient("miroshark", `http://127.0.0.1:${port}`, WORKER_TOKEN);
       for (let i = 0; i < 180 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the MiroShark worker starts with its model from our env", await eng.healthy(), log.slice(-300));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };

@@ -6,7 +6,7 @@ Upstream: `aaronjmars/MiroShark@621e07f` (AGPL-3.0), see `UPSTREAM`. Outside cod
 
 | File | Role |
 |---|---|
-| `backend/asimog_worker.py` | HTTP worker the Slow Bridge calls for swarm runs |
+| `backend/asimog_worker.py` | HTTP worker the Slow Bridge calls for swarm runs. Requires `SWARM_WORKER_TOKEN` on every route but health, checks each request, refuses a known job id (409) and runs past `SWARM_MAX_CONCURRENT` (429), cancels (`DELETE`), meters spend against `usd_cap`, fences the dossier's callout text, coin name, handles and BettaFish report text, and reduces the symbol to a plain ticker |
 | `backend/asimog_graph.py` | Graph storage adapter |
 | `backend/asimog_report.py` | Swarm report writer (SIMULATED) |
 | `backend/wonderwall/simulations/pumpfun/` | The Pump.fun simulation (platform, actions, prompts, environment) |

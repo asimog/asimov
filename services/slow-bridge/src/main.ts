@@ -17,8 +17,8 @@ const bridge = new Bridge({
   sql,
   cores,
   engines: {
-    bettafish: env.BETTAFISH_URL ? new EngineClient("bettafish", env.BETTAFISH_URL) : null,
-    miroshark: env.MIROSHARK_URL ? new EngineClient("miroshark", env.MIROSHARK_URL) : null,
+    bettafish: env.BETTAFISH_URL ? new EngineClient("bettafish", env.BETTAFISH_URL, need(env, "BETTAFISH_WORKER_TOKEN")) : null,
+    miroshark: env.MIROSHARK_URL ? new EngineClient("miroshark", env.MIROSHARK_URL, need(env, "SWARM_WORKER_TOKEN")) : null,
   },
   now: () => Date.now(),
   newId: () => `sj_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`,

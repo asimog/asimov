@@ -14,7 +14,7 @@ import { ENGINE as BF_DIR, PY as BF_PY } from "../../lib/bettafish.ts";
 import { bettafishAnswer } from "../../lib/bettafish-stub.ts";
 import type { Check } from "../../lib/checks.ts";
 import { llmStub } from "../../lib/llm-stub.ts";
-import { CAP, MINT_A, PRICES, slowEnv, WALLETS } from "../../lib/slow.ts";
+import { CAP, MINT_A, slowEnv, WALLETS, WORKER_ENV, WORKER_TOKEN } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const MS_DIR = path.join(env.root, "services", "miroshark", "engine", "backend");
@@ -38,7 +38,7 @@ export const suite: Suite = {
     const ro = new URL(w.url);
     ro.username = "slow_reader";
     ro.password = "";
-    const base = { ...process.env, ...PRICES, ASIMOG_FORK: "1", PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" };
+    const base = { ...process.env, ...WORKER_ENV, ASIMOG_FORK: "1", PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" };
     const bfKeys = ["INSIGHT_ENGINE", "QUERY_ENGINE", "MEDIA_ENGINE", "REPORT_ENGINE", "FORUM_HOST", "KEYWORD_OPTIMIZER"].flatMap((k) => [[`${k}_API_KEY`, "stub"], [`${k}_BASE_URL`, llm.url], [`${k}_MODEL_NAME`, "stub"]]);
     const bfPort = 7600 + Math.floor(Math.random() * 300);
     const msPort = 7900 + Math.floor(Math.random() * 90);
@@ -51,8 +51,8 @@ export const suite: Suite = {
       p.stdout!.on("data", (d) => (logs[k as keyof typeof logs] += d));
       p.stderr!.on("data", (d) => (logs[k as keyof typeof logs] += d));
     }
-    const bf = new EngineClient("bettafish", `http://127.0.0.1:${bfPort}`);
-    const ms = new EngineClient("miroshark", `http://127.0.0.1:${msPort}`);
+    const bf = new EngineClient("bettafish", `http://127.0.0.1:${bfPort}`, WORKER_TOKEN);
+    const ms = new EngineClient("miroshark", `http://127.0.0.1:${msPort}`, WORKER_TOKEN);
     // the sense: one trade event every 20 ms, flushed every 5, latency per flush
     let phase = "idle";
     const lat: Record<string, number[]> = { baseline: [], running: [], killed: [] };

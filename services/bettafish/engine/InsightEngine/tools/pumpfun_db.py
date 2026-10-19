@@ -16,6 +16,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+from asimog_voice import fence
 from loguru import logger
 
 from .search import DBResponse, MediaCrawlerDB, QueryResult
@@ -42,7 +43,7 @@ class PumpfunDB(MediaCrawlerDB):
         return QueryResult(
             platform="pumpfun",
             content_type="callout",
-            title_or_content=f"[cid:{r['note_id']}] {r.get('title') or ''} {r.get('content') or ''}".strip(),
+            title_or_content=f"[cid:{r['note_id']}] " + fence(f"{r.get('title') or ''} {r.get('content') or ''}".strip()),
             author_nickname=r.get("nickname"),
             url=r.get("note_url"),
             publish_time=self._to_datetime(r.get("create_time")),
@@ -56,7 +57,7 @@ class PumpfunDB(MediaCrawlerDB):
         return QueryResult(
             platform="pumpfun",
             content_type="comment",
-            title_or_content=f"[cid:{r['note_id']}] reply: {r.get('content') or ''}",
+            title_or_content=f"[cid:{r['note_id']}] reply: {fence(r.get('content'))}",
             author_nickname=r.get("nickname"),
             publish_time=self._to_datetime(r.get("create_time")),
             engagement={"likes": int(r.get("like_count") or 0)},
@@ -132,7 +133,7 @@ class PumpfunDB(MediaCrawlerDB):
             "select * from slow.pumpfun_caller where handle ilike :t or wallet = :w order by calls_seen desc limit :limit",
             {"t": f"%{handle_or_wallet}%", "w": handle_or_wallet, "limit": limit},
         )
-        out = [QueryResult(platform="pumpfun", content_type="caller", title_or_content=f"caller {r.get('handle') or r['wallet'][:6]}: {r.get('calls_seen')} calls, dna {r.get('dna')}", author_nickname=r.get("handle"), source_table="pumpfun_caller") for r in rows]
+        out = [QueryResult(platform="pumpfun", content_type="caller", title_or_content=f"caller {fence(r.get('handle') or r['wallet'][:6], 60)}: {r.get('calls_seen')} calls, dna {r.get('dna')}", author_nickname=fence(r.get("handle"), 60), source_table="pumpfun_caller") for r in rows]
         return DBResponse("search_caller_record", {"handle_or_wallet": handle_or_wallet}, results=out, results_count=len(out))
 
     def search_coin_flow(self, mint: str, minutes: int = 60) -> DBResponse:
@@ -147,7 +148,7 @@ class PumpfunDB(MediaCrawlerDB):
             "select report_id, producer, summary, published_at from slow.report_feed where subject = :s and producer like 'miroshark.%' order by published_at desc limit :limit",
             {"s": subject, "limit": limit},
         )
-        out = [QueryResult(platform="miroshark", content_type="report", title_or_content=f"[report:{r['report_id']}] SIMULATED {r.get('summary')}", publish_time=self._to_datetime(r.get("published_at")), source_table="report_feed") for r in rows]
+        out = [QueryResult(platform="miroshark", content_type="report", title_or_content=f"[report:{r['report_id']}] SIMULATED {fence(r.get('summary'))}", publish_time=self._to_datetime(r.get("published_at")), source_table="report_feed") for r in rows]
         return DBResponse("search_swarm_reports", {"subject": subject}, results=out, results_count=len(out))
 
 

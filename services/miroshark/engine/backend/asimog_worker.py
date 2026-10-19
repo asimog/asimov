@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextvars
+import hmac
 import json
 import os
 import re
@@ -38,6 +39,8 @@ import tempfile
 import threading
 import time
 import traceback
+import unicodedata
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
@@ -47,7 +50,32 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scr
 
 RUNS: dict[str, dict] = {}
 LOCK = threading.Lock()
-REQUIRED = ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL_NAME", "LLM_PRICE_IN_PER_M", "LLM_PRICE_OUT_PER_M"]
+REQUIRED = ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL_NAME", "LLM_PRICE_IN_PER_M", "LLM_PRICE_OUT_PER_M", "SWARM_WORKER_TOKEN"]
+TOKEN_ENV = "SWARM_WORKER_TOKEN"
+KINDS, PRESETS = {"swarm"}, {"nano", "lite", "full"}
+MAX_CONCURRENT = int(os.getenv("SWARM_MAX_CONCURRENT") or 1)
+OPEN, CLOSE = "<<<", ">>>"
+
+
+def _hidden(c: str) -> bool:
+    o = ord(c)
+    return (o < 0x20 and o not in (0x09, 0x0A)) or o == 0x7F or 0x200B <= o <= 0x200F or 0x202A <= o <= 0x202E or 0x2060 <= o <= 0x2069 or o == 0xFEFF
+
+
+def clean(text) -> str:
+    """Core's `clean` (services/core/src/reflex/guard.ts): hidden characters removed, then NFKC."""
+    return unicodedata.normalize("NFKC", "".join(c for c in str(text or "") if not _hidden(c)))
+
+
+def ticker(text) -> str:
+    """A coin symbol the agents trade by: letters, digits and $_- only, at most 20, so it cannot carry a sentence."""
+    return re.sub(r"[^A-Za-z0-9$_-]", "", clean(text))[:20]
+
+
+def fence(text, n: int = 800) -> str:
+    """Core's `fence`: strangers' text inside <<< >>>, which it cannot close: fence marks inside it are removed."""
+    return OPEN + clean(text).replace(OPEN, "").replace(CLOSE, "")[:n] + CLOSE
+
 
 
 class SpendCap(Exception):
@@ -59,7 +87,7 @@ class Meter:
     LLM_PRICE_IN_PER_M and LLM_PRICE_OUT_PER_M; never a price in code). `over` once spend passes the run's usd_cap."""
 
     def __init__(self, cap: float | None):
-        self.usd, self.cap, self.lock = 0.0, cap, threading.Lock()
+        self.usd, self.cap, self.lock, self.cancelled = 0.0, cap, threading.Lock(), False
         self.price_in, self.price_out = float(os.environ["LLM_PRICE_IN_PER_M"]) / 1e6, float(os.environ["LLM_PRICE_OUT_PER_M"]) / 1e6
 
     def over(self) -> bool:
@@ -98,8 +126,8 @@ def meter_openai(over_cap) -> None:
 
     def gate(k: dict):
         m = METER.get()
-        if m and m.over():
-            raise over_cap(f"spent {m.usd:.4f} of {m.cap} USD")
+        if m and (m.cancelled or m.over()):
+            raise over_cap("cancelled" if m.cancelled else f"spent {m.usd:.4f} of {m.cap} USD")
         if m and k.get("stream"):
             k.setdefault("stream_options", {"include_usage": True})
         return m
@@ -311,7 +339,7 @@ async def one_run(req: dict, branch: str, sample: int, profiles: list[dict], mdl
     callout_after = 0
     meter = METER.get()
     for r in range(rounds):
-        if time.time() > deadline or (meter and meter.over()):  # out of time or past the run's usd_cap: stop, keep what ran
+        if time.time() > deadline or (meter and (meter.over() or meter.cancelled)):  # out of time, past the usd_cap or cancelled: stop
             truncated = True
             break
         if r > 0:  # what each agent learned last round, injected with upstream's marker injectors
@@ -424,14 +452,25 @@ def persona_mcp():
     return {"registry": registry, "bridge": bridge, "catalogue": bridge.tool_catalogue(["asimog"])}
 
 
+def fenced(dossier: dict, parents: list) -> tuple[dict, list]:
+    """Patch D4: everything strangers wrote, as the model will read it: callout text, the coin name, caller handles and
+    BettaFish's report text (the other engine's output) inside the fence; the symbol reduced to a plain ticker."""
+    d = dict(dossier)
+    d["callouts"] = [{**c, "text": fence(c.get("text"))} for c in dossier.get("callouts") or []]
+    if d.get("coin"):
+        d["coin"] = {**d["coin"], "symbol": ticker(d["coin"].get("symbol")) or None, "name": fence(d["coin"]["name"], 60) if d["coin"].get("name") else None}
+    d["callers"] = [{**k, "handle": fence(k["handle"], 60) if k.get("handle") else k.get("handle")} for k in dossier.get("callers") or []]
+    return d, [{**t, "summary": fence(t.get("summary")), "markdown": fence(t["markdown"], 20000) if t.get("markdown") else None} for t in parents]
+
+
 def execute(run_id: str, req: dict) -> None:
     meter = METERS[run_id]
     METER.set(meter)
     try:
         import asimog_graph
         mdl = model()
-        dossier = req.get("dossier") or {}
-        parents = req.get("parent_texts") or []
+        dossier, parents = fenced(req.get("dossier") or {}, req.get("parent_texts") or [])
+        req = {**req, "dossier": dossier}  # one_run reads the fenced dossier
         profiles = personas(dossier)
         samples = env_int("SWARM_SAMPLES", 3)
         branches = [b.strip() for b in os.getenv("SWARM_BRANCHES", "A,B").split(",") if b.strip()]
@@ -445,6 +484,10 @@ def execute(run_id: str, req: dict) -> None:
         res = {b: [asyncio.run(one_run(req, b, s, profiles, mdl, deadline, graph, mcp)) for s in range(samples)] for b in branches}
         if mcp:
             mcp["bridge"].shutdown()
+        if meter.cancelled:
+            with LOCK:
+                RUNS[run_id] = {"state": "failed", "error": "cancelled"}
+            return
         sm = summarize(res, wave_at)
         wave_p, d_callers, d_net, truncated = sm["wave_p"], sm["d_callers"], sm["d_net_sol"], sm["truncated"]
         posts = [p for xs in res.values() for x in xs for p in x["posts"]][:400]
@@ -454,7 +497,7 @@ def execute(run_id: str, req: dict) -> None:
                    f" (wave = {wave_at} or more callers calling); our callout changes callers by {d_callers:+.1f} and net flow by {d_net:+.3f} SOL." + (" No simulated actions." if quiet else ""))
         from asimog_report import TITLE, VOICE, numbers_for
         numbers = numbers_for(res, wave_p, wave_at, d_callers, d_net)
-        if os.getenv("SWARM_REPORT", "agent") == "agent" and not meter.over():  # past the cap: the numbers-only report, no more model calls
+        if os.getenv("SWARM_REPORT", "agent") == "agent" and not meter.over() and not meter.cancelled:  # past the cap: the numbers-only report, no more model calls
             from asimog_report import SwarmReportAgent
             requirement = f"{summary}\nCoin: ${sym} ({req['subject']}). Platforms: {', '.join(sorted(platforms()))}.\n" + "\n".join(f"{k}: {v}" for k, v in numbers.items()) + f"\n{VOICE}"
             rep = SwarmReportAgent(gid, run_id, requirement, store, core(["reports_for", "coin_flow_since"]), req["subject"], req.get("started_at") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())).write(numbers)
@@ -477,6 +520,28 @@ def execute(run_id: str, req: dict) -> None:
             RUNS[run_id] = {"state": "failed", "error": f"{type(err).__name__}: {err}"[:300]}
 
 
+def bad_request(req) -> str | None:
+    """Patch D4: the reason a start request is refused (400), or None. The Bridge's contract, services/slow-bridge/src/types.ts."""
+    if not isinstance(req, dict):
+        return "body must be a JSON object"
+    for k in ("job_id", "kind", "subject", "preset", "as_of"):
+        if not isinstance(req.get(k), str) or not req[k]:
+            return f"missing {k}"
+    if req["kind"] not in KINDS:
+        return f"unknown kind {req['kind'][:20]}"
+    if req["preset"] not in PRESETS:
+        return f"unknown preset {req['preset'][:20]}"
+    try:
+        datetime.fromisoformat(req["as_of"].replace("Z", "+00:00"))
+    except ValueError:
+        return "as_of is not an ISO time"
+    for k, lo in (("window_min", 1), ("usd_cap", 0)):
+        v = req.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v < lo:
+            return f"{k} must be a number of at least {lo}"
+    return None
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: dict) -> None:
         data = json.dumps(body, default=str).encode()
@@ -486,9 +551,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _authorized(self) -> bool:
+        """Patch D4: every route but health needs the Bridge's bearer token (constant-time compare)."""
+        return hmac.compare_digest(self.headers.get("Authorization", "").encode(), f"Bearer {os.environ[TOKEN_ENV]}".encode())
+
     def do_GET(self):  # noqa: N802
         if self.path == "/asimog/health":
             return self._send(200, {"ok": True})
+        if not self._authorized():
+            return self._send(401, {"error": "unauthorized"})
         m = re.match(r"^/asimog/runs/(.+)$", self.path)
         if m:
             with LOCK:
@@ -497,18 +568,41 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200 if r else 404, {**r, "cost_usd": spent.usd if spent else 0.0} if r else {"state": "failed", "error": "unknown run"})
         self._send(404, {})
 
+    def do_DELETE(self):  # noqa: N802
+        """Cancel: the run stops at its next model call and is finished `failed: cancelled`."""
+        if not self._authorized():
+            return self._send(401, {"error": "unauthorized"})
+        m = re.match(r"^/asimog/runs/(.+)$", self.path)
+        with LOCK:
+            meter = METERS.get(m.group(1)) if m else None
+            if meter:
+                meter.cancelled = True
+        self._send(200 if meter else 404, {"ok": bool(meter)})
+
     def do_POST(self):  # noqa: N802
         if self.path != "/asimog/runs":
             return self._send(404, {})
-        req = json.loads(self.rfile.read(int(self.headers.get("content-length") or 0)) or b"{}")
-        run_id = str(req["job_id"])
+        if not self._authorized():
+            return self._send(401, {"error": "unauthorized"})
+        try:
+            req = json.loads(self.rfile.read(int(self.headers.get("content-length") or 0)) or b"{}")
+        except (ValueError, UnicodeDecodeError):
+            return self._send(400, {"error": "body is not JSON"})
+        why = bad_request(req)
+        if why:
+            return self._send(400, {"error": why})
+        run_id = req["job_id"]
         with LOCK:
+            if run_id in RUNS:  # a duplicate id never starts a second run
+                return self._send(409, {"run_id": run_id, "state": RUNS[run_id]["state"]})
+            if sum(1 for r in RUNS.values() if r["state"] == "running") >= MAX_CONCURRENT:
+                return self._send(429, {"error": f"{MAX_CONCURRENT} runs already running"})
             RUNS[run_id] = {"state": "running"}
-            METERS[run_id] = Meter(float(req["usd_cap"]) if req.get("usd_cap") is not None else None)
+            METERS[run_id] = Meter(float(req["usd_cap"]))
         threading.Thread(target=execute, args=(run_id, req), daemon=True).start()
         self._send(200, {"run_id": run_id})
 
-    def log_message(self, *a):
+    def log_message(self, *a):  # quiet
         pass
 
 

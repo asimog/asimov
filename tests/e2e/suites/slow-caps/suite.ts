@@ -11,7 +11,7 @@ import type { RunStatus } from "../../../../services/slow-bridge/src/types.ts";
 import { bettafishAnswer } from "../../lib/bettafish-stub.ts";
 import type { Check } from "../../lib/checks.ts";
 import { llmStub } from "../../lib/llm-stub.ts";
-import { CAP, MINT_A, slowEnv } from "../../lib/slow.ts";
+import { CAP, MINT_A, slowEnv, WORKER_ENV, WORKER_TOKEN } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const ENGINE = path.join(env.root, "services", "bettafish", "engine");
@@ -48,7 +48,7 @@ export const suite: Suite = {
     const worker = spawn(PY, ["asimog_worker.py", "--port", String(port)], {
       cwd: ENGINE,
       env: {
-        ...process.env, ...Object.fromEntries(keys), LLM_PRICE_IN_PER_M: "10", LLM_PRICE_OUT_PER_M: "0", ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: "insight",
+        ...process.env, ...WORKER_ENV, ...Object.fromEntries(keys), LLM_PRICE_IN_PER_M: "10", LLM_PRICE_OUT_PER_M: "0", ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: "insight",
         SEARCH_TOOL_TYPE: "AsimogMedia", BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1", PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1", HF_HUB_OFFLINE: "1", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost",
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -58,7 +58,7 @@ export const suite: Suite = {
     worker.stderr.on("data", (d) => (log += d));
     try {
       await w.seed();
-      const eng = new Spy("bettafish", `http://127.0.0.1:${port}`);
+      const eng = new Spy("bettafish", `http://127.0.0.1:${port}`, WORKER_TOKEN);
       for (let i = 0; i < 120 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       if (!(await eng.healthy())) return { checks: [{ name: "the worker starts", pass: false, detail: log.slice(-400) }], metrics: {} };
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };

@@ -10,6 +10,7 @@ Every result from our callouts starts with [cid:<id>] so the model can cite it.
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import time
 from datetime import datetime, timedelta
@@ -19,6 +20,7 @@ import requests
 from loguru import logger
 
 import asimog_db
+from asimog_voice import fence
 from .search import ImageResult, SearchResult, TavilyNewsAgency, TavilyResponse
 
 
@@ -38,7 +40,7 @@ class AsimogNewsAgency:
             " where (content ilike $1 or title ilike $1 or source_keyword ilike $1) and create_time >= $2 order by create_time desc limit $3",
             t, since_ms, limit,
         )
-        return [SearchResult(title=f"{r['title']} callout", url=r["note_url"], content=f"[cid:{r['note_id']}] {r['content']}", published_date=datetime.fromtimestamp(r["create_time"] / 1000).isoformat()) for r in rows]
+        return [SearchResult(title=f"{r['title']} callout", url=r["note_url"], content=f"[cid:{r['note_id']}] {fence(r['content'])}", published_date=datetime.fromtimestamp(r["create_time"] / 1000).isoformat()) for r in rows]
 
     def _x(self, query: str, since: Optional[datetime], limit: int) -> List[SearchResult]:
         if not self.x_token:
@@ -52,14 +54,15 @@ class AsimogNewsAgency:
                 logger.warning("X search rate limited; skipped this call")
                 return []
             r.raise_for_status()
-            return [SearchResult(title="X post", url=f"https://x.com/i/status/{p['id']}", content=p.get("text", ""), published_date=p.get("created_at")) for p in r.json().get("data", [])]
+            return [SearchResult(title="X post", url=f"https://x.com/i/status/{p['id']}", content=fence(p.get("text", "")), published_date=p.get("created_at")) for p in r.json().get("data", [])]
         except Exception as err:  # noqa: BLE001
             logger.warning(f"X search failed: {err}")
             return []
 
     def _combine(self, query: str, upstream: Optional[TavilyResponse], since: Optional[datetime], limit: int) -> TavilyResponse:
         t0 = time.time()
-        results = list(upstream.results if upstream else []) + self._x(query, since, limit) + self._callouts(query, since, limit)
+        web = [dataclasses.replace(r, content=fence(r.content, 4000)) for r in (upstream.results if upstream else [])]  # web pages are strangers' text too
+        results = web + self._x(query, since, limit) + self._callouts(query, since, limit)
         return TavilyResponse(query=query, answer=upstream.answer if upstream else None, results=results, images=list(upstream.images if upstream else []), response_time=time.time() - t0)
 
     # the six upstream tool names

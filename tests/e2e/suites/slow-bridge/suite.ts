@@ -13,7 +13,7 @@ import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
 import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
 import type { RunRequest, RunStatus } from "../../../../services/slow-bridge/src/types.ts";
 import type { Check } from "../../lib/checks.ts";
-import { CAP, MINT_A, MINT_B, slowEnv } from "../../lib/slow.ts";
+import { CAP, MINT_A, MINT_B, slowEnv, WORKER_TOKEN } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 type Fake = { url: string; seen: RunRequest[]; close(): void };
@@ -69,7 +69,7 @@ export const suite: Suite = {
       const cfg = { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel" as const, chainWaitS: 1, runTimeoutS: 5, pollMs: 20, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100 };
       const grant = (mint: string, stage: 1 | 2) => w.tape.emit("jev.escalated", { subject: mint, gate_reasons: ["test"], job: stage === 1 ? "synthesis_coin" : "swarm_run", voi: 0.4, stage, arm: "run", deferred: false }, { source: "attention", subject: mint });
       const jobOf = async (mint: string) => (await w.sql`select state, error from slow.jobs where subject = ${mint} order by slot desc limit 1`)[0] as { state: string; error: string | null } | undefined;
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", bf.url), miroshark: new EngineClient("miroshark", ms.url) }, now: () => t, newId: () => `sj_t${++n}`, cfg });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", bf.url, WORKER_TOKEN), miroshark: new EngineClient("miroshark", ms.url, WORKER_TOKEN) }, now: () => t, newId: () => `sj_t${++n}`, cfg });
 
       // 1. feed slot: queued once however often we schedule
       await bridge.schedule();
@@ -114,7 +114,7 @@ export const suite: Suite = {
 
       // 4. a dead engine fails its job and nothing else
       const before = await w.sql`select count(*)::int n from tape.events`;
-      const dead = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", "http://127.0.0.1:9", 500), miroshark: null }, now: () => t + 3_600_000, newId: () => `sj_d${++n}`, cfg });
+      const dead = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", "http://127.0.0.1:9", WORKER_TOKEN, 500), miroshark: null }, now: () => t + 3_600_000, newId: () => `sj_d${++n}`, cfg });
       await dead.schedule();
       await dead.drain();
       const [failed] = await w.sql`select state, error from slow.jobs where id = ${`sj_d${n}`}`;
@@ -132,7 +132,7 @@ export const suite: Suite = {
       // 6. escalations are read on their own timer while a long run drains (D5)
       const hold: RunStatus = { state: "running" };
       const slow = await fakeEngine((r) => (r.subject === "HOLD1" ? hold : { state: "done", output: {} }));
-      const b5 = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", slow.url), miroshark: null }, now: () => Date.now(), newId: () => `sj_h${++n}`, cfg: { ...cfg, runTimeoutS: 60 } });
+      const b5 = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", slow.url, WORKER_TOKEN), miroshark: null }, now: () => Date.now(), newId: () => `sj_h${++n}`, cfg: { ...cfg, runTimeoutS: 60 } });
       grant("HOLD1", 1);
       await w.tape.flush();
       const stop = b5.start(Number(process.env.SLOW_SCHEDULE_S ?? 5) * 1000, 30_000);
@@ -152,7 +152,7 @@ export const suite: Suite = {
       // 7. a grant over quota is deferred, then runs once the hour has room (oldest first)
       let shift = 0;
       const [used] = await w.sql`select count(*)::int n from slow.jobs where engine = 'bettafish' and kind = 'coin' and slot >= ${new Date(Date.now() - 3_600_000).toISOString()} and state <> 'deferred'`;
-      const b6 = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", bf.url), miroshark: null }, now: () => Date.now() + shift, newId: () => `sj_q${++n}`, cfg: { ...cfg, coinRunsPerHour: used!.n + 1 } });
+      const b6 = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", bf.url, WORKER_TOKEN), miroshark: null }, now: () => Date.now() + shift, newId: () => `sj_q${++n}`, cfg: { ...cfg, coinRunsPerHour: used!.n + 1 } });
       grant(MINT_A, 1);
       grant("QUOTA2", 1);
       await w.tape.flush();
@@ -167,7 +167,7 @@ export const suite: Suite = {
 
       // 8. a swarm with no simulated action fails and writes no wave_p
       const empty = await fakeEngine(() => ({ state: "done", output: { swarm: { samples: 3, actions: 0, usd: 0, truncated: false, wave_p: 0.9, d_callers: 0, d_net_sol: 0, posts: [] }, cost_usd: 0.01 } }));
-      const b7 = new Bridge({ sql: w.sql, cores, engines: { bettafish: null, miroshark: new EngineClient("miroshark", empty.url) }, now: () => Date.now() + shift, newId: () => `sj_e${++n}`, cfg });
+      const b7 = new Bridge({ sql: w.sql, cores, engines: { bettafish: null, miroshark: new EngineClient("miroshark", empty.url, WORKER_TOKEN) }, now: () => Date.now() + shift, newId: () => `sj_e${++n}`, cfg });
       grant(MINT_B, 2);
       await w.tape.flush();
       await b7.schedule();

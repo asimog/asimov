@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import argparse
 import contextvars
+import hmac
 import json
 import os
 import re
 import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -29,7 +31,10 @@ os.environ.setdefault("ASIMOG_FORK", "1")
 if os.getenv("BETTAFISH_DB_URL"):  # BettaFish reads DATABASE_URL; ours is the read-only slow_reader role
     os.environ["DATABASE_URL"] = re.sub(r"^postgres(ql)?://", "postgresql+asyncpg://", os.environ["BETTAFISH_DB_URL"])
 
-REQUIRED = ["INSIGHT_ENGINE_API_KEY", "INSIGHT_ENGINE_BASE_URL", "INSIGHT_ENGINE_MODEL_NAME", "DATABASE_URL", "LLM_PRICE_IN_PER_M", "LLM_PRICE_OUT_PER_M"]
+REQUIRED = ["INSIGHT_ENGINE_API_KEY", "INSIGHT_ENGINE_BASE_URL", "INSIGHT_ENGINE_MODEL_NAME", "DATABASE_URL", "LLM_PRICE_IN_PER_M", "LLM_PRICE_OUT_PER_M", "BETTAFISH_WORKER_TOKEN"]
+TOKEN_ENV = "BETTAFISH_WORKER_TOKEN"
+KINDS, PRESETS = {"feed", "coin"}, {"nano", "lite", "full"}
+MAX_CONCURRENT = int(os.getenv("BETTAFISH_MAX_CONCURRENT") or 2)
 CID = re.compile(r"\[cid:([A-Za-z0-9_\-]+)\]")
 RUNS: dict[str, dict] = {}
 LOCK = threading.Lock()
@@ -45,7 +50,7 @@ class Meter:
     LLM_PRICE_IN_PER_M and LLM_PRICE_OUT_PER_M; never a price in code). `over` once spend passes the run's usd_cap."""
 
     def __init__(self, cap: float | None):
-        self.usd, self.cap, self.lock = 0.0, cap, threading.Lock()
+        self.usd, self.cap, self.lock, self.cancelled = 0.0, cap, threading.Lock(), False
         self.price_in, self.price_out = float(os.environ["LLM_PRICE_IN_PER_M"]) / 1e6, float(os.environ["LLM_PRICE_OUT_PER_M"]) / 1e6
 
     def over(self) -> bool:
@@ -84,8 +89,8 @@ def meter_openai(over_cap) -> None:
 
     def gate(k: dict):
         m = METER.get()
-        if m and m.over():
-            raise over_cap(f"spent {m.usd:.4f} of {m.cap} USD")
+        if m and (m.cancelled or m.over()):
+            raise over_cap("cancelled" if m.cancelled else f"spent {m.usd:.4f} of {m.cap} USD")
         if m and k.get("stream"):
             k.setdefault("stream_options", {"include_usage": True})
         return m
@@ -212,8 +217,9 @@ def full_report(req: dict, results: list, forum: "Forum | None") -> dict | None:
     import asimog_db
 
     swarm = asimog_db.query("select report_id, summary, markdown from slow.report_feed where report_id = any($1::text[])", req.get("parent_reports") or [])
+    from asimog_voice import fence
     by_engine = {name: md for name, _, md in results}  # upstream's order: Query, Media, Insight, then swarm reports
-    inputs = [by_engine.get(e, "") for e in ("query", "media", "insight")] + [f"SIMULATED swarm report {s['report_id']}:\n{s['markdown'] or s['summary']}" for s in swarm]
+    inputs = [by_engine.get(e, "") for e in ("query", "media", "insight")] + [f"SIMULATED swarm report {s['report_id']}:\n{fence(s['markdown'] or s['summary'], 20000)}" for s in swarm]
     ra = ReportAgent()
     captured: dict = {}
     render = ra.renderer.render
@@ -279,6 +285,8 @@ def execute(run_id: str, req: dict) -> None:
             importlib.import_module({"insight": "InsightEngine.agent", "query": "QueryEngine.agent", "media": "MediaEngine.agent"}[e])
         with ThreadPoolExecutor(max_workers=len(engines)) as pool:
             results = list(pool.map(lambda e: ctx.copy().run(run_engine, e, query, forum), engines))
+        if meter.cancelled:
+            raise SpendCap("cancelled")
         out = to_output(req, results)
         if forum:
             out["forum_lines"] = forum.lines
@@ -294,13 +302,35 @@ def execute(run_id: str, req: dict) -> None:
         out["cost_usd"], out["truncated"] = meter.usd, meter.over()
         with LOCK:
             RUNS[run_id] = {"state": "done", "output": out}
-    except SpendCap as err:  # the cap hit outside an engine (the forum host): nothing kept is complete
+    except SpendCap as err:  # cancelled, or the cap hit outside an engine (the forum host): nothing kept is complete
         with LOCK:
-            RUNS[run_id] = {"state": "failed", "error": f"SpendCap: {err}"[:300]}
+            RUNS[run_id] = {"state": "failed", "error": "cancelled" if meter.cancelled else f"SpendCap: {err}"[:300]}
     except Exception as err:  # noqa: BLE001 - the Bridge records the reason
         with LOCK:
             RUNS[run_id] = {"state": "failed", "error": f"{type(err).__name__}: {err}"[:300]}
         traceback.print_exc()
+
+
+def bad_request(req) -> str | None:
+    """Patch D4: the reason a start request is refused (400), or None. The Bridge's contract, services/slow-bridge/src/types.ts."""
+    if not isinstance(req, dict):
+        return "body must be a JSON object"
+    for k in ("job_id", "kind", "subject", "preset", "as_of"):
+        if not isinstance(req.get(k), str) or not req[k]:
+            return f"missing {k}"
+    if req["kind"] not in KINDS:
+        return f"unknown kind {req['kind'][:20]}"
+    if req["preset"] not in PRESETS:
+        return f"unknown preset {req['preset'][:20]}"
+    try:
+        datetime.fromisoformat(req["as_of"].replace("Z", "+00:00"))
+    except ValueError:
+        return "as_of is not an ISO time"
+    for k, lo in (("window_min", 1), ("usd_cap", 0)):
+        v = req.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v < lo:
+            return f"{k} must be a number of at least {lo}"
+    return None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -312,9 +342,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _authorized(self) -> bool:
+        """Patch D4: every route but health needs the Bridge's bearer token (constant-time compare)."""
+        return hmac.compare_digest(self.headers.get("Authorization", "").encode(), f"Bearer {os.environ[TOKEN_ENV]}".encode())
+
     def do_GET(self):  # noqa: N802
         if self.path == "/asimog/health":
             return self._send(200, {"ok": True})
+        if not self._authorized():
+            return self._send(401, {"error": "unauthorized"})
         m = re.match(r"^/asimog/runs/(.+)$", self.path)
         if m:
             with LOCK:
@@ -323,14 +359,37 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200 if r else 404, {**r, "cost_usd": spent.usd if spent else 0.0} if r else {"state": "failed", "error": "unknown run"})
         self._send(404, {})
 
+    def do_DELETE(self):  # noqa: N802
+        """Cancel: the run stops at its next model call and is finished `failed: cancelled`."""
+        if not self._authorized():
+            return self._send(401, {"error": "unauthorized"})
+        m = re.match(r"^/asimog/runs/(.+)$", self.path)
+        with LOCK:
+            meter = METERS.get(m.group(1)) if m else None
+            if meter:
+                meter.cancelled = True
+        self._send(200 if meter else 404, {"ok": bool(meter)})
+
     def do_POST(self):  # noqa: N802
         if self.path != "/asimog/runs":
             return self._send(404, {})
-        req = json.loads(self.rfile.read(int(self.headers.get("content-length") or 0)) or b"{}")
-        run_id = str(req["job_id"])
+        if not self._authorized():
+            return self._send(401, {"error": "unauthorized"})
+        try:
+            req = json.loads(self.rfile.read(int(self.headers.get("content-length") or 0)) or b"{}")
+        except (ValueError, UnicodeDecodeError):
+            return self._send(400, {"error": "body is not JSON"})
+        why = bad_request(req)
+        if why:
+            return self._send(400, {"error": why})
+        run_id = req["job_id"]
         with LOCK:
+            if run_id in RUNS:  # a duplicate id never starts a second run
+                return self._send(409, {"run_id": run_id, "state": RUNS[run_id]["state"]})
+            if sum(1 for r in RUNS.values() if r["state"] == "running") >= MAX_CONCURRENT:
+                return self._send(429, {"error": f"{MAX_CONCURRENT} runs already running"})
             RUNS[run_id] = {"state": "running"}
-            METERS[run_id] = Meter(float(req["usd_cap"]) if req.get("usd_cap") is not None else None)
+            METERS[run_id] = Meter(float(req["usd_cap"]))
         threading.Thread(target=execute, args=(run_id, req), daemon=True).start()
         self._send(200, {"run_id": run_id})
 

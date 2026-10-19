@@ -6,9 +6,9 @@ Upstream: `666ghj/BettaFish@b67928f` (GPL-2.0), see `UPSTREAM`. Outside code: li
 
 | File | Role |
 |---|---|
-| `asimog_worker.py` | HTTP worker the Slow Bridge calls; runs the engines, pins `slow.as_of` per run |
+| `asimog_worker.py` | HTTP worker the Slow Bridge calls; runs the engines, pins `slow.as_of` per run. Requires `BETTAFISH_WORKER_TOKEN` on every route but health, checks each request, refuses a known job id (409) and runs past `BETTAFISH_MAX_CONCURRENT` (429), cancels (`DELETE`), meters spend against the run's `usd_cap` by wrapping the OpenAI client's chat call (no upstream file changed) |
 | `asimog_db.py` | The one read helper over the `slow.*` views (role `slow_reader`) |
-| `asimog_voice.py` | Our language and voice rules added to every prompt |
+| `asimog_voice.py` | Our language and voice rules added to every prompt, and `clean`/`fence` (core's fence for strangers' text) that the adapters below use |
 | `requirements-asimog.txt` | Python dependencies for `.venv-asimog` |
 | `InsightEngine/tools/pumpfun_db.py` | Insight search over our callouts (PumpfunDB) |
 | `QueryEngine/tools/asimog_search.py`, `MediaEngine/tools/asimog_media.py` | Query and Media adapters |

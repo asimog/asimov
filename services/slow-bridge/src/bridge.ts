@@ -158,7 +158,10 @@ export class Bridge {
           this.stats[m.failed ? "failed" : "done"]++;
           return true;
         }
-        if (this.d.now() > until) throw new Error(`run timed out after ${this.d.cfg.runTimeoutS} s`);
+        if (this.d.now() > until) {
+          await engine.cancel(runId); // the worker stops spending at its next model call
+          throw new Error(`run timed out after ${this.d.cfg.runTimeoutS} s`);
+        }
         await new Promise((r) => setTimeout(r, this.d.cfg.pollMs));
       }
     } catch (err) {

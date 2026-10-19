@@ -14,6 +14,7 @@ from typing import Optional
 from loguru import logger
 
 import asimog_db
+from asimog_voice import fence
 from .search import BochaResponse, ImageResult, WebpageResult
 
 
@@ -36,7 +37,7 @@ class AsimogMediaSearch:
         )
         return BochaResponse(
             query=query,
-            webpages=[WebpageResult(name=f"{n['title']} callout with media", url=n["note_url"], snippet=f"[cid:{n['note_id']}] {n['content']}", date_last_crawled=datetime.fromtimestamp(n["create_time"] / 1000).isoformat()) for n in notes],
+            webpages=[WebpageResult(name=f"{n['title']} callout with media", url=n["note_url"], snippet=f"[cid:{n['note_id']}] {fence(n['content'])}", date_last_crawled=datetime.fromtimestamp(n["create_time"] / 1000).isoformat()) for n in notes],
             images=[ImageResult(name=f"{i['kind']} image {i['media_id']}" + (" (cached)" if i.get("sha256") else ""), content_url=i["url"], host_page_url=f"https://pump.fun/coin/{i['mint']}") for i in imgs],
         )
 
