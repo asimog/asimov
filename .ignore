@@ -2,3 +2,12 @@
 # To search prior art on purpose: rg --no-ignore --hidden <pattern> .upstreamref/
 /.upstreamref/
 /docs/.archive/
+# Vendor engines (docs/WORKFLOW.md section 5): upstream code is skipped; our adapters stay searchable.
+# To search upstream on purpose: rg --no-ignore <pattern> services/<engine>/engine/
+/services/bettafish/engine/**/*.*
+/services/miroshark/engine/**/*.*
+!/services/*/engine/**/asimog_*
+!/services/*/engine/**/requirements-asimog.txt
+!/services/*/engine/VENDOR.md
+!/services/bettafish/engine/InsightEngine/tools/pumpfun_db.py
+!/services/miroshark/engine/backend/wonderwall/simulations/pumpfun/*
