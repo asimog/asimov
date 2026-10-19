@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-79 topics.
+81 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -74,6 +74,8 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `ops.stop_requested` | `action`, `scope`, `reason` |
 | `ops.restart_requested` | `scope`, `reason` |
 | `report.published` | `report_id`, `producer`, `kind`, `subject`, `window_from`, `window_to`, `preset`, `sha256`, `summary`, `cites`, `parent_reports`, `simulated`, `cites_dropped` |
+| `wiki.page` | `slug`, `kind`, `version`, `mint`, `sha256`, `body`, `as_of`, `data` |
+| `wiki.prose` | `slug`, `version`, `text`, `checks` |
 | `swarm.beliefs` | `swarm_id`, `mint`, `topic`, `simulated`, `branches` |
 | `jev.escalated` | `subject`, `gate_reasons`, `job`, `voi`, `stage`, `arm` |
 | `soul.updated` | `version`, `sha256`, `prev_sha256`, `chain_sha256`, `reason`, `by`, `diff_ref` |

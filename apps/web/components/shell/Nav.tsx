@@ -11,6 +11,7 @@ const ROOMS = [
   { href: "/lab", label: "Lab" },
   { href: "/ledger", label: "Ledger" },
   { href: "/integrity", label: "Integrity" },
+  { href: "/wiki", label: "Wiki" },
   { href: "/synthesis", label: "Synthesis" },
   { href: "/simulations", label: "Simulations" },
   { href: "/treasury", label: "Treasury" },

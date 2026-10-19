@@ -33,7 +33,7 @@ export type Mode = (typeof MODES)[number];
 
 export const SOURCES = [
   "feedreader", "nats", "rpc", "xreader", "reflex", "guard", "trader", "publisher", "treasurer",
-  "signer", "scorekeeper", "attention", "strategies", "riskgate.paper", "riskgate.live", "system", "analyzer", "bettafish", "miroshark", "agents", "soul", "slow-bridge",
+  "signer", "scorekeeper", "attention", "strategies", "riskgate.paper", "riskgate.live", "system", "analyzer", "bettafish", "miroshark", "agents", "soul", "slow-bridge", "wiki",
 ] as const;
 export type Source = (typeof SOURCES)[number];
 
@@ -498,6 +498,15 @@ export const SwarmBeliefs = z.object({
   swarm_id: z.string(), mint: z.string(), topic: z.string(), simulated: z.literal(true),
   branches: z.record(z.string(), z.array(z.array(z.object({ round: z.number().int(), stance: z.record(z.string(), z.number()) })))),
 });
+/** One version of a wiki page (E3, docs/PIPELINE.md 9): every number written by code; a new version only when the body changes. */
+export const WikiPage = z.object({
+  slug: z.string(), kind: z.enum(["caller", "coin"]), version: z.number().int().min(1), mint: z.string().nullable(),
+  sha256: z.string(), body: z.string(), as_of: iso,
+  /** the numbers the body was rendered from: rendering them again gives the same bytes */
+  data: z.record(z.string(), z.unknown()),
+});
+/** The Wiki writer's prose for one page version, labelled AI judgment and passed through the public-text check. */
+export const WikiProse = z.object({ slug: z.string(), version: z.number().int().min(1), text: z.string(), checks: z.array(z.string()) });
 export const ReportPublished = z.object({
   report_id: z.string(), producer: z.string(), kind: z.enum(["feed", "coin", "swarm"]), subject: z.string(), window_from: iso.nullable(), window_to: iso.nullable(),
   preset: z.string(), sha256: z.string(), summary: z.string(), cites: z.array(z.string()), parent_reports: z.array(z.string()), simulated: z.boolean(), cites_dropped: z.number().int(),
@@ -657,6 +666,8 @@ export const TOPICS = {
   "ops.stop_requested": OpsStopRequested,
   "ops.restart_requested": OpsRestartRequested,
   "report.published": ReportPublished,
+  "wiki.page": WikiPage,
+  "wiki.prose": WikiProse,
   "swarm.beliefs": SwarmBeliefs,
   "jev.escalated": JevEscalated,
   "soul.updated": SoulUpdated,
@@ -721,7 +732,7 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "post.queued": "derived", "synthesis.feed": "derived", "mood.feed": "derived", "synthesis.coin": "derived",
   "synthesis.forum_line": "derived", "swarm.wave_p": "derived", "swarm.impact": "derived", "swarm.post": "derived",
   "proposal.strategy": "derived", "jevq.proposed": "derived", "report.drafted": "derived", "integrity.text": "derived",
-  "ops.alert": "derived", "report.published": "derived", "swarm.beliefs": "derived",
+  "ops.alert": "derived", "report.published": "derived", "wiki.page": "derived", "wiki.prose": "derived", "swarm.beliefs": "derived",
   "jev.escalated": "derived", "soul.updated": "derived", "job.queued": "derived", "job.started": "derived", "job.done": "derived",
 };
 

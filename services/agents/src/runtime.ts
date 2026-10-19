@@ -106,6 +106,16 @@ export class AgentsRuntime {
       const { signals } = await (await this.belt("integrity")).call<{ signals: { id: string }[] }>("board_signals", { kind: "integrity.finding", min_confidence: 0.85, limit: 50 });
       for (const s of signals) if (await enqueue(this.o.sql, "integrity", { type: "event", event: s }, `integrity:${s.id}`)) queued.push("integrity");
     }
+    // Wiki writer (E3): each new page version gets prose once (the dedupe key is the page event)
+    if (this.enabled.includes("wiki")) {
+      const belt = await this.belt("wiki");
+      const cur = await getCursor(this.o.sql, "wiki");
+      const { events } = await belt.call<{ events: { id: string; seen_time: string; body: Record<string, unknown> }[] }>("events_since", { topics: ["wiki.page"], after_seen_time: cur.seen_time ?? undefined, after_id: cur.id ?? undefined, limit: 50 });
+      for (const e of events) {
+        if (await enqueue(this.o.sql, "wiki", { type: "event", event: e }, `wiki:${e.id}`)) queued.push("wiki");
+        await setCursor(this.o.sql, "wiki", new Date(e.seen_time).toISOString(), e.id);
+      }
+    }
     return { queued };
   }
 

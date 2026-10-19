@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { Config } from "../lib/config.ts";
+import type { Config, TargetConfig } from "../lib/config.ts";
 import { env } from "../lib/env.ts";
 
 export interface ArchiveTarget {
@@ -108,9 +108,14 @@ export class GitTarget implements ArchiveTarget {
   }
 }
 
-/** Build every configured target; a missing S3 endpoint or key is an error, not a silent skip. */
+/** Build every configured archive target; a missing S3 endpoint or key is an error, not a silent skip. */
 export function targetsFromConfig(config: Config, root = env.root): ArchiveTarget[] {
-  return config.retention.archive_targets.map((t) => {
+  return buildTargets(config.retention.archive_targets, root);
+}
+
+/** Build targets of any list (archive or wiki export). */
+export function buildTargets(list: TargetConfig[], root = env.root): ArchiveTarget[] {
+  return list.map((t) => {
     if (t.kind === "local") return new LocalTarget(t.dir, root);
     if (t.kind === "git") return new GitTarget(t.dir, t.remote, t.branch, root);
     const endpoint = env.opt("S3_ENDPOINT");

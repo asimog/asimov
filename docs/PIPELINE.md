@@ -174,9 +174,15 @@ Probability signals are scored with Brier and skill against the base rate, in da
 
 A public, cited page per caller, wallet, creator, coin and narrative: style, strategies, hold times, records, and summaries of pruned windows. Code writes every number from the Index and the ledger; the Wiki writer agent writes the prose, labelled AI judgment and passed through the public-text check. Pages are versioned rows in Postgres with a markdown export, read as of now. A page never feeds an order. Pages are exported to the configured wiki target (a bucket or a GitHub docs repository).
 
+Built today (E3, `services/core/src/wiki/wiki.ts`): the `wiki` consumer runs at each `index.refreshed` and builds, as of that event, one page per caller measured at least `WIKI_MIN_CALLS` times (at most `WIKI_MAX_CALLERS`, from the caller ledger) and one page per coin the house traded (our paper positions and the coin's `risk.state`). The body is a pure render of the page's data and carries no build time, so the same data gives the same bytes; a new `wiki.page` version (with its data) is written only when the body's hash changes, and `ctl wiki check <slug> <version>` re-renders a stored version. The Wiki writer (`cap:wiki.write`) reads each new version, recalls the coin's callouts and scraped rug reports from the agents' memory as of the page, and stores prose once per version through `write_wiki_prose` (the public-text check; `wiki.prose`). `exportWiki` writes `<slug>.md` and `index.md` to `retention.json` `wiki_targets` every `wiki_export_every_min`. Wallet, creator and narrative pages are not built yet (PLAN row E6).
+
+Ways it fails: the ledger reads the Tape, so after the archiver drops a partition a caller page can lose calls and gain a version; a stored version still rebuilds from its own data.
+
 ## 10. Embeddings
 
 The agent runtime turns text into vectors with an OpenRouter embedding model (`EMBEDDING_MODEL`, key `EMBEDDING_API_KEY`), so agents can find similar text without reading everything. Vectors live in the same Postgres with the pgvector extension, each row tagged with its model and `seen_at`, and searched as of now.
+
+Built today (E5, `services/agents/src/memory.ts`): see `SYSTEM.md` section 11, Memory search.
 
 | Text | Used for |
 |---|---|

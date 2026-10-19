@@ -33,7 +33,9 @@ import { ensureGenesis } from "./soul/soul.ts";
 import { Archiver } from "./tape/archiver.ts";
 import { type Consumer, runLive } from "./tape/consumer.ts";
 import { Tape } from "./tape/tape.ts";
+import { buildTargets } from "./tape/targets.ts";
 import { treasuryWiring } from "./treasury/wire.ts";
+import { exportWiki, wikiBuilder } from "./wiki/wiki.ts";
 
 export interface Runtime {
   tape: Tape;
@@ -46,12 +48,12 @@ export interface Runtime {
 /** Consumers in dependency order. Each gets its own clock stream (Clock.fork), named after it. */
 export function buildConsumers(tape: Tape): Consumer[] {
   const own = (name: string) => tape.for(tape.clock.fork(name));
-  const t = Object.fromEntries(["analyzers.cheap", "analyzers.precall", "analyzers.index", "analyzers.slow", "reflex.trigger", "reflex.signals", "desk", "attention", "publisher", "scorekeeper"].map((n) => [n, own(n)]));
+  const t = Object.fromEntries(["analyzers.cheap", "analyzers.precall", "analyzers.index", "analyzers.slow", "reflex.trigger", "reflex.signals", "desk", "attention", "publisher", "scorekeeper", "wiki"].map((n) => [n, own(n)]));
   const at = (n: string) => [t[n]!, t[n]!.clock] as const;
   return [
     memory, cheapAnalyzers(t["analyzers.cheap"]!.clock), precallAnalyzers(...at("analyzers.precall")), indexSignals(t["analyzers.index"]!.clock), slowSignals(t["analyzers.slow"]!.clock),
     reflexTrigger(...at("reflex.trigger")), reflexSignals(t["reflex.signals"]!.clock),
-    desk(...at("desk")), escalationGate(...at("attention")), publisher(...at("publisher")), scorekeeper(...at("scorekeeper")),
+    desk(...at("desk")), escalationGate(...at("attention")), publisher(...at("publisher")), scorekeeper(...at("scorekeeper")), wikiBuilder(...at("wiki")),
   ];
 }
 
@@ -112,6 +114,9 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
       backfill?.start();
       archiver?.start();
       timers.push(setInterval(() => log.info("stats", rt.stats()), env.int("STATS_EVERY_MS")));
+      // E3: the wiki's markdown export to the owner's targets (a folder, a bucket or a git repository)
+      const wikiTargets = buildTargets(config.retention.wiki_targets);
+      if (wikiTargets.length) timers.push(setInterval(() => void exportWiki(sql, wikiTargets).catch((err) => log.warn("wiki export", { err: String(err) })), config.schedules.wiki_export_every_min * 60_000));
       if (scout) {
         void indexJobs(true);
         timers.push(setInterval(() => void indexJobs(false), env.num("INDEX_REFRESH_MIN") * 60_000));
@@ -157,7 +162,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     stats() {
       const of = (name: string) => (consumers.find((c) => c.name === name) as { stats?: unknown } | undefined)?.stats;
       const m = process.memoryUsage();
-      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, deduped: tape.deduped, queued: tape.queued, unhealthy: tape.unhealthy }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, archive: archiver?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), attention: of("attention"), publisher: of("publisher"), scorekeeper: of("scorekeeper") };
+      return { mem_mb: { rss: Math.round(m.rss / 1e6), heap: Math.round(m.heapUsed / 1e6) }, tape: { written: tape.written, deduped: tape.deduped, queued: tape.queued, unhealthy: tape.unhealthy }, feed: feed?.stats, chain: chain?.stats, scout: scout?.stats, index: scout?.rollup.stats, backfill: backfill?.stats, archive: archiver?.stats, replies: replies?.stats, media: media?.stats, rpc: pool.stats, jev: of("reflex.trigger"), desk: of("desk"), attention: of("attention"), publisher: of("publisher"), scorekeeper: of("scorekeeper"), wiki: of("wiki") };
     },
   };
   return rt;

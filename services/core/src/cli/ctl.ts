@@ -16,9 +16,11 @@ import { slowScores } from "../scorekeeper/slow-scores.ts";
 import { ensureGenesis, verifyChain, versions } from "../soul/soul.ts";
 import { hotPartitions, ndjsonLine, TAPE_COLUMNS } from "../tape/archiver.ts";
 import { Tape } from "../tape/tape.ts";
+import { buildTargets } from "../tape/targets.ts";
 import { balances, nav, recordDeposit } from "../treasury/books.ts";
 import { killState, ownerKill, resume } from "../treasury/kill.ts";
 import { verifyProofs } from "../treasury/proofs.ts";
+import { exportWiki, rebuildCheck } from "../wiki/wiki.ts";
 
 const [cmd = "help", ...args] = process.argv.slice(2);
 const flag = (n: string) => args.includes(`--${n}`);
@@ -184,6 +186,12 @@ const commands: Record<string, () => Promise<unknown>> = {
     if (!c) throw new Error(`no callout ${args[0]}`);
     if (!flag("md")) return c;
     console.log(renderCase(c));
+  },
+  // the wiki (E3): `ctl wiki` lists pages, `ctl wiki check <slug> <version>` re-renders one, `ctl wiki export` writes the targets
+  wiki: async () => {
+    if (args[0] === "check") return rebuildCheck(sql, args[1]!, Number(args[2]));
+    if (args[0] === "export") return exportWiki(sql, buildTargets(configValues().retention.wiki_targets));
+    return sql`select slug, max(version)::int version, max(as_of) as_of from wiki.pages group by slug order by slug`;
   },
   callers: () => ledger(sql, { horizon: Number(opt("h") ?? 5), at: opt("at") }),
   coverage: () => coverage(sql),

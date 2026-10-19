@@ -1,5 +1,6 @@
 {
   "hot_window_hours": 4,
   "rollup_hourly_hours": 48,
-  "archive_targets": [{ "kind": "local", "dir": "data/archive" }]
+  "archive_targets": [{ "kind": "local", "dir": "data/archive" }],
+  "wiki_targets": [{ "kind": "local", "dir": "data/wiki" }]
 }

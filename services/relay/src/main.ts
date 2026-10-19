@@ -11,6 +11,7 @@ import { scoresAsOf } from "../../core/src/scorekeeper/scorekeeper.ts";
 import { rooms } from "./rooms.ts";
 import { rugFeed } from "./rug-feed.ts";
 import { slowRooms } from "./slow-rooms.ts";
+import { wikiRoom } from "./wiki.ts";
 
 const sql = postgres(env.str("DATABASE_URL"), { max: env.int("RELAY_DB_POOL"), idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } });
 const PORT = env.int("RELAY_PORT");
@@ -254,6 +255,13 @@ app.get("/v1/ledger", async (c) => c.json(await ledgerRoom()));
 app.get("/v1/integrity", async (c) => c.json(await integrity()));
 const rugs = rugFeed({ sql, cached, sym });
 app.get("/v1/rugfeed", async (c) => c.json(await rugs()));
+const wiki = wikiRoom({ sql, cached });
+app.get("/v1/wiki", async (c) => c.json(await wiki.list()));
+app.get("/v1/wiki/:slug", async (c) => {
+  const v = c.req.query("v");
+  const p = await wiki.page(c.req.param("slug"), v && /^\d+$/.test(v) ? Number(v) : null);
+  return p ? c.json(p) : c.json({ error: "no such page" }, 404);
+});
 const r = rooms({ sql, cached, sym, line, mandate: MANDATE_SOL });
 app.get("/v1/treasury", async (c) => c.json(await r.treasury()));
 const slow = slowRooms({ sql, cached, sym });

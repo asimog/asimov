@@ -126,7 +126,7 @@ A context owns one body of knowledge. It never writes another context's tables.
 | Publishing | House callouts, updates, bull posts | `hands/publisher.ts` |
 | Scoring | Outcomes, Brier scores, caller ledger, calibration | `scorekeeper/` |
 | Slow mind | Synthesis, swarms, reports | `services/slow-bridge`, `services/bettafish`, `services/miroshark` |
-| Knowledge | Wiki pages | `memory/wiki` (PLANNED) |
+| Knowledge | Wiki pages | `wiki/` |
 
 ## 5. Nouns
 
@@ -288,7 +288,7 @@ Separation: separate processes, capability tokens checked on every call, one Pos
 | Ops | Every `system.*` event, every 15 min | Alerts, pause, stop request |
 | Reporter | Daily | The daily report draft |
 | Integrity writer | A strong risk finding | Rug feed prose (Guard-checked) |
-| Wiki writer | A weekly Index rebuild, a pruned window | Wiki page prose, labelled AI judgment |
+| Wiki writer | Each new `wiki.page` version (built at each Index refresh) | Wiki page prose, labelled AI judgment, once per version |
 
 ## 12. Contracts
 

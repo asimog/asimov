@@ -198,7 +198,28 @@ function noop() {
   return new StateGraph(S).addNode("noop", async () => ({ result: { noop: true } })).addEdge(START, "noop").addEdge("noop", END);
 }
 
+// ---------- Wiki writer: page numbers + recalled callouts and rug reports -> prose -> Guard (in the tool) -> wiki (E3) ----------
+function wiki(d: GraphDeps) {
+  const S = Annotation.Root({ trigger: Annotation<Trigger>, evidence: Annotation<string>({ reducer: last, default: () => "" }), result: Result });
+  const page = (s: typeof S.State) => (s.trigger as unknown as { event: { body: { slug: string; version: number; kind: string; mint: string | null; body: string; as_of: string } } }).event.body;
+  return new StateGraph(S)
+    .addNode("collect", async (s) => {
+      const p = page(s);
+      // what people said about the coin, as of the page: callouts for the narrative, scraped replies for rug reports
+      const said = p.mint && d.recall ? await d.recall({ text: p.body, kinds: ["callout", "reply"], as_of: p.as_of, k: 8, mint: p.mint }) : [];
+      const told = said.length ? `What strangers wrote about this coin:\n${filterEvidence(said.map((x) => `${x.kind}: ${x.text}`), 1500)}` : "";
+      return { evidence: `Page (numbers are exact, written by code):\n${p.body.slice(0, 2500)}\n${told}` };
+    })
+    .addNode("write", async (s) => {
+      const p = page(s);
+      const ask = (extra: string) => d.lane.ask({ system: `You write the prose for a public wiki page about a ${p.kind}. It is shown labelled AI judgment, under numbers written by code. ${VOICE}`, user: `${s.evidence}\n${extra}Write three to five sentences: what the numbers show, how strong the evidence is, and what is still unknown. Copy numbers exactly; add none. Never name or describe a person; say "this caller" or "a wallet".`, maxTokens: 400 }).then((r) => r.text);
+      const out = await guarded(d, await ask(""), (problem) => ask(`Your last text was refused: ${problem}. Fix it.\n`), (text) => d.belt.call("write_wiki_prose", { slug: p.slug, version: p.version, text }));
+      return { result: { rewrites: out.rewrites } };
+    })
+    .addEdge(START, "collect").addEdge("collect", "write").addEdge("write", END);
+}
+
 export function buildGraph(agent: AgentName, d: GraphDeps, checkpointer?: BaseCheckpointSaver) {
-  const g = { noop: () => noop(), postmortem: () => postmortem(d), researcher: () => researcher(d), ops: () => ops(d), reporter: () => reporter(d), integrity: () => integrity(d), librarian: () => noop() }[agent]();
+  const g = { noop: () => noop(), postmortem: () => postmortem(d), researcher: () => researcher(d), ops: () => ops(d), reporter: () => reporter(d), integrity: () => integrity(d), wiki: () => wiki(d), librarian: () => noop() }[agent]();
   return (g as unknown as { compile(o: { checkpointer?: BaseCheckpointSaver }): { invoke(i: unknown, c: unknown): Promise<{ result?: Record<string, unknown> }> } }).compile({ checkpointer });
 }

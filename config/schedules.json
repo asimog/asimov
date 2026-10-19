@@ -4,5 +4,6 @@
   "leaderboards_every_min": 60,
   "index_light_every_min": 720,
   "index_full_every_min": 2880,
-  "index_weekly_every_min": 10080
+  "index_weekly_every_min": 10080,
+  "wiki_export_every_min": 60
 }

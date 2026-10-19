@@ -9,6 +9,7 @@ create schema if not exists ops;
 create schema if not exists idx;
 create schema if not exists hands;
 create schema if not exists books;
+create schema if not exists wiki;
 
 create table if not exists tape.events (
   id          text not null,
@@ -660,3 +661,25 @@ grant select on slow.pumpfun_callout, slow.pumpfun_callout_comment, slow.pumpfun
   slow.pumpfun_trade_flow, slow.media, slow.report_feed to slow_reader;
 grant execute on function slow.as_of() to slow_reader;
 -- views run with their owner's rights, so slow_reader needs nothing on mem or board
+
+-- ---------- wiki (E3, docs/PIPELINE.md 9) ----------
+-- one row per page version, a projection of `wiki.page`: a new version only when the body's hash changes
+create table if not exists wiki.pages (
+  slug text not null,
+  version int not null,
+  kind text not null,
+  mint text,
+  sha256 text not null,
+  body text not null,
+  as_of timestamptz not null,
+  event_id text not null,
+  primary key (slug, version)
+);
+-- the Wiki writer's prose per page version (`wiki.prose`), labelled AI judgment
+create table if not exists wiki.prose (
+  slug text not null,
+  version int not null,
+  text text not null,
+  written_at timestamptz not null,
+  primary key (slug, version)
+);

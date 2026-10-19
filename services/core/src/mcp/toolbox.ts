@@ -28,13 +28,14 @@ export const CAP = {
   exchange: "cap:report.exchange", // the Slow Bridge (docs/SLOW-MIND.md): escalation triggers in, reports out
   swarmRead: "cap:swarm.read", // the MiroShark worker (docs/SLOW-MIND.md M7, M10): its report agent and caller personas, reads only
   memory: "cap:memory.read", // the Librarian (E5): reads the texts the agents' memory embeds, writes nothing but job events
+  wiki: "cap:wiki.write", // the Wiki writer (E3): reads new page versions, writes prose under them
 } as const;
 export const ALL_CAPS: string[] = Object.values(CAP);
 
 /** Who a capability's writes are recorded as on the Tape. */
 const SOURCE: Record<string, Source> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul", [CAP.exchange]: "slow-bridge", [CAP.swarmRead]: "miroshark" };
 /** Topic prefixes and signal kinds a capability may read through `events_since` and `board_signals`. */
-const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["jev.escalated"], [CAP.memory]: ["callout.created", "callout.reply", "report.published", "report.drafted", "wiki.page"] };
+const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["jev.escalated"], [CAP.memory]: ["callout.created", "callout.reply", "report.published", "report.drafted", "wiki.page"], [CAP.wiki]: ["wiki.page"] };
 const READ_KINDS: Record<string, string[]> = { [CAP.integrity]: ["integrity.finding"], [CAP.report]: ["synthesis.", "mood.", "swarm."] };
 
 /** Sources written by thinking lanes and core on their behalf. */
@@ -178,7 +179,7 @@ export const TOOLS: Tool[] = [
     return { mint: a.mint, since: a.since, as_of: at, ...b, ...k };
   }),
 
-  tool("events_since", [CAP.propose, CAP.ops, CAP.exchange, CAP.memory], "Events of allowed topics after a cursor (seen_time, id), oldest first. The trigger feed for agents.", { topics: z.array(z.string()).min(1).max(8), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
+  tool("events_since", [CAP.propose, CAP.ops, CAP.exchange, CAP.memory, CAP.wiki], "Events of allowed topics after a cursor (seen_time, id), oldest first. The trigger feed for agents.", { topics: z.array(z.string()).min(1).max(8), after_seen_time: iso.optional(), after_id: z.string().optional(), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
     const allowed = READ_TOPICS[c.cap] ?? [];
     for (const t of a.topics) if (!allowed.some((p) => t.startsWith(p))) throw new Refusal("out_of_lane", `topic ${t} is not readable with ${c.cap}`);
     const rows = await c.sql`select id, topic, seen_time, subject, body from tape.events
@@ -411,6 +412,17 @@ export const TOOLS: Tool[] = [
     if ((s.confidence as number) < 0.85) throw new Refusal("below_threshold", "findings under 0.85 are not written up");
     const text = requireText("text", a.text);
     c.tape.emit("integrity.text", { finding_id: a.finding_id, text, checks: ["length", "no_emoji", "no_dash", "no_promise", "no_person"] }, { source: source(c), subject: a.finding_id, dedupe: `integrity.text:${a.finding_id}` });
+    await c.tape.flush();
+    return { ok: true };
+  }),
+
+  tool("write_wiki_prose", [CAP.wiki], "Store the prose for one wiki page version (E3). Shown labelled AI judgment; states data, names no person.", { slug: z.string().max(80), version: z.number().int().min(1), text: z.string().min(20).max(1500) }, async (a, c) => {
+    const [p] = await c.sql`select 1 from wiki.pages where slug = ${a.slug} and version = ${a.version}`;
+    if (!p) throw new Refusal("not_found", `no wiki page ${a.slug} v${a.version}`);
+    const text = requireText("text", a.text);
+    const ins = await c.sql`insert into wiki.prose (slug, version, text, written_at) values (${a.slug}, ${a.version}, ${text}, ${c.clock.iso()}) on conflict do nothing returning 1`;
+    if (!ins.length) throw new Refusal("duplicate", `${a.slug} v${a.version} already has prose`);
+    c.tape.emit("wiki.prose", { slug: a.slug, version: a.version, text, checks: ["length", "no_emoji", "no_dash", "no_promise", "no_person"] }, { source: source(c), subject: a.slug, dedupe: `wiki.prose:${a.slug}:${a.version}` });
     await c.tape.flush();
     return { ok: true };
   }),
