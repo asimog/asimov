@@ -271,7 +271,8 @@ create table if not exists mind.fills (
   at timestamptz not null,
   price_sol double precision not null,
   mk jsonb not null default '{}',
-  done boolean not null default false
+  done boolean not null default false,
+  cost_bps double precision not null default 0
 );
 create index if not exists fills_open on mind.fills (mint, at) where not done;
 create table if not exists mind.coin_callout (

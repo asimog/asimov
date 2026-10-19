@@ -43,6 +43,14 @@ export function fillSell(m: Market, tokens: number): SellFill {
   return { sol: q.sol - F.priorityFeeSol, price_sol: q.sol / tokens, fee_sol: before - q.sol, priority_sol: F.priorityFeeSol, slippage_bps: (1 - before / gross) * 10_000 };
 }
 
+/**
+ * The fee side of a markout (docs/STRATEGY.md section 10): the entry price already holds the entry fee and slippage, so a
+ * buy still owes the exit fee and the priority fee on both legs. Basis points of the size.
+ */
+export function markoutCostBps(sol: number, graduated: boolean) {
+  return ((graduated ? F.ammFee : FEE) + (2 * F.priorityFeeSol) / Math.max(sol, 1e-9)) * 10_000;
+}
+
 export function quoteFor(m: Market) {
   if (m.graduated) return (_sol: number) => ({ slippage_bps: F.ammFee * 10_000, impact_bps: 0 });
   const c = curveFromPrice(m.price_sol);

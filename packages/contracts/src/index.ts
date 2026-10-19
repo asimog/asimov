@@ -250,6 +250,8 @@ export const MarkoutMeasured = z.object({
   h10s: num.nullable(),
   h60s: num.nullable(),
   h5m: num.nullable(),
+  /** what a buy at this fill pays to get out again (exit fee, priority fees both ways), in bps; the fee-adjusted markout is h - cost_bps. 0 for a sell */
+  cost_bps: num,
 });
 
 export const CommitMade = z.object({

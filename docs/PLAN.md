@@ -62,7 +62,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | C2 | Done 2026-10-19. In-play reasons `smart_buy` and `scout` recorded on every decision (`docs/tasks/C2.md`) | `desk-in-play` passed: `launch_scan` decides with no callouts; every intent tagged |
 | C3 | Calibration maps and the new sizing | Each family prints its map with counts; no Kelly before calibration |
 | C4 | Done 2026-10-19 (`docs/tasks/C4.md`). Honest promotion (family held-out window, correlated trades once, corrected bound) | `promote-honest` passed: 0 of 960 random-score strategies promoted (old kernel: 11) |
-| C5 | Fee-adjusted markouts drive retirement | A fee-losing strategy retires |
+| C5 | Done 2026-10-19 (`docs/tasks/C5.md`). Fee-adjusted markouts drive retirement | `markout-fees` passed: raw +175 bps, fee-adjusted -150 bps; the strategy retires |
 | C6 | Every exit gets the Board; trailing stop and caller-sold exits | Small exit runs fire on the right condition |
 | C7 | Done 2026-10-19. Refuse buys with no `risk.state` (4.7) (`docs/tasks/C7.md`) | `riskgate-refuses`, `owner-config` passed: no risk state refused, clean rug checks still trade |
 | C8 | AMM impact term; graduated coins stay ghost until then | AMM fills move price with size |

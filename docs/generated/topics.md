@@ -38,7 +38,7 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `lists.loaded` | `kind`, `version`, `count`, `sha256`, `by` |
 | `config.loaded` | `file`, `sha256`, `value` |
 | `proof.published` | `n`, `hour`, `sha256`, `prev_sha256`, `memo_sig` |
-| `markout.measured` | `fill_id`, `mint`, `side`, `h1s`, `h10s`, `h60s`, `h5m` |
+| `markout.measured` | `fill_id`, `mint`, `side`, `h1s`, `h10s`, `h60s`, `h5m`, `cost_bps` |
 | `commit.made` | `commit_id`, `kind`, `sha256`, `reveal_after` |
 | `commit.revealed` | `commit_id`, `content`, `matches` |
 | `position.closed` | `position_id`, `strategy_id`, `mint`, `cost_sol`, `proceeds_sol`, `rent_refund_sol`, `net_sol`, `held_ms`, `exit_reason` |

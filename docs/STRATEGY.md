@@ -163,7 +163,7 @@ The platform allows one active callout per coin and we have one account. The fir
 
 ## 10. Scorecard
 
-`ctl strategies` per family and in-play reason: decisions and effective n, win share, mean and median net after costs, lower bound, calibration error per bin, fee-adjusted markouts at 10 s, 60 s and 5 min, entry rank, live against ghost slippage, and for the slow mind, USD spent and markout gap against control.
+`ctl strategies` per family and in-play reason: decisions and effective n, win share, mean and median net after costs, lower bound, calibration error per bin, fee-adjusted markouts at 10 s, 60 s and 5 min (the raw move from the fill price minus `cost_bps` on `markout.measured`: the exit fee and the priority fee on both legs; the entry fee is already in the fill price), entry rank, live against ghost slippage, and for the slow mind, USD spent and markout gap against control.
 
 ## 11. Ways it fails
 

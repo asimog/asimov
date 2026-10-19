@@ -12,7 +12,7 @@ import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 import { type BoardValues, evaluateEntry, type Spec, validate, whenHolds } from "./dsl.ts";
 import { evolve, type Member } from "./evolve.ts";
-import { F, fillBuy, fillSell, type Market, quoteFor, sampleLatencyMs } from "./fill.ts";
+import { F, fillBuy, fillSell, type Market, markoutCostBps, quoteFor, sampleLatencyMs } from "./fill.ts";
 import { type AllocRow, allocate, lcb, type Stats, statsOf } from "./kernel.ts";
 import { type Book, bookFrom, defaultLimits, type GateRisk, type Limits, loadLimits, riskGate } from "./risk.ts";
 import { seedSpecs } from "./seeds.ts";
@@ -35,7 +35,7 @@ type Position = {
   cost_sol: number; proceeds_sol: number; rent_sol: number; entry_price: number; bands: number[]; fired: number[]; commit_id: string | null; in_play: InPlay | null;
 };
 type Intent = { id: string; strategy_id: string; mint: string; side: "buy" | "sell"; size_sol: number | null; tokens: number | null; position_id: string | null; reason: string; created_ms: number; fill_after_ms: number; event_id: string; score: number | null; in_play: InPlay | null };
-type Fill = { id: string; intent_id: string; strategy_id: string; mint: string; side: "buy" | "sell"; at_ms: number; price_sol: number; mk: Record<string, number | null> };
+type Fill = { id: string; intent_id: string; strategy_id: string; mint: string; side: "buy" | "sell"; at_ms: number; price_sol: number; mk: Record<string, number | null>; cost_bps: number };
 
 const sha = (x: unknown) => crypto.createHash("sha256").update(canonical(x)).digest("hex");
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -101,7 +101,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
         created_ms: (r.created_at as Date).getTime(), fill_after_ms: (r.fill_after as Date).getTime(), event_id: r.event_id as string, score: null, in_play: r.in_play as InPlay | null,
       });
     for (const r of await tx`select * from mind.fills where not done order by at, id`)
-      push(fills, r.mint as string, { id: r.id as string, intent_id: r.intent_id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, side: r.side as "buy" | "sell", at_ms: (r.at as Date).getTime(), price_sol: r.price_sol as number, mk: r.mk as Record<string, number | null> });
+      push(fills, r.mint as string, { id: r.id as string, intent_id: r.intent_id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, side: r.side as "buy" | "sell", at_ms: (r.at as Date).getTime(), price_sol: r.price_sol as number, mk: r.mk as Record<string, number | null>, cost_bps: r.cost_bps as number });
     for (const r of await tx`select * from mind.coin_callout order by at, mint`) {
       coinCallout.set(r.mint as string, { callout_id: r.callout_id as string, author: r.author_wallet as string | null, at_ms: (r.at as Date).getTime() });
       calloutMint.set(r.callout_id as string, r.mint as string);
@@ -330,7 +330,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
       push(open, i.mint, p);
       await tx`insert into mind.positions (id, strategy_id, mint, callout_id, opened_at, tokens, tokens_left, cost_sol, rent_sol, entry_price, exit_bands, commit_id, in_play)
         values (${pid}, ${p.strategy_id}, ${p.mint}, ${p.callout_id}, ${iso(now)}, ${p.tokens}, ${p.tokens_left}, ${p.cost_sol}, ${p.rent_sol}, ${p.entry_price}, ${tx.json(bands as never)}, ${commitId}, ${p.in_play})`;
-      await addFill(tx, { id: ev.id, intent_id: i.id, strategy_id: i.strategy_id, mint: i.mint, side: "buy", at_ms: now, price_sol: f.price_sol, mk: {} });
+      await addFill(tx, { id: ev.id, intent_id: i.id, strategy_id: i.strategy_id, mint: i.mint, side: "buy", at_ms: now, price_sol: f.price_sol, mk: {}, cost_bps: markoutCostBps(i.size_sol!, m.graduated) });
       return;
     }
     const p = (open.get(i.mint) ?? []).find((x) => x.id === i.position_id);
@@ -344,7 +344,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     );
     p.tokens_left -= tokens;
     p.proceeds_sol += f.sol;
-    await addFill(tx, { id: ev.id, intent_id: i.id, strategy_id: i.strategy_id, mint: i.mint, side: "sell", at_ms: now, price_sol: f.price_sol, mk: {} });
+    await addFill(tx, { id: ev.id, intent_id: i.id, strategy_id: i.strategy_id, mint: i.mint, side: "sell", at_ms: now, price_sol: f.price_sol, mk: {}, cost_bps: 0 });
     const exitRec = { i: Number(i.reason.split(":")[1] ?? -1), at: iso(now), tokens, sol: f.sol, reason: i.reason };
     if (p.tokens_left <= p.tokens * 1e-9) await close(tx, p, i.reason, now, ev, exitRec);
     else await tx`update mind.positions set tokens_left = ${p.tokens_left}, proceeds_sol = ${p.proceeds_sol}, exits = exits || ${tx.json([exitRec] as never)} where id = ${p.id}`;
@@ -390,7 +390,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   // ---------- markouts ----------
   async function addFill(tx: Tx, f: Fill) {
     push(fills, f.mint, f);
-    await tx`insert into mind.fills (id, intent_id, strategy_id, mint, side, at, price_sol) values (${f.id}, ${f.intent_id}, ${f.strategy_id}, ${f.mint}, ${f.side}, ${iso(f.at_ms)}, ${f.price_sol})`;
+    await tx`insert into mind.fills (id, intent_id, strategy_id, mint, side, at, price_sol, cost_bps) values (${f.id}, ${f.intent_id}, ${f.strategy_id}, ${f.mint}, ${f.side}, ${iso(f.at_ms)}, ${f.price_sol}, ${f.cost_bps})`;
   }
 
   async function markouts(tx: Tx, mint: string, price: number, now: number, e: Envelope) {
@@ -414,11 +414,11 @@ export function desk(tape: Tape, clock: Clock): Desk {
     if (!list.length) fills.delete(mint);
     const v = (k: string) => (f.mk[k] === undefined ? null : f.mk[k]!);
     await tx`update mind.fills set mk = ${tx.json(f.mk as never)}, done = true where id = ${f.id}`;
-    await tape.emitIn(tx, "markout.measured", { fill_id: f.id, mint, side: f.side, h1s: v("h1s"), h10s: v("h10s"), h60s: v("h60s"), h5m: v("h5m") }, { source: "strategies", subject: f.id, causes: [f.id], after: e.seen_time });
+    await tape.emitIn(tx, "markout.measured", { fill_id: f.id, mint, side: f.side, h1s: v("h1s"), h10s: v("h10s"), h60s: v("h60s"), h5m: v("h5m"), cost_bps: f.cost_bps }, { source: "strategies", subject: f.id, causes: [f.id], after: e.seen_time });
     bump("markouts");
     const s = st.get(f.strategy_id);
     if (s && f.side === "buy" && f.mk.h60s != null) {
-      s.mk60 = [...s.mk60, f.mk.h60s].slice(-200);
+      s.mk60 = [...s.mk60, f.mk.h60s - f.cost_bps].slice(-200); // fee-adjusted: retirement reads this (C5)
       await saveStats(tx, f.strategy_id);
     }
   }
