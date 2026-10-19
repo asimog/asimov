@@ -8,7 +8,7 @@ Reading is cheap; writing is what costs space. Every sense reads everything it c
 
 | Filter set | Fields (all configurable) |
 |---|---|
-| Feed | sources (`recent`, `hot`, `trending`, `follow`, `top_traders`), chain (Solana first), minimum position in USD (default 10), market cap at call range |
+| Feed | sources (`recent`, `hot`, `follow`; `trending` and `top_traders` only after we record their endpoints), every chain read and the stored chains chosen in config (`solana` now; `base` and `robinhood` also seen, `docs/research/pumpfun-endpoints.md`), minimum position in USD (default 10), market cap at call range |
 | Launch | dev buy range, block-0 sniper share, bundle share, blocklists (`blocked_creators`, `blocked_wallets`, `blocked_mints`) |
 | Watch | `WATCH_MAX_COINS`, `WATCH_HOURS`, the Scout floors |
 

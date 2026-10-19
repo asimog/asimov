@@ -19,6 +19,7 @@ Growth unlocks by firm NAV, with one health condition: the books reconcile and n
 
 | Item | Idea |
 |---|---|
+| Robinhood chain, then other chains | The callout feed already carries `robinhood` and `base` callouts (EVM `0x…` mints, callers still on Solana wallets), and NATS `multichain.coin-lifecycle.*` carries EVM coin states (`eip155:*`). The Feed Reader reads every chain from B2 on and counts what it skips, so turning a chain on starts with adding it to `config/filters.json` `callout.chains`. Trading it needs more: record its slice first (which `eip155` id is Robinhood's chain, its trade stream, its RPC), then an EVM RPC pool, curve and fee facts, a fill model and a Signer path of its own. Solana stays first |
 | Forecasting desk | Paper forecasts on Polymarket and Kalshi questions, committed by hash, scored by Brier against the market |
 | Social capital and bounties | Followers, engagement and visitors counted like capital; paid bounties for memes, translations, bug reports |
 | Builder agent | Writes code in a sandbox, runs suites, opens pull requests; protected files (constitution, Signer, books, milestone checks) never touched; owner merges until M2 |

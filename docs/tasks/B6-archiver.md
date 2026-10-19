@@ -24,7 +24,7 @@ Never drop a partition whose file did not verify or that a consumer has not read
 Shared files owned by the top agent unless listed above (see `_template.md`).
 
 ## Acceptance
-`npm run e2e -- tape-archive` with a 1-minute hot window on a test clock prints `ok   one partition archived and dropped`, `ok   a lagging consumer blocks the drop`, `ok   replay from the file gives the same derived hash`.
+`npm run e2e -- tape-archive` with a 1-minute hot window on a test clock and a few hundred synthetic events written by the suite (no fixture tape) prints `ok   one partition archived and dropped`, `ok   a lagging consumer blocks the drop`, `ok   replay from the file gives the same derived hash`.
 
 ## Out of scope
 Remote targets (B6b).

@@ -31,3 +31,5 @@ RSS tuning, GC flags.
 
 ## State
 Code done 2026-10-19, fast check instead of the 30-minute smoke (owner call): `Rollup` now caps full coins at `INDEX_MAX_COINS` (default 3000); older written coins are dropped or slimmed (wallet maps cleared, copy-price and mark state kept). Cause found by reading, not by heap snapshot: every coin keeps `bal`/`bought` maps per wallet for the whole 30-min idle window, equal to the smoke length, so memory could not flatten. `npm run e2e -- rollup-bounded` PASS (1.8 s, mock trades over 400 coins); `index-rows` unchanged. The 30-minute soak (acceptance above) has not run. Same day, at the owner's call: the 500k known-wallet set and `fresh_share` were removed (see `docs/DECISIONS.md`), `SCOUT_HOT_WALLETS` is 5000, and coins with an open position are exempt from the cap and the idle drop (`rollup-bounded` proves it). Passed: `rollup-bounded`, `index-rows`, `scout-bounded`, `owner-config`, `riskgate-refuses`; `pnpm typecheck` clean.
+
+The 30-minute soak is deferred to G0 (owner, 2026-10-19: no long runs until everything is coded).

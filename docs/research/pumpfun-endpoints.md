@@ -73,3 +73,21 @@ Observed: about 7 `followingFeed` messages per second (fan-out included), about 
 ## Posting
 
 Not captured yet: needs the W_trade wallet logged in (docs/EXECUTION.md). Pending S6.
+
+## Chains, programs and access (measured 2026-10-19)
+
+One small slice, read from Node with the Feed Reader's headers: 2 pages of `/home-feed/new` (100 callouts), 20 callouts each with `chain=solana` and `chain=robinhood`, and 20 s of each NATS subject below. Counts are from that slice only.
+
+| Source | What we saw |
+|---|---|
+| `/home-feed/new?chain=all` | `chain`: `solana` 99, `base` 1. `program` and `protocol` (equal): `pump` 94, `raydium_launchpad` 4, `stonkfun` 1. `platform`: `stonkfun` 5 |
+| `/home-feed/new?chain=solana` | Every item `chain: solana`, `program: pump`: the server filters by `chain` |
+| `/home-feed/new?chain=robinhood` | Every item `chain: robinhood`; `coinMint` is an EVM address (`0x…`), `program` and `protocol` mostly null; the caller's `walletAddress` is still a Solana address |
+| `/home-feed?chain=all` (hot) | From Node `fetch`: 403 with `cf-mitigated: challenge` (a Cloudflare bot check), every page size and header set tried. curl got 200 at the same minute. We do not work around bot checks (`AGENTS.md`), so the hot source is read only while it answers a plain request |
+| NATS trades `unifiedTradeEvent.processed` (81 messages) | No chain field: quote mint is wrapped SOL, so this stream is Solana only. `program`: `pump_amm` 40, `pump` 23, `meteora_dbc` 7, `meteora_damm_v2` 7, `raydium_v4_amm` 2, `raydium_cpmm` 1, `orca_whirlpool` 1. Fields used by B3: `slotIndexId`, `creatorAddress`, `userAddress`, `isBondingCurve`, `type` (`buy`/`sell`), `amountSol` |
+| NATS feed server `newCoinCreated.prod` (7) | On `prod-v2` (the feed server), not on the trades server (0 in 20 s). Fields: `mint`, `creator`, `bonding_curve`, `created_timestamp`, `program` (`pump` 7), `market_cap_usd`, `mayhem_state` |
+| NATS feed server `coinLifecycle.prod` (29) | `before`/`after` coin states; `chainId` in CAIP-2 form: `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`; `program` `pump` or `meteora_dbc` |
+| NATS feed server `multichain.coin-lifecycle.>` (300, capped) | EVM chains only, `chainId` `eip155:56` 176, `eip155:4663` 44, `eip155:8453` 41, `eip155:1` 33, `eip155:5042` 5, `eip155:999` 1; protocols such as `pancakeswap_v3`, `uniswap_v4`, `four_meme`, `flap`. Which `eip155` id is Robinhood's chain is not yet known |
+| NATS `homeFeedNew.head.all.prod` | 0 messages in 20 s |
+
+What this means for the build: the callout feed is multi-chain and the chain value is a plain lowercase word (`solana`, `base`, `robinhood`); the trade stream and the launch messages we use are Solana only. A new chain is added after its own slice is recorded here.

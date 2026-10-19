@@ -1,5 +1,5 @@
-// E2E runner (docs/OPS.md): `npm run e2e [suite ...]`. The tape is E2E_TAPE, by default the 2-minute discovery fixture;
-// `E2E_TAPE=tests/e2e/fixtures/tapes/discovery-10m.ndjson.gz` is the long one for milestones. A fixture may carry settings
+// E2E runner (docs/OPS.md): `npm run e2e [suite ...]`. The tape is E2E_TAPE, by default the 2-minute discovery fixture,
+// recorded fresh when a task needs a replay (old tapes are not kept; G0 records the long one). A fixture may carry settings
 // beside it (<tape>.env, such as 1-minute horizons for a 2-minute tape). They apply before any module reads the env, and a
 // value already in the process env wins.
 import fs from "node:fs";

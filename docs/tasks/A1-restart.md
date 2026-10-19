@@ -31,3 +31,5 @@ The live-leg checks in the same suite (task A13).
 
 ## State
 Done 2026-10-19: `npm run e2e -- replay-determinism` printed `ok   a restart halfway gives the same derived hash: 1f5ae2a7a28bb9f5 vs 1f5ae2a7a28bb9f5`. No code change. The live-leg fill check failed (`ledger.entry:1`); that is A13.
+
+Its tape was deleted with the other old tapes on 2026-10-19 (owner). Re-run in G0 on the new 2-minute tape.

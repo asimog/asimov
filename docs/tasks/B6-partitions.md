@@ -9,7 +9,7 @@ Observed: `tape.events` is range-partitioned on `seen_time` but has only `tape.e
 Each row has a class (`inputs_hot`, `inputs_kept`, `derived`) taken from its topic in `TOPICS`. Partitions are per hour, then per class, created ahead by the Tape (the next 2 hours) so no insert falls into the default. A trigger refuses row `UPDATE` and `DELETE` on `tape.events`; dropping a whole partition stays possible, for the archiver only.
 
 ## Invariants
-Event ids, dedupe and replay order unchanged. Fresh database only (no migration, per `AGENTS.md`).
+Event ids, dedupe and replay order unchanged. Fresh database only (no migration, per `AGENTS.md`). The working database `asimog` (1.7 GB of the old Tape, kept by the owner on 2026-10-19) is recreated empty at the end of this task, after the owner says yes in that session; test databases are always fresh.
 
 ## Write list
 `services/core/src/sql/schema.sql`, `services/core/src/tape/tape.ts`, `packages/contracts/` (class per topic), fast suite `tests/e2e/suites/tape-partitions/`, `tests/e2e/suites.ts`, `docs/OPS.md` section 2.

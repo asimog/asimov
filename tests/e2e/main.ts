@@ -46,6 +46,7 @@ const ctx = {
   tape,
   replay: (tag = "main", o: ReplayOpts & { tape?: string } = {}) => {
     const file = o.tape ?? tape;
+    if (!fs.existsSync(file)) throw new Error(`no tape at ${file}: record a fresh one (docs/OPS.md section 9, docs/tasks/G0.md)`);
     const key = JSON.stringify([file, tag, o.seed ?? 42, o.restartAt ?? null, o.extra ?? null, o.reverse ?? false, o.liveLeg ?? false]); // two variants never share a run
     if (!cache.has(key))
       cache.set(key, replay(file, { tag, seed: o.seed ?? 42, extra: o.extra, restartAt: o.restartAt, reverse: o.reverse, liveLeg: o.liveLeg }).then((r) => {

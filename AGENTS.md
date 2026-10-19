@@ -77,3 +77,5 @@ The owner is learning. Use simple words, explain each new term once, and lead wi
 
 - When asked what remains, answer with a short plain list grouped by feature.
 - While this is a prototype, do not preserve large databases or write data migrations: start from a new database or the smallest slice of data that proves the change. Test and replay databases are disposable. The Tape's append-only rule still holds for the working database.
+- When a task reads pump.fun, NATS or RPC data, record the smallest real slice first (`scripts/pump-sample.ts`) and code against its real fields and values; never guess a value such as a chain name.
+- When a check needs a long run (a soak, a long tape, a replay suite), leave it for G0, after everything is coded; prove the change with the smallest run that shows it. Old tapes are disposable: record new ones, never keep old ones compatible.

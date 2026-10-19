@@ -2,6 +2,18 @@
 
 Dated decisions with their reason. The newest are first. Open questions for the owner are at the end. A decision changes only by a new row here.
 
+## 2026-10-19 (owner, after B1: real data first, small runs, disposable tapes)
+
+| Decision | Why |
+|---|---|
+| Before coding against pump.fun or RPC, a task records the smallest real slice it needs (HTTP pages, seconds of NATS, a handful of RPC answers) and codes against those shapes and values | B1's chain value was a guess; a live slice showed three chains (`solana`, `base`, `robinhood`) and a Solana-only trade stream |
+| Filter numbers are owner settings in `config/filters.json`, tuned by editing the file and restarting; code holds no threshold | They will be tuned often; the Tape records each set as `config.loaded` |
+| Read every chain pump.fun carries; store the chains named in config (`solana` first); Robinhood is in `LATER.md` | Ingestion stays general and counts what other chains would add; trading another chain needs its own RPC, fill model and Signer path |
+| The hot feed stays a source, but its Cloudflare challenge (403 from Node) is skipped and counted, never worked around | `AGENTS.md`: no bot-check bypasses; one pump.fun account |
+| Old tapes are disposable: no compatibility, no migration; the fixtures were deleted and G0 records new ones | Replays of old tapes would only test old shapes; new tapes come from the finished code |
+| Long runs (30-minute soak, long tape, replay suites) wait for G0, after B to F are coded; tasks prove themselves with small runs | Hours went to long runs on code that was still changing |
+| The working database `asimog` is kept until B6-partitions, which recreates it with the owner's yes | Dropping it cannot be undone, and B6 needs a fresh schema anyway |
+
 ## 2026-10-19 (owner, open decisions closed)
 
 | Decision | Why |
