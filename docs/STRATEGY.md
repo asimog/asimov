@@ -122,8 +122,8 @@ Exits matter more than entries, because most coins fade within minutes. Every ex
 | Hard stop | Multiple at or below a floor |
 | Time exit | Held longer than the horizon allows |
 | Sell into the callout | Seconds after the predicted callout lands (`called_s_gte`) |
-| Trailing stop | Fall from the peak since entry (`trail_from_peak`) |
-| Caller sold | The pre-call caller sells part of their buy (`caller_sold_gte`) |
+| Trailing stop | Fall from the peak since entry (`trail_from_peak`); each position keeps its peak multiple |
+| Caller sold | The pre-call caller sells part of their buy (`caller_sold_gte`: tokens sold over tokens bought since the detected buy) |
 | Creator sold, flow died | Board conditions |
 
 ## 7. Risk Gate and limits

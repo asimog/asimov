@@ -243,7 +243,8 @@ create table if not exists mind.positions (
   net_sol double precision,
   exit_reason text,
   in_play text,
-  score double precision
+  score double precision,
+  peak_mult double precision not null default 1
 );
 create index if not exists positions_open on mind.positions (mint) where closed_at is null;
 create index if not exists positions_strategy on mind.positions (strategy_id, opened_at);
@@ -356,6 +357,9 @@ create table if not exists mind.coin_precall (
   mint text primary key,
   caller text not null,
   at timestamptz not null,
+  -- the caller's tokens bought (from the detected buy on) and sold, for caller_sold_gte exits (C6)
+  bought_tokens double precision not null default 0,
+  sold_tokens double precision not null default 0,
   last_eval timestamptz
 );
 -- house callouts (docs/EXECUTION.md): one open per coin

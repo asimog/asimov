@@ -49,6 +49,10 @@ const ExitWhen = z.union([
   z.object({ mult_lte: z.number().min(0.05).max(0.99) }),
   z.object({ held_min_gte: z.number().min(0.1).max(10_000) }),
   z.object({ called_s_gte: z.number().min(0).max(3600) }),
+  /** the multiple fell this share below its peak since entry */
+  z.object({ trail_from_peak: z.number().min(0.02).max(0.9) }),
+  /** the pre-call caller has sold this share of the tokens they bought */
+  z.object({ caller_sold_gte: z.number().min(0.01).max(1) }),
   Cond,
 ]);
 export const Spec = z.object({
@@ -182,13 +186,18 @@ export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: numbe
   return { enter: true, score, terms, edge_bps, cost_bps, size_sol: size };
 }
 
-/** `calledS`: seconds since a callout landed on the coin after our entry, or null (docs/STRATEGY.md pre-call). */
-export type ExitCtx = { mult: number; heldMin: number; calledS: number | null; board: BoardValues };
+/**
+ * `calledS`: seconds since a callout landed on the coin after our entry, or null (docs/STRATEGY.md pre-call). `peakMult`: the
+ * highest multiple since entry. `callerSold`: the share of the pre-call caller's bought tokens they have sold, or null.
+ */
+export type ExitCtx = { mult: number; heldMin: number; calledS: number | null; peakMult: number; callerSold: number | null; board: BoardValues };
 export function whenHolds(w: ExitWhenT, x: ExitCtx, band = 1): boolean {
   if ("mult_gte" in w) return x.mult >= w.mult_gte * band;
   if ("mult_lte" in w) return x.mult <= w.mult_lte;
   if ("held_min_gte" in w) return x.heldMin >= w.held_min_gte;
   if ("called_s_gte" in w) return x.calledS !== null && x.calledS >= w.called_s_gte;
+  if ("trail_from_peak" in w) return x.mult <= x.peakMult * (1 - w.trail_from_peak);
+  if ("caller_sold_gte" in w) return x.callerSold !== null && x.callerSold >= w.caller_sold_gte;
   return cond(x.board, w);
 }
 
@@ -208,7 +217,7 @@ function vector(s: Spec): Record<string, number> {
   for (const c of s.universe.all) if (typeof c.v === "number") v[`u:${c.sig}:${c.field ?? ""}:${c.op}`] = c.v;
   s.exits.forEach((e, i) => {
     const w = e.when as Record<string, unknown>;
-    for (const k of ["mult_gte", "mult_lte", "held_min_gte", "called_s_gte"]) if (typeof w[k] === "number") v[`x${i}:${k}`] = w[k] as number;
+    for (const k of ["mult_gte", "mult_lte", "held_min_gte", "called_s_gte", "trail_from_peak", "caller_sold_gte"]) if (typeof w[k] === "number") v[`x${i}:${k}`] = w[k] as number;
     v[`x${i}:sell`] = e.sell;
   });
   return v;

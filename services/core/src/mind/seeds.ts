@@ -2,7 +2,8 @@
 // replay seeds the same pool. Families are niche labels, not code paths.
 import { HORIZON_MAX_MIN, type Horizon, type Spec } from "./dsl.ts";
 
-type Style = { enter: number; kelly: number; tp: readonly [number, number]; stop: number; called_s?: number };
+/** `trail`: trailing stop, the fall from the peak multiple; `caller_sold`: exit when the pre-call caller has sold this share. */
+type Style = { enter: number; kelly: number; tp: readonly [number, number]; stop: number; called_s?: number; trail?: number; caller_sold?: number };
 /** A family may bring its own styles and hold limits; the others use STYLE and the horizon maximum. */
 type Family = Pick<Spec, "family" | "universe" | "score" | "call"> & { style?: Record<"tight" | "loose", Style>; hold?: Record<Horizon, number> };
 
@@ -107,8 +108,8 @@ const FAMILIES: Family[] = [
     },
     call: { policy: "after_fill", template: "pre_call" },
     style: {
-      tight: { enter: 0.45, kelly: 0.25, tp: [1.2, 1.4], stop: 0.88, called_s: 30 },
-      loose: { enter: 0.35, kelly: 0.15, tp: [1.3, 1.8], stop: 0.8, called_s: 60 },
+      tight: { enter: 0.45, kelly: 0.25, tp: [1.2, 1.4], stop: 0.88, called_s: 30, trail: 0.2, caller_sold: 0.01 },
+      loose: { enter: 0.35, kelly: 0.15, tp: [1.3, 1.8], stop: 0.8, called_s: 60, trail: 0.3, caller_sold: 0.25 },
     },
     hold: { fast: 3, medium: 6, slow: 10 },
   },
@@ -132,8 +133,8 @@ const FAMILIES: Family[] = [
     },
     call: { policy: "after_fill", template: "smart_early" },
     style: {
-      tight: { enter: 0.4, kelly: 0.25, tp: [1.25, 1.6], stop: 0.85, called_s: 30 },
-      loose: { enter: 0.3, kelly: 0.15, tp: [1.4, 2.2], stop: 0.75, called_s: 60 },
+      tight: { enter: 0.4, kelly: 0.25, tp: [1.25, 1.6], stop: 0.85, called_s: 30, trail: 0.2 },
+      loose: { enter: 0.3, kelly: 0.15, tp: [1.4, 2.2], stop: 0.75, called_s: 60, trail: 0.3 },
     },
     hold: { fast: 3, medium: 8, slow: 20 },
   },
@@ -187,9 +188,10 @@ export function seedSpecs(): Spec[] {
             { when: { mult_gte: st.tp[0]! }, sell: 0.5 },
             { when: { mult_gte: st.tp[1]! }, sell: 0.5 },
             ...(st.called_s == null ? [] : [{ when: { called_s_gte: st.called_s }, sell: 1 }]),
+            ...(st.caller_sold == null ? [] : [{ when: { caller_sold_gte: st.caller_sold }, sell: 1 }]),
             { when: { held_min_gte: hold }, sell: 1 },
           ],
-          stop: { any: [{ mult_lte: st.stop }] },
+          stop: { any: [{ mult_lte: st.stop }, ...(st.trail == null ? [] : [{ trail_from_peak: st.trail }])] },
         });
       });
     });
