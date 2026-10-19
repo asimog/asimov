@@ -242,7 +242,8 @@ create table if not exists mind.positions (
   closed_at timestamptz,
   net_sol double precision,
   exit_reason text,
-  in_play text
+  in_play text,
+  score double precision
 );
 create index if not exists positions_open on mind.positions (mint) where closed_at is null;
 create index if not exists positions_strategy on mind.positions (strategy_id, opened_at);
@@ -259,7 +260,8 @@ create table if not exists mind.intents (
   created_at timestamptz not null,
   fill_after timestamptz not null,
   event_id text not null,
-  in_play text
+  in_play text,
+  score double precision
 );
 create index if not exists intents_mint on mind.intents (mint, fill_after);
 create table if not exists mind.fills (
@@ -333,6 +335,15 @@ create table if not exists mind.prob_watch (
   horizon_min int not null,
   done boolean not null default false,
   hit int
+);
+-- calibration maps per family, versioned (docs/STRATEGY.md section 4)
+create table if not exists mind.calibration (
+  family text not null,
+  version int not null,
+  bins jsonb not null,
+  decisions int not null,
+  at timestamptz not null,
+  primary key (family, version)
 );
 -- coins the Scout promoted (coin.watched), in play as precall, smart_buy or scout (docs/STRATEGY.md section 3)
 create table if not exists mind.coin_watch (

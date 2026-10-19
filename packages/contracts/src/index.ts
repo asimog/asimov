@@ -284,6 +284,14 @@ export const PositionClosed = z.object({
   exit_reason: z.string(),
 });
 
+/** A family's calibration map (docs/STRATEGY.md section 4), emitted when it changes. */
+export const CalibrationMap = z.object({
+  family: z.string(),
+  version: z.number().int(),
+  decisions: z.number().int(),
+  bins: z.array(z.object({ lo: num, hi: num, n: z.number().int(), win: num, mean: num })),
+});
+
 export const KernelAllocation = z.object({
   round: num,
   hurdle: num,
@@ -606,6 +614,7 @@ export const TOPICS = {
   "strategy.born": StrategyBorn,
   "strategy.retired": StrategyRetired,
   "kernel.allocation": KernelAllocation,
+  "calibration.map": CalibrationMap,
   "outcome.measured": OutcomeMeasured,
   "score.updated": ScoreUpdated,
   "precall.detected": PrecallDetected,
@@ -690,7 +699,7 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "jev.answer": "derived", "intent.created": "derived", "intent.ghost_filled": "derived", "order.rejected": "derived",
   "order.created": "derived", "order.submitted": "derived", "order.filled": "derived", "order.failed": "derived",
   "signer.refused": "derived", "position.changed": "derived", "ledger.entry": "derived", "fees.swept": "derived",
-  "books.reconciled": "derived", "proof.published": "derived", "markout.measured": "derived", "commit.made": "derived",
+  "books.reconciled": "derived", "proof.published": "derived", "markout.measured": "derived", "calibration.map": "derived", "commit.made": "derived",
   "commit.revealed": "derived", "position.closed": "derived", "strategy.born": "derived", "strategy.retired": "derived",
   "kernel.allocation": "derived", "outcome.measured": "derived", "score.updated": "derived", "precall.detected": "derived",
   "holders.snapshot": "derived", "index.refreshed": "derived", "budget.spent": "derived", "thesis.formed": "derived",

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { FEE } from "../analyzers/curve-math.ts";
 import { env } from "../lib/env.ts";
+import { type Bin, binFor, CALIB } from "./calibrate.ts";
 
 /** Signal catalog: kinds a spec may name, their subject, the fields usable as [0,1] score inputs, and their System. */
 type SigInfo = { subject: "mint" | "callout" | "caller"; system: 1 | 2; unit: string[]; fields: string[] };
@@ -95,6 +96,9 @@ export function validate(raw: unknown): { ok: true; spec: Spec } | { ok: false; 
 
 // ---------- evaluation ----------
 export type BoardValues = Record<string, Record<string, unknown> | undefined>;
+/** The key under which the desk puts a signal's confidence into its Board value; a score term below TERM_MIN_CONF counts as missing. */
+export const CONF = "__confidence";
+const TERM_MIN_CONF = env.num("TERM_MIN_CONF");
 
 /** Read a field of a signal value. `p.X` reads a choice probability; the default is the kind's first unit field. */
 export function read(board: BoardValues, sig: string, field?: string): number | string | boolean | undefined {
@@ -124,7 +128,8 @@ export type Terms = { sig: string; field: string; w: number; x: number }[];
 export function scoreOf(spec: Spec, board: BoardValues): { score: number | null; terms: Terms } {
   const terms: Terms = [];
   for (const t of spec.score.sum) {
-    const raw = read(board, t.sig, t.field);
+    const conf = board[t.sig]?.[CONF];
+    const raw = typeof conf === "number" && conf < TERM_MIN_CONF ? undefined : read(board, t.sig, t.field);
     const x = typeof raw === "number" ? raw : typeof raw === "boolean" ? Number(raw) : t.missing === "skip" ? null : t.missing;
     if (x === null) continue;
     terms.push({ sig: t.sig, field: t.field ?? CATALOG[t.sig]!.unit[0]!, w: t.w, x: Math.max(0, Math.min(1, x)) });
@@ -151,20 +156,28 @@ export type EntryDecision =
  */
 /** `fixed_sol`: ghost and probe strategies trade one owner-set size; `budget_sol`: a full strategy's kernel share of the book. */
 export type Sizing = { fixed_sol: number } | { budget_sol: number };
-export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: number) => { slippage_bps: number; impact_bps: number }, sizing: Sizing): EntryDecision {
+/**
+ * `map`: the family's calibration map once it has at least CALIB.minBins bins, else null. With a map, the bin's win share
+ * and mean net replace the score in the edge test and in Kelly; a `budget_sol` sizing is fractional Kelly on the bin's win
+ * share, capped at KELLY_CAP. Without one, the score is only a ranking: the geometry floor filters, and the caller must
+ * pass the fixed probe size.
+ */
+export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: number) => { slippage_bps: number; impact_bps: number }, sizing: Sizing, map: Bin[] | null = null): EntryDecision {
   for (const c of spec.universe.all) if (!cond(board, c)) return { enter: false, reason: `universe:${c.sig}`, score: null, terms: [] };
   const { score, terms } = scoreOf(spec, board);
   if (score === null) return { enter: false, reason: "no_score", score, terms };
   if (score < spec.enter_if.score_gte) return { enter: false, reason: "below_threshold", score, terms };
   const g = geometry(spec);
-  const kelly = Math.max(0, (score * g.b - (1 - score)) / g.b);
-  if (kelly <= 0) return { enter: false, reason: "no_edge", score, terms };
-  const size = Math.min(spec.size.max_sol, "fixed_sol" in sizing ? sizing.fixed_sol : spec.size.kelly_fraction * kelly * sizing.budget_sol);
+  const bin = map ? binFor(map, score) : null;
+  const p = bin ? bin.win : score;
+  const kelly = Math.max(0, (p * g.b - (1 - p)) / g.b);
+  if (!bin && kelly <= 0) return { enter: false, reason: "no_edge", score, terms };
+  const size = Math.min(spec.size.max_sol, "fixed_sol" in sizing ? sizing.fixed_sol : Math.min(CALIB.kellyCap, spec.size.kelly_fraction * kelly) * sizing.budget_sol);
   if (size <= 0) return { enter: false, reason: "no_budget", score, terms };
   const q = quote(size);
   if (q.impact_bps > spec.size.max_impact_bps) return { enter: false, reason: "impact_over_spec", score, terms };
   const cost_bps = 2 * FEE * 10_000 + 2 * q.slippage_bps;
-  const edge_bps = (score * (g.tp - 1) - (1 - score) * (1 - g.stop)) * 10_000;
+  const edge_bps = bin ? bin.mean * 10_000 : (score * (g.tp - 1) - (1 - score) * (1 - g.stop)) * 10_000;
   if (edge_bps <= cost_bps) return { enter: false, reason: "below_cost_floor", score, terms };
   return { enter: true, score, terms, edge_bps, cost_bps, size_sol: size };
 }

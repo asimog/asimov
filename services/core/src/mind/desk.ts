@@ -10,7 +10,8 @@ import type { Clock } from "../lib/clock.ts";
 import { env } from "../lib/env.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
-import { type BoardValues, evaluateEntry, type Spec, validate, whenHolds } from "./dsl.ts";
+import { type Bin, CALIB, calibrate } from "./calibrate.ts";
+import { type BoardValues, CONF, evaluateEntry, type Spec, validate, whenHolds } from "./dsl.ts";
 import { evolve, type Member } from "./evolve.ts";
 import { F, fillBuy, fillSell, type Market, markoutCostBps, quoteFor, sampleLatencyMs } from "./fill.ts";
 import { type AllocRow, allocate, lcb, type Stats, statsOf } from "./kernel.ts";
@@ -32,7 +33,7 @@ const MK_KEYS = { 1: "h1s", 10: "h10s", 60: "h60s", 300: "h5m" } as const;
 type StatRow = Stats & { wins: number; equity: number; peak: number; mk60: number[]; stage: string; share: number; last_trade_ms: number | null; active_mark: number };
 type Position = {
   id: string; strategy_id: string; mint: string; callout_id: string | null; opened_ms: number; tokens: number; tokens_left: number;
-  cost_sol: number; proceeds_sol: number; rent_sol: number; entry_price: number; bands: number[]; fired: number[]; commit_id: string | null; in_play: InPlay | null;
+  cost_sol: number; proceeds_sol: number; rent_sol: number; entry_price: number; bands: number[]; fired: number[]; commit_id: string | null; in_play: InPlay | null; score: number | null;
 };
 type Intent = { id: string; strategy_id: string; mint: string; side: "buy" | "sell"; size_sol: number | null; tokens: number | null; position_id: string | null; reason: string; created_ms: number; fill_after_ms: number; event_id: string; score: number | null; in_play: InPlay | null };
 type Fill = { id: string; intent_id: string; strategy_id: string; mint: string; side: "buy" | "sell"; at_ms: number; price_sol: number; mk: Record<string, number | null>; cost_bps: number };
@@ -65,6 +66,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   const coinCallout = new Map<string, { callout_id: string; author: string | null; at_ms: number }>();
   const calloutMint = new Map<string, string>();
   const coinPrecall = new Map<string, { caller: string; at_ms: number }>(); // a known caller bought, before their callout (docs/STRATEGY.md)
+  const calib = new Map<string, { version: number; bins: Bin[] }>(); // family -> latest calibration map
   const coinWatch = new Map<string, { in_play: InPlay; at_ms: number }>(); // promoted by the Scout (coin.watched)
   const lastEval = new Map<string, number>();
   const lastExit = new Map<string, number>(); // `${strategy}:${mint}` -> ms
@@ -76,7 +78,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   // ---------- load ----------
   /** Rebuild every cache in the order an uninterrupted run would have built it: map order decides iteration and RNG draws. */
   async function load(tx: Tx) {
-    for (const m of [strategies, st, open, closedToday, realized, pending, fills, market, coinCallout, calloutMint, coinPrecall, lastEval, lastExit] as Map<unknown, unknown>[]) m.clear();
+    for (const m of [strategies, st, open, closedToday, realized, pending, fills, market, coinCallout, calloutMint, coinPrecall, coinWatch, calib, lastEval, lastExit] as Map<unknown, unknown>[]) m.clear();
     limits = await loadLimits(tx);
     for (const r of await tx`select id, spec, born_at from mind.strategies where retired_at is null order by born_at, id`)
       strategies.set(r.id as string, { spec: r.spec as Spec, born_ms: (r.born_at as Date).getTime() });
@@ -92,13 +94,13 @@ export function desk(tape: Tape, clock: Clock): Desk {
         id: r.id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, callout_id: r.callout_id as string | null,
         opened_ms: (r.opened_at as Date).getTime(), tokens: r.tokens as number, tokens_left: r.tokens_left as number, cost_sol: r.cost_sol as number,
         proceeds_sol: r.proceeds_sol as number, rent_sol: r.rent_sol as number, entry_price: r.entry_price as number,
-        bands: r.exit_bands as number[], fired: ((r.exits as { i: number }[]) ?? []).map((x) => x.i), commit_id: r.commit_id as string | null, in_play: r.in_play as InPlay | null,
+        bands: r.exit_bands as number[], fired: ((r.exits as { i: number }[]) ?? []).map((x) => x.i), commit_id: r.commit_id as string | null, in_play: r.in_play as InPlay | null, score: r.score as number | null,
       });
     for (const r of await tx`select * from mind.intents order by created_at, id`)
       push(pending, r.mint as string, {
         id: r.id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, side: r.side as "buy" | "sell", size_sol: r.size_sol as number | null,
         tokens: r.fraction as number | null, position_id: r.position_id as string | null, reason: r.reason as string,
-        created_ms: (r.created_at as Date).getTime(), fill_after_ms: (r.fill_after as Date).getTime(), event_id: r.event_id as string, score: null, in_play: r.in_play as InPlay | null,
+        created_ms: (r.created_at as Date).getTime(), fill_after_ms: (r.fill_after as Date).getTime(), event_id: r.event_id as string, score: r.score as number | null, in_play: r.in_play as InPlay | null,
       });
     for (const r of await tx`select * from mind.fills where not done order by at, id`)
       push(fills, r.mint as string, { id: r.id as string, intent_id: r.intent_id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, side: r.side as "buy" | "sell", at_ms: (r.at as Date).getTime(), price_sol: r.price_sol as number, mk: r.mk as Record<string, number | null>, cost_bps: r.cost_bps as number });
@@ -111,6 +113,8 @@ export function desk(tape: Tape, clock: Clock): Desk {
       coinPrecall.set(r.mint as string, { caller: r.caller as string, at_ms: (r.at as Date).getTime() });
       if (r.last_eval) lastEval.set(r.mint as string, Math.max(lastEval.get(r.mint as string) ?? 0, (r.last_eval as Date).getTime())); // the later of both tables
     }
+    for (const r of await tx`select distinct on (family) family, version, bins from mind.calibration order by family, version desc`)
+      calib.set(r.family as string, { version: r.version as number, bins: r.bins as Bin[] });
     for (const r of await tx`select * from mind.coin_watch order by at, mint`) {
       coinWatch.set(r.mint as string, { in_play: r.in_play as InPlay, at_ms: (r.at as Date).getTime() });
       if (r.last_eval) lastEval.set(r.mint as string, Math.max(lastEval.get(r.mint as string) ?? 0, (r.last_eval as Date).getTime()));
@@ -204,6 +208,24 @@ export function desk(tape: Tape, clock: Clock): Desk {
     }));
   }
 
+  /** Rebuild each family's calibration map from its closed decisions; a changed map gets a new version on the Tape. */
+  async function calibrateFamilies(tx: Tx, now: number, e: Envelope) {
+    const rows = await tx`select s.family, p.score, (p.net_sol / greatest(1e-9, p.cost_sol - p.rent_sol))::float r
+      from mind.positions p join mind.strategies s on s.id = p.strategy_id
+      where p.closed_at is not null and p.closed_at <= ${iso(now)} and p.score is not null order by s.family, p.closed_at, p.id`;
+    const byFamily = new Map<string, { score: number; r: number }[]>();
+    for (const r of rows) push(byFamily, r.family as string, { score: r.score as number, r: r.r as number });
+    for (const [family, decisions] of byFamily) {
+      const bins = calibrate(decisions);
+      const cur = calib.get(family);
+      if (!bins.length || (cur && canonical(cur.bins) === canonical(bins))) continue;
+      const version = (cur?.version ?? 0) + 1;
+      calib.set(family, { version, bins });
+      await tx`insert into mind.calibration (family, version, bins, decisions, at) values (${family}, ${version}, ${tx.json(bins as never)}, ${decisions.length}, ${iso(now)})`;
+      await tape.emitIn(tx, "calibration.map", { family, version, decisions: decisions.length, bins }, { source: "strategies", subject: family, causes: [e.id], after: e.seen_time });
+    }
+  }
+
   // ---------- periodic rounds ----------
   async function rounds(tx: Tx, e: Envelope, now: number) {
     if (strategies.size === 0 && (await tx`select count(*)::int n from mind.strategies`)[0]!.n === 0)
@@ -221,6 +243,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     if (now >= clockRow.next_alloc) {
       clockRow.next_alloc = now + D.allocateMs;
       clockRow.round++;
+      await calibrateFamilies(tx, now, e);
       const shares = allocate(await allocRows(tx, now), D.bookSol, clock.rand);
       for (const a of shares) {
         const s = st.get(a.strategy_id);
@@ -273,8 +296,8 @@ export function desk(tape: Tape, clock: Clock): Desk {
     }
     const full: Intent = { ...i, id, event_id: ev.id, fill_after_ms: i.created_ms + sampleLatencyMs(clock.rand) };
     push(pending, i.mint, full);
-    await tx`insert into mind.intents (id, strategy_id, mint, side, size_sol, fraction, position_id, reason, created_at, fill_after, event_id, in_play)
-      values (${id}, ${i.strategy_id}, ${i.mint}, ${i.side}, ${i.size_sol}, ${i.tokens}, ${i.position_id}, ${i.reason}, ${iso(i.created_ms)}, ${iso(full.fill_after_ms)}, ${ev.id}, ${i.in_play})`;
+    await tx`insert into mind.intents (id, strategy_id, mint, side, size_sol, fraction, position_id, reason, created_at, fill_after, event_id, in_play, score)
+      values (${id}, ${i.strategy_id}, ${i.mint}, ${i.side}, ${i.size_sol}, ${i.tokens}, ${i.position_id}, ${i.reason}, ${iso(i.created_ms)}, ${iso(full.fill_after_ms)}, ${ev.id}, ${i.in_play}, ${i.score})`;
     return full;
   }
 
@@ -325,11 +348,11 @@ export function desk(tape: Tape, clock: Clock): Desk {
       await tape.emitIn(tx, "commit.made", { commit_id: commitId, kind: "decision", sha256: digest, reveal_after: null }, { source: "strategies", subject: commitId, causes: [ev.id], after: ev.seen_time });
       const p: Position = {
         id: pid, strategy_id: i.strategy_id, mint: i.mint, callout_id: cc?.callout_id ?? null, opened_ms: now, tokens: f.tokens, tokens_left: f.tokens,
-        cost_sol: f.spent_sol + F.rentSol, proceeds_sol: 0, rent_sol: F.rentSol, entry_price: f.price_sol, bands, fired: [], commit_id: commitId, in_play: i.in_play,
+        cost_sol: f.spent_sol + F.rentSol, proceeds_sol: 0, rent_sol: F.rentSol, entry_price: f.price_sol, bands, fired: [], commit_id: commitId, in_play: i.in_play, score: i.score,
       };
       push(open, i.mint, p);
-      await tx`insert into mind.positions (id, strategy_id, mint, callout_id, opened_at, tokens, tokens_left, cost_sol, rent_sol, entry_price, exit_bands, commit_id, in_play)
-        values (${pid}, ${p.strategy_id}, ${p.mint}, ${p.callout_id}, ${iso(now)}, ${p.tokens}, ${p.tokens_left}, ${p.cost_sol}, ${p.rent_sol}, ${p.entry_price}, ${tx.json(bands as never)}, ${commitId}, ${p.in_play})`;
+      await tx`insert into mind.positions (id, strategy_id, mint, callout_id, opened_at, tokens, tokens_left, cost_sol, rent_sol, entry_price, exit_bands, commit_id, in_play, score)
+        values (${pid}, ${p.strategy_id}, ${p.mint}, ${p.callout_id}, ${iso(now)}, ${p.tokens}, ${p.tokens_left}, ${p.cost_sol}, ${p.rent_sol}, ${p.entry_price}, ${tx.json(bands as never)}, ${commitId}, ${p.in_play}, ${p.score})`;
       await addFill(tx, { id: ev.id, intent_id: i.id, strategy_id: i.strategy_id, mint: i.mint, side: "buy", at_ms: now, price_sol: f.price_sol, mk: {}, cost_bps: markoutCostBps(i.size_sol!, m.graduated) });
       return;
     }
@@ -466,7 +489,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     const author = callerOf(mint);
     const rows = await Promise.all([liveFor(tx, mint, at), cc ? liveFor(tx, cc.callout_id, at) : {}, author ? liveFor(tx, author, at) : {}]);
     const out: BoardValues = {};
-    for (const r of rows) for (const [k, v] of Object.entries(r)) out[k] = v.value as Record<string, unknown>;
+    for (const r of rows) for (const [k, v] of Object.entries(r)) out[k] = { ...(v.value as Record<string, unknown>), [CONF]: v.confidence };
     return out;
   }
 
@@ -486,7 +509,10 @@ export function desk(tape: Tape, clock: Clock): Desk {
       if (busy.has(spec.id) || now - (lastExit.get(`${spec.id}:${mint}`) ?? -Infinity) < D.reentryMs) continue;
       bump("evaluations");
       const s = st.get(spec.id);
-      const d = evaluateEntry(spec, board, quote, s?.stage === "full" ? { budget_sol: s.share * D.bookSol } : { fixed_sol: limits.probe_order_sol });
+      // no Kelly before calibration (docs/STRATEGY.md section 4): until the family has a map with enough bins, the probe size
+      const map = calib.get(spec.family)?.bins;
+      const mapped = map && map.length >= CALIB.minBins ? map : null;
+      const d = evaluateEntry(spec, board, quote, mapped && s?.stage === "full" ? { budget_sol: s.share * D.bookSol } : { fixed_sol: limits.probe_order_sol }, mapped);
       if (!d.enter) continue;
       const size = Math.min(d.size_sol, limits.max_order_sol); // sizes are clamped to limits; the gate checks anyway
       const q = quote(size);

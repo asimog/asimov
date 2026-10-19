@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-77 topics.
+78 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -45,6 +45,7 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `strategy.born` | `strategy_id`, `family`, `horizon`, `origin`, `parents`, `spec` |
 | `strategy.retired` | `strategy_id`, `reason`, `trades`, `lcb` |
 | `kernel.allocation` | `round`, `hurdle`, `shares` |
+| `calibration.map` | `family`, `version`, `decisions`, `bins` |
 | `outcome.measured` | `method`, `callout_id`, `mint`, `author_wallet`, `horizon_min`, `t0`, `call_lag_ms`, `entry_basis`, `price0_sol`, `price_sol`, `multiple`, `peak_multiple`, `trough_multiple`, `t_peak_s`, `net_multiple`, `ref_sol`, `phase`, `graduated`, `trades`, `pre_call_trades`, `new_callouts`, `coverage`, `gaps`, `supersedes` |
 | `score.updated` | `kind`, `horizon_min`, `n`, `brier`, `base_rate`, `skill` |
 | `precall.detected` | `mint`, `caller`, `trade_id`, `buy_sol`, `p`, `horizon_min` |

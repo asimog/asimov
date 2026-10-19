@@ -8,6 +8,7 @@ import { suite as backfillRollup } from "./suites/backfill-rollup/suite.ts";
 import { suite as bettafishFull } from "./suites/bettafish-full/suite.ts";
 import { suite as bettafishInsight } from "./suites/bettafish-insight/suite.ts";
 import { suite as booksReconcile } from "./suites/books-reconcile/suite.ts";
+import { suite as calibration } from "./suites/calibration/suite.ts";
 import { suite as calloutCase } from "./suites/callout-case-replay/suite.ts";
 import { suite as coinGraduated } from "./suites/coin-graduated/suite.ts";
 import { suite as commitReveal } from "./suites/commit-reveal/suite.ts";
@@ -55,4 +56,4 @@ import { suite as tapeArchive } from "./suites/tape-archive/suite.ts";
 import { suite as tapeDurable } from "./suites/tape-durable/suite.ts";
 import { suite as tapePartitions } from "./suites/tape-partitions/suite.ts";
 
-export const ALL: Suite[] = [riskgate, ownerConfig, deskInPlay, evolveFloor, promoteHonest, markoutFees, configLoad, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, archiveTargets, backfillRollup, feedCursor, feedFilters, followWallets, launchFilters, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexCompact, indexRows, tapeDurable, tapePartitions, tapeArchive];
+export const ALL: Suite[] = [riskgate, ownerConfig, deskInPlay, evolveFloor, promoteHonest, markoutFees, calibration, configLoad, slowViews, slowBridge, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, archiveTargets, backfillRollup, feedCursor, feedFilters, followWallets, launchFilters, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexCompact, indexRows, tapeDurable, tapePartitions, tapeArchive];

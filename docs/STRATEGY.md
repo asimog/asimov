@@ -81,12 +81,13 @@ Caller record fields: `buy_to_call_rate`, `lag_med_s`, `post_call_net`, `dump_ra
 
 ## 4. Calibration
 
-A score is a ranking, not a probability. Per family, closed ghost decisions are binned by entry score (at least `CALIB_MIN_PER_BIN` each); each bin gives the share with net above zero and the mean net multiple, made non-decreasing in score. Maps are versioned and emitted on the Tape.
+A score is a ranking, not a probability. Per family, closed ghost decisions are binned by entry score (at least `CALIB_MIN_PER_BIN` each); each bin gives the share with net above zero and the mean net multiple, made non-decreasing in score. Maps are rebuilt every allocation round (`mind/calibrate.ts`); a changed map gets a new version in `mind.calibration` and a `calibration.map` event with its counts. Each position keeps its entry score.
 
 - Entry needs the map's expected net at this score, minus this trade's slippage and fees, above zero.
 - Until a family has a map with at least 3 bins, every entry uses the fixed probe size.
 - After that: fractional Kelly on the map's win chance, capped at `KELLY_CAP`, then by the kernel share and stage, then by the owner's limits.
-- A term whose signal confidence is below `TERM_MIN_CONF` counts as missing.
+- A term whose signal confidence is below `TERM_MIN_CONF` (0.3) counts as missing.
+- Before a map, the score is only a ranking: the geometry floor (take-profit and stop) filters entries, and the size is the probe.
 
 ## 5. The pool, selection and capital
 
