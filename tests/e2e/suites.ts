@@ -53,6 +53,7 @@ import { suite as siteField } from "./suites/site-field/suite.ts";
 import { suite as siteIntegrity } from "./suites/site-integrity/suite.ts";
 import { suite as siteLab } from "./suites/site-lab/suite.ts";
 import { suite as siteRewind } from "./suites/site-rewind/suite.ts";
+import { suite as siteRugfeed } from "./suites/site-rugfeed/suite.ts";
 import { suite as siteShell } from "./suites/site-shell/suite.ts";
 import { suite as siteTreasury } from "./suites/site-treasury/suite.ts";
 import { suite as slowBridge } from "./suites/slow-bridge/suite.ts";
@@ -71,4 +72,4 @@ import { suite as tapeDurable } from "./suites/tape-durable/suite.ts";
 import { suite as tapePartitions } from "./suites/tape-partitions/suite.ts";
 import { suite as workerRefuses } from "./suites/worker-refuses/suite.ts";
 
-export const ALL: Suite[] = [riskgate, ownerConfig, deskInPlay, escalationGate, mcpText, evolveFloor, promoteHonest, publisherHeld, markoutFees, calibration, exitRules, ammImpact, jevGuard, indexFeatures, callerRecords, configLoad, modelFallback, slowViews, slowBridge, slowCaps, workerRefuses, slowNumbers, bettafishStance, stubLive, fenceParity, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, archiveTargets, backfillRollup, feedCursor, feedFilters, followWallets, launchFilters, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexCompact, indexRows, tapeDurable, tapePartitions, tapeArchive];
+export const ALL: Suite[] = [riskgate, ownerConfig, deskInPlay, escalationGate, mcpText, evolveFloor, promoteHonest, publisherHeld, markoutFees, calibration, exitRules, ammImpact, jevGuard, indexFeatures, callerRecords, configLoad, modelFallback, slowViews, slowBridge, slowCaps, workerRefuses, slowNumbers, bettafishStance, stubLive, fenceParity, bettafishInsight, bettafishFull, mirosharkPumpfun, swarmBrier, slowFanout, slowRooms, signerRefuses, booksReconcile, sweepSuite, killSuite, liveRoundtrip, rpcPool, analyzers, strategies, commitReveal, evolution, determinism, calloutCase, precall, siteShell, siteField, siteCortex, siteLab, siteIntegrity, siteRugfeed, siteTreasury, siteRewind, siteCards, soulUpdate, ammGolden, agentLanes, archiveTargets, backfillRollup, feedCursor, feedFilters, followWallets, launchFilters, pumpHttp, coinGraduated, scoutBounded, rollupBounded, indexCompact, indexRows, tapeDurable, tapePartitions, tapeArchive];
