@@ -32,22 +32,9 @@ const bridge = new Bridge({
     chainWaitS: num(env, "SLOW_CHAIN_WAIT_S", 300),
     runTimeoutS: num(env, "SLOW_RUN_TIMEOUT_S", 1800),
     pollMs: num(env, "SLOW_POLL_MS", 3000),
+    deferMaxMin: num(env, "SLOW_DEFER_MAX_MIN", 90),
   },
 });
-const every = num(env, "SLOW_TICK_S", 30) * 1000;
-let busy = false;
-const tick = async () => {
-  if (busy) return;
-  busy = true;
-  try {
-    await bridge.schedule();
-    await bridge.drain();
-  } catch (err) {
-    console.error(JSON.stringify({ msg: "slow-bridge tick", err: String(err).slice(0, 300) }));
-  } finally {
-    busy = false;
-  }
-};
-await tick();
-setInterval(() => void tick(), every);
+// escalations on their own timer (SLOW_SCHEDULE_S), runs on theirs (SLOW_TICK_S): a long run never delays reading a grant
+bridge.start(num(env, "SLOW_SCHEDULE_S", 5) * 1000, num(env, "SLOW_TICK_S", 30) * 1000, (where, err) => console.error(JSON.stringify({ msg: `slow-bridge ${where}`, err: String(err).slice(0, 300) })));
 setInterval(() => console.log(JSON.stringify({ msg: "slow-bridge stats", ...bridge.stats })), 60_000);

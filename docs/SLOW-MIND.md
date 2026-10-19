@@ -71,11 +71,11 @@ The gate is the core consumer `attention` (`services/core/src/mind/escalate.ts`)
 
 | Module | Job |
 |---|---|
-| scheduler | Feed runs on a timer; coin runs and swarms on escalations, on its own timer; a slot still running is skipped |
-| jobs | `slow.jobs`: one row per run, idempotent by engine, kind, subject and slot; stale jobs re-queued |
+| scheduler | Two loops with their own busy flags: escalations and the feed slot every `SLOW_SCHEDULE_S` (5 s), runs every `SLOW_TICK_S` (and at once when a tick queued something), so a long run never delays reading a grant. Stage 1 queues a BettaFish `nano` coin run; stage 2 BettaFish `lite` and a MiroShark `nano` swarm; stage 3 the owner's presets; a `control` grant queues nothing |
+| jobs | `slow.jobs`: one row per run, idempotent by engine, kind, subject and slot; stale jobs re-queued. A grant with no room (core marked it `deferred`, or the per-hour quota is spent) waits as `deferred` with its reason; each schedule tick first expires deferred jobs older than `SLOW_DEFER_MAX_MIN` (`failed: expired`), then promotes the oldest while quota allows |
 | engines | Clients for the BettaFish worker and the MiroShark REST API; each worker requires a bearer token, caps concurrency, refuses duplicate ids and supports cancel |
 | fan-out | One escalation can start both engines; in the `full` preset the swarm may wait for the BettaFish coin report |
-| mapper | Engine output to core write tools; a zero-action swarm counts as failed; truncated samples are excluded from means |
+| mapper | Engine output to core write tools; a zero-action swarm finishes `failed: empty_swarm` and writes nothing; truncated samples are excluded from means (MiroShark's `summarize`); forum lines carry the engine's own round |
 | exchange | Reports both ways |
 | health | Queue depth, real cost per lane and engine health for `ctl slow` and `ctl doctor` |
 

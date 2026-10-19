@@ -66,7 +66,7 @@ export const suite: Suite = {
       for (let i = 0; i < 120 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the worker starts with every provider value from our env", await eng.healthy(), log.slice(-300));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => asOfMs, newId: () => "sj_bf1", cfg: { feedEveryMin: 1, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 120, pollMs: 300 } });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => asOfMs, newId: () => "sj_bf1", cfg: { feedEveryMin: 1, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 120, pollMs: 300, deferMaxMin: 90 } });
       await bridge.schedule();
       await bridge.drain();
       const [job] = await w.sql`select state, error, result from slow.jobs where id = 'sj_bf1'`;

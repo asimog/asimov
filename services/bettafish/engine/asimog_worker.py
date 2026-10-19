@@ -108,7 +108,7 @@ class Forum:
             return
         with self.lock:
             self.mon.write_to_forum_log(text, source.upper())
-            self.lines.append({"agent": source, "text": plain(text, 600), "cites": cites(text)})
+            self.lines.append({"round": self.hosts, "agent": source, "text": plain(text, 600), "cites": cites(text)})
             self.pending += 1
             due = self.host and self.pending >= self.every and self.hosts < self.max_host
             if due:
@@ -119,7 +119,7 @@ class Forum:
             if speech:
                 with self.lock:
                     self.mon.write_to_forum_log(speech, "HOST")
-                    self.lines.append({"agent": "host", "text": plain(speech, 600), "cites": cites(speech)})
+                    self.lines.append({"round": self.hosts, "agent": "host", "text": plain(speech, 600), "cites": cites(speech)})
 
 
 TEMPLATES = {"feed": "asimog_callout_feed_synthesis.md", "coin": "asimog_coin_synthesis.md"}

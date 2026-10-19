@@ -85,8 +85,8 @@ export const suite: Suite = {
       await timed("baseline", () => sleep(5000));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
       let n = 0;
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: bf, miroshark: ms }, now: () => Date.now(), newId: () => `sj_fan${n++}`, cfg: { feedEveryMin: 1440, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 600, pollMs: 300 } });
-      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "synthesis_coin", voi: 0.5, stage: 1, arm: "run", deferred: false }, { source: "reflex", subject: MINT_A });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: bf, miroshark: ms }, now: () => Date.now(), newId: () => `sj_fan${n++}`, cfg: { feedEveryMin: 1440, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 600, pollMs: 300, deferMaxMin: 90 } });
+      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.5, stage: 2, arm: "run", deferred: false }, { source: "attention", subject: MINT_A });
       await w.tape.flush();
       await bridge.schedule();
       await w.sql`update slow.jobs set state = 'done' where kind = 'feed'`; // the feed slot is not under test
@@ -121,6 +121,7 @@ export const suite: Suite = {
       add("Tape write latency p95 stays under 250 ms in every phase", Math.max(lb, lr, lk) < 250, `p95 ${lb} / ${lr} / ${lk} ms`);
       stop = true;
       await sense;
+      await w.tape.flush(); // the last few events are still in the write buffer
       const [{ n: rows }] = (await w.sql`select count(*)::int n from tape.events where topic = 'trade.curve' and source = 'nats'`) as unknown as [{ n: number }];
       add("every sense event reached the Tape", rows === i, `${rows} of ${i}`);
       return { checks, metrics: { rate_baseline: +rb.toFixed(2), rate_running: +rr.toFixed(2), rate_killed: +rk.toFixed(2), p95_ms: [lb, lr, lk], model_calls_before_kill: before } };

@@ -79,7 +79,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | D2 | Per-run, per-stage, per-day USD caps; engines report real cost (`docs/tasks/D2.md`) | A run over its cap stops `truncated` |
 | D3 | Done 2026-10-19 (`docs/tasks/D3.md`). One public-text check in core for every MCP write; citation markers as a separate field | `mcp-text` passed: a borrowed id is dropped; 0 text violations in 27 fields of 15 tools |
 | D4 | Prompt fencing, worker hardening, required env per engine (`docs/tasks/D4.md`) | Worker suites refuse bad requests |
-| D5 | Bridge on its own timer, deferred escalations, empty swarms fail, real round numbers (`docs/tasks/D5.md`) | Bridge suite passes |
+| D5 | Done 2026-10-19 (`docs/tasks/D5.md`). Bridge on its own timer, deferred escalations, empty swarms fail, real round numbers | `slow-bridge` passed: 15 checks, the 4 new ones included |
 | D6 | Core recomputes swarm and mood numbers; mood emitted or removed; Brier readers fixed (`docs/tasks/D6.md`) | Board values equal raw-count recompute |
 | D7 | Re-run 5.5 and 5.14 checks (`docs/tasks/D7.md`) | Their suites pass |
 

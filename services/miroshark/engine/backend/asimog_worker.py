@@ -320,6 +320,22 @@ async def one_run(req: dict, branch: str, sample: int, profiles: list[dict], mdl
     return {"callers": len(simulated_callers), "callouts": len(sim_callouts), "caller_posts": caller_posts, "net_lamports": net, "posts": posts, "tweets": tweets, "actions": actions_n, "truncated": truncated, "drift": drift, "mcp_calls": mcp_calls}
 
 
+def summarize(res: dict, wave_at: int) -> dict:
+    """Means over full samples only: a sample cut short by SWARM_TIMEOUT_S saw fewer rounds and would pull every mean down.
+    `samples` counts branch A's full samples; `truncated` is true when any sample was cut; `actions` counts every sample's."""
+    full = {k: [x for x in v if not x["truncated"]] for k, v in res.items()}
+    a, b = full.get("A", []), full.get("B", [])
+    mean = lambda xs: sum(xs) / len(xs) if xs else 0.0  # noqa: E731
+    return {
+        "wave_p": mean([1.0 if x["callers"] >= wave_at else 0.0 for x in a]),
+        "d_callers": mean([x["callers"] for x in b]) - mean([x["callers"] for x in a]) if a and b else 0.0,
+        "d_net_sol": (mean([x["net_lamports"] for x in b]) - mean([x["net_lamports"] for x in a])) / 1e9 if a and b else 0.0,
+        "samples": len(a),
+        "truncated": any(x["truncated"] for v in res.values() for x in v),
+        "actions": sum(x["actions"] for v in res.values() for x in v),
+    }
+
+
 def persona_mcp():
     """Upstream's agent MCP bridge with our core as one HTTP server, read tools only; None when off or unset."""
     if os.getenv("MCP_AGENT_TOOLS_ENABLED", "false").lower() != "true" or not os.getenv("CORE_MCP_URL") or not os.getenv("SWARM_CORE_TOKEN"):
@@ -351,16 +367,12 @@ def execute(run_id: str, req: dict) -> None:
         res = {b: [asyncio.run(one_run(req, b, s, profiles, mdl, deadline, graph, mcp)) for s in range(samples)] for b in branches}
         if mcp:
             mcp["bridge"].shutdown()
-        a, b = res.get("A", []), res.get("B", [])
-        mean = lambda xs: sum(xs) / len(xs) if xs else 0.0  # noqa: E731
-        wave_p = mean([1.0 if x["callers"] >= wave_at else 0.0 for x in a])
-        d_callers = mean([x["callers"] for x in b]) - mean([x["callers"] for x in a]) if b else 0.0
-        d_net = (mean([x["net_lamports"] for x in b]) - mean([x["net_lamports"] for x in a])) / 1e9 if b else 0.0
+        sm = summarize(res, wave_at)
+        wave_p, d_callers, d_net, truncated = sm["wave_p"], sm["d_callers"], sm["d_net_sol"], sm["truncated"]
         posts = [p for xs in res.values() for x in xs for p in x["posts"]][:400]
-        truncated = any(x["truncated"] for xs in res.values() for x in xs)
-        quiet = sum(x["actions"] for xs in res.values() for x in xs) == 0
+        quiet = sm["actions"] == 0
         sym = (dossier.get("coin") or {}).get("symbol") or req["subject"][:4]
-        summary = (f"SIMULATED swarm on ${sym}: wave probability {wave_p:.2f} over {len(a)} samples"
+        summary = (f"SIMULATED swarm on ${sym}: wave probability {wave_p:.2f} over {sm['samples']} full samples"
                    f" (wave = {wave_at} or more callers calling); our callout changes callers by {d_callers:+.1f} and net flow by {d_net:+.3f} SOL." + (" No simulated actions." if quiet else ""))
         from asimog_report import TITLE, VOICE, numbers_for
         numbers = numbers_for(res, wave_p, wave_at, d_callers, d_net)
@@ -376,7 +388,7 @@ def execute(run_id: str, req: dict) -> None:
         ir = {"template": TITLE, "sections": rep["sections"], "graph": {"graph_id": gid, "features": asimog_graph.FEATURES, "seeded": seeded, **counts},
               "platforms": sorted(platforms()), "branches": {k: [{kk: vv for kk, vv in x.items() if kk != "posts"} for x in v] for k, v in res.items()}}
         out = {"beliefs": {"topic": sym, "branches": {k: [x["drift"] for x in v] for k, v in res.items()}},
-               "swarm": {"samples": max(1, len(a)), "usd": 0.0, "truncated": truncated, "wave_p": wave_p, "d_callers": d_callers, "d_net_sol": d_net, "posts": posts},
+               "swarm": {"samples": sm["samples"], "actions": sm["actions"], "usd": 0.0, "truncated": truncated, "wave_p": wave_p, "d_callers": d_callers, "d_net_sol": d_net, "posts": posts},
                "reports": [{"producer": "miroshark.report", "kind": "swarm", "subject": req["subject"], "summary": summary[:590], "cites": cites, "markdown": md, "ir": ir, "simulated": True}]}
         with LOCK:
             RUNS[run_id] = {"state": "done", "output": out}
