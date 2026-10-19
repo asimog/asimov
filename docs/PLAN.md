@@ -16,8 +16,6 @@ How a row is worked is in `WORKFLOW.md`: one row per session, its task file in `
 | Docs converged into this set; catalogs generated (`npm run docs:gen`) | ca65ab1 |
 | A2 score day buckets and trailing window; A3 feed cursor table; A4 pre-call hit only on the buying caller's own call, one sample per coin and caller; A5 `risk.state` on every holder snapshot, creator restored; A6 `early_right`, copy price, copy value at a fixed horizon; A9 `Retry-After` dates; A11 `slow.as_of` pinned on every BettaFish run. Each passed its check (`precall-replay`, `feed-cursor`, `index-rows`, `pump-http`, `bettafish-insight`) | Section A commit |
 
-Pushed without a test run: 5.5 (cited, whole-word BettaFish stance) and 5.14 (stub model refused in live mode).
-
 ## Next, in order
 
 ### A. Finish as-of reads (fix plan Phase 3)
@@ -81,7 +79,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | D4 | Done 2026-10-19 (`docs/tasks/D4.md`). Prompt fencing, worker hardening, required env per engine | `worker-refuses` passed: 401, 400, 409, 429, cancel, boot refused, 0 injected prompts outside the fence |
 | D5 | Done 2026-10-19 (`docs/tasks/D5.md`). Bridge on its own timer, deferred escalations, empty swarms fail, real round numbers | `slow-bridge` passed: 15 checks, the 4 new ones included |
 | D6 | Done 2026-10-19 (`docs/tasks/D6.md`). Core recomputes swarm and mood numbers; mood computed in core (owner); Brier readers checked | `slow-numbers` passed: Board wave_p 0.40 = 2/5 full samples; swarm Brier 0.36 on it |
-| D7 | Re-run 5.5 and 5.14 checks (`docs/tasks/D7.md`) | Their suites pass |
+| D7 | Done 2026-10-19 (`docs/tasks/D7.md`). Re-run 5.5 and 5.14 checks | `bettafish-stance` and `stub-live` passed |
 
 ### E. Public features
 

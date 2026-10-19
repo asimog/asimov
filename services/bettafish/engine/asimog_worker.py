@@ -242,6 +242,12 @@ def full_report(req: dict, results: list, forum: "Forum | None") -> dict | None:
             "cites": cites(md + "\n" + "\n".join(x for _, _, x in results)), "ir": ir, "markdown": md}
 
 
+def stance_of(texts: list[str]) -> str:
+    """A coin stance only from claims that cite our data, and whole words only: "rugged" in passing is not a rug (fix plan 5.5)."""
+    joined = " ".join(x for x in texts if cites(x)).lower()
+    return "avoid" if re.search(r"\b(rug|bundl\w*|scam)\b", joined) else "bearish" if re.search(r"\b(dump|sell|exit)\b", joined) else "bullish" if re.search(r"\b(early|buy|strong)\b", joined) else "neutral"
+
+
 def to_output(req: dict, results: list) -> dict:
     """Engine states -> RunOutput: one report per engine, plus feed or coin synthesis from the paragraphs."""
     reports, paragraphs = [], []
@@ -263,10 +269,7 @@ def to_output(req: dict, results: list) -> dict:
             "coin_stances": [], "suspicious": [],
         }
     else:
-        # a stance only from claims that cite our data, and whole words only: "rugged" in passing is not a rug (fix plan 5.5)
-        joined = " ".join(x for _, x in paragraphs if cites(x)).lower()
-        stance = "avoid" if re.search(r"\b(rug|bundl\w*|scam)\b", joined) else "bearish" if re.search(r"\b(dump|sell|exit)\b", joined) else "bullish" if re.search(r"\b(early|buy|strong)\b", joined) else "neutral"
-        out["synthesis_coin"] = {"stance": stance, "narrative": re.sub(r"\s+", " ", CID.sub("", paragraphs[0][1] if paragraphs else ""))[:600], "claims": [{"text": re.sub(r"\s+", " ", CID.sub("", x))[:400], "cites": cites(x)} for _, x in paragraphs][:20]}
+        out["synthesis_coin"] = {"stance": stance_of([x for _, x in paragraphs]), "narrative": re.sub(r"\s+", " ", CID.sub("", paragraphs[0][1] if paragraphs else ""))[:600], "claims": [{"text": re.sub(r"\s+", " ", CID.sub("", x))[:400], "cites": cites(x)} for _, x in paragraphs][:20]}
     return out
 
 
