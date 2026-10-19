@@ -6,13 +6,14 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import zlib from "node:zlib";
+import { TOPIC_CLASS, type Topic } from "../../../packages/contracts/src/index.ts";
 import { replayClock } from "../../../services/core/src/lib/clock.ts";
 import { connect, migrate, type Sql } from "../../../services/core/src/lib/db.ts";
 import { env } from "../../../services/core/src/lib/env.ts";
 import { seedSpecs } from "../../../services/core/src/mind/seeds.ts";
 import { buildConsumers } from "../../../services/core/src/runtime.ts";
 import { apply, type Consumer, normalize, type Row as TapeRow } from "../../../services/core/src/tape/consumer.ts";
-import { Tape } from "../../../services/core/src/tape/tape.ts";
+import { ensureHourPartition, Tape } from "../../../services/core/src/tape/tape.ts";
 import { recordDeposit } from "../../../services/core/src/treasury/books.ts";
 import { newKeys } from "./txs.ts";
 import { liveLeg, SOL } from "./world.ts";
@@ -70,10 +71,14 @@ export async function replay(tapeFile: string, opts: { tag: string; seed?: numbe
   const sql = connect(url.toString(), 4);
   await migrate(sql);
 
+  // the hour partitions for every recorded hour exist before the rows land (docs/tasks/B6-partitions.md)
+  const hours = new Set<string>();
+  for (const r of rows) await ensureHourPartition(sql, Date.parse(r.seen_time), hours);
+
   // load inputs in chunks
   for (let i = 0; i < rows.length; i += 1000) {
-    const chunk = rows.slice(i, i + 1000).map((r) => ({ ...r, mode: "replay", body: sql.json(r.body as never) }));
-    await sql`insert into tape.events ${sql(chunk as never, "id", "topic", "v", "event_time", "seen_time", "source", "subject", "causes", "mode", "body")} on conflict do nothing`;
+    const chunk = rows.slice(i, i + 1000).map((r) => ({ ...r, class: TOPIC_CLASS[r.topic as Topic], mode: "replay", body: sql.json(r.body as never) }));
+    await sql`insert into tape.events ${sql(chunk as never, "id", "topic", "v", "class", "event_time", "seen_time", "source", "subject", "causes", "mode", "body")} on conflict do nothing`;
   }
 
   // cut the network: replays read recorded answers only

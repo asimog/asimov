@@ -656,6 +656,31 @@ export const Signal = z.object({
 export type Signal = z.infer<typeof Signal>;
 
 /** Body versions; bump on any change (docs/generated/topics.md). */
+/** Tape partition class (docs/tasks/B6-partitions.md). Hot inputs are pruned first; kept inputs are small; derived is rebuilt. */
+export type TapeClass = "inputs_hot" | "inputs_kept" | "derived";
+export const TAPE_CLASSES: TapeClass[] = ["inputs_hot", "inputs_kept", "derived"];
+export const TOPIC_CLASS: Record<Topic, TapeClass> = {
+  "observation.raw": "inputs_hot", "coin.seen": "inputs_hot", "callout.created": "inputs_hot", "callout.updated": "inputs_hot",
+  "callout.reply": "inputs_hot", "media.cached": "inputs_hot", "callout.counts": "inputs_hot", "caller.position": "inputs_hot",
+  "trade.curve": "inputs_hot", "trade.amm": "inputs_hot", "session.task": "inputs_hot", "session.read": "inputs_hot", "session.health": "inputs_hot",
+  "filter.sampled": "inputs_kept", "coin.watched": "inputs_kept", "coin.unwatched": "inputs_kept", "coin.graduated": "inputs_kept",
+  "config.loaded": "inputs_kept", "lists.loaded": "inputs_kept", "limits.changed": "inputs_kept", "kill.changed": "inputs_kept",
+  "system.note": "inputs_kept", "system.gap": "inputs_kept", "system.schema_drift": "inputs_kept", "system.source_disagree": "inputs_kept",
+  "ops.stop_requested": "inputs_kept", "ops.restart_requested": "inputs_kept",
+  "jev.answer": "derived", "intent.created": "derived", "intent.ghost_filled": "derived", "order.rejected": "derived",
+  "order.created": "derived", "order.submitted": "derived", "order.filled": "derived", "order.failed": "derived",
+  "signer.refused": "derived", "position.changed": "derived", "ledger.entry": "derived", "fees.swept": "derived",
+  "books.reconciled": "derived", "proof.published": "derived", "markout.measured": "derived", "commit.made": "derived",
+  "commit.revealed": "derived", "position.closed": "derived", "strategy.born": "derived", "strategy.retired": "derived",
+  "kernel.allocation": "derived", "outcome.measured": "derived", "score.updated": "derived", "precall.detected": "derived",
+  "holders.snapshot": "derived", "index.refreshed": "derived", "budget.spent": "derived", "thesis.formed": "derived",
+  "post.queued": "derived", "synthesis.feed": "derived", "mood.feed": "derived", "synthesis.coin": "derived",
+  "synthesis.forum_line": "derived", "swarm.wave_p": "derived", "swarm.impact": "derived", "swarm.post": "derived",
+  "proposal.strategy": "derived", "jevq.proposed": "derived", "report.drafted": "derived", "integrity.text": "derived",
+  "ops.alert": "derived", "report.published": "derived", "swarm.beliefs": "derived", "attention.grant": "derived",
+  "jev.escalated": "derived", "soul.updated": "derived", "job.queued": "derived", "job.started": "derived", "job.done": "derived",
+};
+
 export const SCHEMA_VERSION: Record<Topic, number> = {
   ...(Object.fromEntries(Object.keys(TOPICS).map((t) => [t, 1])) as Record<Topic, number>),
   "outcome.measured": 2,

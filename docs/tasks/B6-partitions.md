@@ -30,4 +30,4 @@ The archiver (`B6-archiver.md`), database roles (F1).
 `git diff --stat`; each command run with its result; what was not run and why.
 
 ## State
-Open.
+Passed 2026-10-19. `npm run e2e -- tape-partitions` passed all checks; `tape-durable` still passes; `pnpm typecheck` clean. The working database predates the `class` column and the two-level partition key, so it must be recreated before core boots; tests use a fresh database.

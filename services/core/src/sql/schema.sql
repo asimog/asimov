@@ -14,6 +14,7 @@ create table if not exists tape.events (
   id          text not null,
   topic       text not null,
   v           int  not null,
+  class       text not null,             -- from TOPIC_CLASS (packages/contracts): inputs_hot, inputs_kept, derived
   event_time  timestamptz not null,
   seen_time   timestamptz not null,
   source      text not null,
@@ -21,9 +22,20 @@ create table if not exists tape.events (
   causes      text[] not null default '{}',
   mode        text not null,
   body        jsonb not null,
-  primary key (seen_time, id)
+  primary key (seen_time, id, class)     -- class is the subpartition key, so it is part of every unique key
 ) partition by range (seen_time);
-create table if not exists tape.events_default partition of tape.events default;
+-- one hour, then one list partition per class (docs/tasks/B6-partitions.md); the Tape adds the next hours
+create table if not exists tape.events_default partition of tape.events default partition by list (class);
+create table if not exists tape.events_default_inputs_hot partition of tape.events_default for values in ('inputs_hot');
+create table if not exists tape.events_default_inputs_kept partition of tape.events_default for values in ('inputs_kept');
+create table if not exists tape.events_default_derived partition of tape.events_default for values in ('derived');
+-- append-only (docs/SYSTEM.md): no row is ever edited or deleted; only the archiver drops a whole partition
+create or replace function tape.refuse_mutation() returns trigger language plpgsql as $$
+begin
+  raise exception 'tape.events is append-only: no update or delete';
+end $$;
+drop trigger if exists events_append_only on tape.events;
+create trigger events_append_only before update or delete on tape.events for each row execute function tape.refuse_mutation();
 create index if not exists events_topic_seen on tape.events (topic, seen_time);
 create index if not exists events_subject_seen on tape.events (subject, seen_time);
 create index if not exists events_id on tape.events (id);
@@ -44,6 +56,35 @@ create table if not exists tape.consumer_offsets (
   last_id         text not null default '',
   updated_at      timestamptz not null default now()
 );
+
+-- a closed partition was exported by every target, read back and verified (docs/tasks/B6-archiver.md)
+create table if not exists tape.archived (
+  partition text primary key,           -- the hour partition, e.g. tape.events_p_2026101912
+  file      text not null,
+  rows      int not null,
+  sha256    text not null,
+  target    text not null,              -- target names and hashes that verified it, one per line
+  from_time timestamptz not null,
+  to_time   timestamptz not null,
+  verified  boolean not null default false,
+  at        timestamptz not null
+);
+
+/** Drop one hourly partition, only after it is archived and every consumer's offset is past it. */
+create or replace function tape.drop_partition(p text) returns void language plpgsql as $$
+declare a tape.archived; behind int;
+begin
+  if p !~ '^tape\.events_p_[0-9]{10}$' then raise exception 'not a tape hour partition: %', p; end if;
+  if not exists (select 1 from pg_inherits i join pg_class c on c.oid = i.inhrelid join pg_namespace n on n.oid = c.relnamespace
+                 join pg_class parent on parent.oid = i.inhparent join pg_namespace pn on pn.oid = parent.relnamespace
+                 where n.nspname = 'tape' and c.relname = split_part(p, '.', 2) and pn.nspname = 'tape' and parent.relname = 'events')
+    then raise exception 'not a partition of tape.events: %', p; end if;
+  select * into a from tape.archived where partition = p and verified;
+  if not found then raise exception 'partition % has no verified archive', p; end if;
+  select count(*) into behind from tape.consumer_offsets where last_seen_time < a.to_time;
+  if behind > 0 then raise exception 'partition % is still behind % consumer offsets', p, behind; end if;
+  execute format('drop table %s', p);
+end $$;
 
 -- where each feed walk stopped (docs/PIPELINE.md feed): a restart walks only what it has not read
 create table if not exists tape.feed_cursors (

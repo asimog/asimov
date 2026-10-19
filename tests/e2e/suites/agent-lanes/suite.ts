@@ -168,8 +168,8 @@ export const suite: Suite = {
         await w2.seed();
         await agentsMigrate(asql2);
         const mcp2 = await w2.mcpUp();
-        await w2.sql`insert into tape.events (id, topic, v, event_time, seen_time, source, subject, causes, mode, body)
-          values ('ev_old1', 'trade.curve', 1, now() - interval '10 minutes', now() - interval '10 minutes', 'nats', null, '{}', 'paper', '{}'::jsonb)`;
+        await w2.sql`insert into tape.events (id, topic, v, class, event_time, seen_time, source, subject, causes, mode, body)
+          values ('ev_old1', 'trade.curve', 1, 'inputs_hot', now() - interval '10 minutes', now() - interval '10 minutes', 'nats', null, '{}', 'paper', '{}'::jsonb)`;
         const opsLanes = lanesWith(new PgSpend(asql2), { OPS: () => "{}" });
         rt2 = new AgentsRuntime({ sql: asql2, mcpUrl: mcp2.url, token: (a) => w2.tok(AGENTS[a].cap), lane: opsLanes.get, now: () => T0, enabled: ["ops"] });
         opened.push(rt2);

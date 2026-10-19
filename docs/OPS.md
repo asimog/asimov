@@ -43,7 +43,7 @@ Every window and target is a setting in `config/retention.json`. Budget for hot 
 
 The Tape is append-only: no row is ever edited or deleted, and a database trigger refuses row `UPDATE` and `DELETE`. The only removal is whole blocks:
 
-1. `tape.events` is partitioned by hour and by class (inputs-hot, inputs-kept, derived).
+1. `tape.events` is partitioned by hour and by class (inputs-hot, inputs-kept, derived). The class comes from `TOPIC_CLASS` in `packages/contracts`, never from the writer; a row trigger refuses `UPDATE` and `DELETE`, and the Tape creates the current hour and the two hours ahead before it writes.
 2. Every hour the archiver exports each closed hot partition to `tape-<class>-<hour>.ndjson.gz`.
 3. It re-reads the file, compares row count and checksum, and writes `tape.archived` (file, rows, sha256) on the Tape.
 4. It checks that every consumer's offset is past the partition, so the Index and Memory have already used it.

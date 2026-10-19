@@ -9,7 +9,7 @@
 //   envelope it would have written and writes nothing.
 // A listener (`onFlush`) runs after commit; its error is logged and never re-runs or fails the write.
 import crypto from "node:crypto";
-import { type BodyOf, type Envelope, SCHEMA_VERSION, type Source, TOPICS, type Topic } from "@asimog/contracts";
+import { type BodyOf, type Envelope, SCHEMA_VERSION, type Source, TAPE_CLASSES, TOPIC_CLASS, TOPICS, type Topic } from "@asimog/contracts";
 import type { Clock } from "../lib/clock.ts";
 import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
@@ -34,6 +34,7 @@ export class Tape {
   private chain: Promise<void> = Promise.resolve();
   private readonly batchMs = env.int("TAPE_BATCH_MS");
   private readonly listeners = new Set<(e: Envelope[]) => void>();
+  private ensured = new Set<string>(); // hour partition names this process already created
   written = 0;
   /** repeats skipped because their dedupe key was already used (not losses) */
   deduped = 0;
@@ -92,7 +93,7 @@ export class Tape {
     const now = new Date(this.clock.mode === "replay" ? after : Math.max(this.clock.now(), after)).toISOString();
     const e = this.envelope(topic, body, o, now);
     if (o.dedupe && !(await tx`insert into tape.dedupe (key, event_id) values (${o.dedupe}, ${e.id}) on conflict do nothing returning 1`).length) return e;
-    await tx`insert into tape.events ${tx({ ...e, body: tx.json(e.body as never) } as never, "id", "topic", "v", "event_time", "seen_time", "source", "subject", "causes", "mode", "body")}`;
+    await tx`insert into tape.events ${tx({ ...e, class: TOPIC_CLASS[e.topic as Topic], body: tx.json(e.body as never) } as never, "id", "topic", "v", "class", "event_time", "seen_time", "source", "subject", "causes", "mode", "body")}`;
     await tx`select pg_notify('tape', ${e.seen_time})`;
     (this.root ?? this).written++;
     return e;
@@ -117,6 +118,7 @@ export class Tape {
       if (this.buf.length === 0) return;
       const batch = this.buf.splice(0, this.buf.length);
       try {
+        await this.ensurePartitions(batch.at(-1)!.env.seen_time);
         await this.write(batch);
         this.failures = 0;
         this.unhealthy = false;
@@ -149,8 +151,8 @@ export class Tape {
       this.deduped += batch.length - rows.length;
       if (!rows.length) return;
       await tx`insert into tape.events ${tx(
-        rows.map((e) => ({ ...e, body: tx.json(e.body as never) })) as never,
-        "id", "topic", "v", "event_time", "seen_time", "source", "subject", "causes", "mode", "body",
+        rows.map((e) => ({ ...e, class: TOPIC_CLASS[e.topic as Topic], body: tx.json(e.body as never) })) as never,
+        "id", "topic", "v", "class", "event_time", "seen_time", "source", "subject", "causes", "mode", "body",
       )} on conflict do nothing`;
       await tx`select pg_notify('tape', ${rows[rows.length - 1]!.seen_time})`;
       this.written += rows.length;
@@ -167,9 +169,33 @@ export class Tape {
       }
   }
 
+  /**
+   * Hour partitions, then a list partition per class (docs/tasks/B6-partitions.md). The hour of the event and the
+   * two hours ahead of the Clock exist, so a live write never lands in the default partition.
+   */
+  async ensurePartitions(atIso = this.clock.iso()) {
+    const hour = (ms: number) => Math.floor(ms / 3_600_000) * 3_600_000;
+    await ensureHourPartition(this.sql, Date.parse(atIso), this.ensured);
+    const now = hour(this.clock.now());
+    for (let h = now; h <= now + 2 * 3_600_000; h += 3_600_000) await ensureHourPartition(this.sql, h, this.ensured);
+  }
+
   async close() {
     await this.flush();
   }
+}
+
+/** Create one hour partition and its class list partitions. Idempotent; the name is built from the hour only. */
+export async function ensureHourPartition(sql: Sql, ms: number, seen = new Set<string>()) {
+  const h = Math.floor(ms / 3_600_000) * 3_600_000;
+  const name = `tape.events_p_${new Date(h).toISOString().slice(0, 13).replace(/[-T]/g, "")}`;
+  if (seen.has(name)) return name;
+  const from = new Date(h).toISOString();
+  const to = new Date(h + 3_600_000).toISOString();
+  await sql.unsafe(`create table if not exists ${name} partition of tape.events for values from ('${from}') to ('${to}') partition by list (class)`);
+  for (const c of TAPE_CLASSES) await sql.unsafe(`create table if not exists ${name}_${c} partition of ${name} for values in ('${c}')`);
+  seen.add(name);
+  return name;
 }
 
 export async function putBlob(sql: Sql, kind: string, url: string, body: Buffer | string) {
