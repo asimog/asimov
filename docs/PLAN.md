@@ -44,7 +44,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | B0 | Done 2026-10-19. The Tape never drops an accepted event silently (`docs/tasks/B0.md`) | `tape-durable`: database stopped mid-run, zero dropped |
 | B1 | Config module for `config/*.json` (feeds, filters, retention, schedules, models) with `config.loaded` (`docs/tasks/B1.md`) | A bad file stops boot with the field named |
 | B2 | Feed sources and filters (recent, hot, trending, follow, top traders; chain; minimum position; mcap at call) (`docs/tasks/B2.md`) | A replay with filters stores only passing callouts; rejected ones counted and sampled |
-| B3 | Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion (`docs/tasks/B3.md`) | Filtered launches never reach the watched set |
+| B3 | Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion, facts from NATS then the RPC pool then the pump.fun API, with a rule for unknown (`docs/tasks/B3.md`) | Filtered launches never reach the watched set |
 | B4 | `follow_wallets` list and the follow feed (`docs/tasks/B4.md`) | A followed wallet's buy promotes its coin |
 | B5 | Backfill fans out across providers in parallel and checks our rollups first (`docs/tasks/B5.md`) | Fewer RPC calls for a coin we already rolled up |
 | B6 | Tape partitions by hour and class; the archiver (export, verify, `tape.archived`, offset check, drop) with a 4 h hot window while testing; row UPDATE and DELETE refused (`docs/tasks/B6-partitions.md`, `docs/tasks/B6-archiver.md`) | A smoke archives and drops one partition; replay from the file matches |
