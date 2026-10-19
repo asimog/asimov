@@ -4,6 +4,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { buildCase, renderCase } from "../hunt/case.ts";
 import { liveClock } from "../lib/clock.ts";
+import { configValues } from "../lib/config.ts";
 import { connect, migrate, resetProjections } from "../lib/db.ts";
 import { env, redact } from "../lib/env.ts";
 import { RpcPool } from "../lib/rpc.ts";
@@ -71,6 +72,77 @@ async function exportTape(file: string, from?: string, to?: string) {
   return { file, events: n, bytes: fs.statSync(file).size };
 }
 
+const TIER_NAMES: Record<number, string> = { 1: "Hot", 2: "Warm", 3: "Indexes", 4: "Record", 5: "Archive", 6: "Knowledge" };
+
+/** Which OPS tier a table belongs to (docs/OPS.md section 2). 0 means not counted. */
+function tierOf(schema: string, name: string): number {
+  if (schema === "tape" && /^events_(p_|default_)/.test(name)) return name.endsWith("_inputs_hot") ? 1 : 4;
+  if (schema === "tape" && name === "blobs") return 1;
+  if (schema === "board") return 2;
+  if (schema === "mem") return name === "bars_1m" || name === "callout_updates" ? 2 : 4;
+  if (schema === "idx") return 3;
+  if (schema === "mind" || schema === "hands" || schema === "books") return 4;
+  if (schema === "slow") return 4;
+  return 0;
+}
+
+/** Oldest inputs_hot partition and how long it has sat past its window. Read-only. */
+async function archiveLag(windowHours: number) {
+  const now = Date.now();
+  const parts = (await sql`select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'tape' and c.relkind = 'r' and c.relname ~ '^events_p_[0-9]{10}_inputs_hot$'`) as unknown as { relname: string }[];
+  let oldest: { part: string; to: number } | null = null;
+  for (const p of parts) {
+    const t = /events_p_(\d{10})_inputs_hot/.exec(p.relname)?.[1];
+    if (!t) continue;
+    const to = Date.UTC(Number(t.slice(0, 4)), Number(t.slice(4, 6)) - 1, Number(t.slice(6, 8)), Number(t.slice(8, 10)) + 1);
+    if (!oldest || to < oldest.to) oldest = { part: p.relname, to };
+  }
+  const lag = oldest ? Math.max(0, Math.floor((now - (oldest.to + windowHours * 3_600_000)) / 1000)) : 0;
+  return { lag_s: lag, oldest_partition: oldest?.part ?? null, oldest_to: oldest ? new Date(oldest.to).toISOString() : null };
+}
+
+/** `ctl stats` (docs/OPS.md section 2): exact rows and total bytes per tier, plus the archive lag. Read-only. */
+async function stats() {
+  const windowHours = configValues().retention.hot_window_hours;
+  const tables = (await sql`select n.nspname schema, c.relname name, c.oid, pg_total_relation_size(c.oid)::bigint bytes
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where c.relkind = 'r' and n.nspname in ('tape', 'idx', 'mem', 'board', 'mind', 'hands', 'books', 'slow') order by 1, 2`) as unknown as {
+    schema: string; name: string; oid: number; bytes: string;
+  }[];
+  const tiers = new Map<number, { tier: number; name: string; rows: number; bytes: number; tables: { table: string; rows: number; bytes: number }[] }>();
+  for (const t of tables) {
+    const tier = tierOf(t.schema, t.name);
+    if (!tier) continue;
+    const [r] = (await sql.unsafe(`select count(*)::int n from "${t.schema}"."${t.name}"`)) as unknown as [{ n: number }];
+    const g = tiers.get(tier) ?? { tier, name: TIER_NAMES[tier]!, rows: 0, bytes: 0, tables: [] };
+    g.rows += r.n;
+    g.bytes += Number(t.bytes);
+    g.tables.push({ table: `${t.schema}.${t.name}`, rows: r.n, bytes: Number(t.bytes) });
+    tiers.set(tier, g);
+  }
+  // tier 5: archive files we can size (a local target); a remote target's bytes live in the provider
+  const archived = (await sql`select file, target from tape.archived`) as unknown as { file: string; target: string }[];
+  let archiveBytes = 0;
+  for (const a of archived)
+    for (const line of String(a.target).split("\n")) {
+      if (!line.startsWith("local:")) continue;
+      const dir = line.slice(6).split("=")[0]!;
+      try {
+        archiveBytes += fs.statSync(path.join(dir, a.file)).size;
+      } catch {
+        // a file moved by hand: the archive row is still the record
+      }
+    }
+  const archive = { tier: 5, name: TIER_NAMES[5]!, rows: archived.length, bytes: archiveBytes, tables: [] as { table: string; rows: number; bytes: number }[] };
+  const report = {
+    at: new Date().toISOString(),
+    tiers: [1, 2, 3, 4, 5, 6].map((n) => (n === 5 ? archive : tiers.get(n) ?? { tier: n, name: TIER_NAMES[n]!, rows: 0, bytes: 0, tables: [] })),
+    archive: await archiveLag(windowHours),
+  };
+  return report;
+}
+
 async function doctor() {
   const checks: Record<string, unknown> = {};
   try {
@@ -105,6 +177,13 @@ const commands: Record<string, () => Promise<unknown>> = {
   migrate: async () => (await migrate(sql), { ok: true }),
   rebuild: async () => (await resetProjections(sql, buildConsumers(new Tape(sql, liveClock("live")))), { ok: true, note: "projections cleared; restart core to rebuild from the tape" }),
   export: () => exportTape(opt("out") ?? `data/tapes/tape-${Date.now()}.ndjson.gz`, opt("from"), opt("to")),
+  stats: async () => {
+    const r = await stats();
+    if (flag("json")) return r;
+    for (const t of r.tiers) console.log(`${t.tier} ${t.name}: ${t.rows} rows, ${t.bytes} bytes`);
+    console.log(`archive lag: ${r.archive.lag_s} s (oldest ${r.archive.oldest_partition ?? "none"})`);
+    return undefined;
+  },
   case: async () => {
     const c = await buildCase(sql, args[0] ?? "");
     if (!c) throw new Error(`no callout ${args[0]}`);

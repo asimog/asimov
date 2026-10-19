@@ -39,6 +39,8 @@ How Asimog is configured, where its data lives, how big it gets, where it runs, 
 
 Every window and target is a setting in `config/retention.json`. Budget for hot storage (tiers 1 to 4 and 6): 5 to 10 GB; everything older goes to the archive targets. The archive and wiki targets stay pluggable, so the owner can switch between a bucket and a git repository without code changes.
 
+`ctl stats` prints one line per tier with exact rows and total relation bytes (`pg_total_relation_size`), plus the archive lag: how long the oldest hot partition has sat past its window. `doctor` adds an `archive_lag` finding when that lag passes one hour. Both are read-only.
+
 ### How pruning stays safe
 
 The Tape is append-only: no row is ever edited or deleted, and a database trigger refuses row `UPDATE` and `DELETE`. The only removal is whole blocks:

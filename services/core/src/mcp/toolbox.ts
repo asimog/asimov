@@ -7,6 +7,7 @@ import { z } from "zod";
 import { liveFor } from "../board/board.ts";
 import { checkProse } from "../hands/text-checks.ts";
 import type { Clock } from "../lib/clock.ts";
+import { configValues } from "../lib/config.ts";
 import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { why } from "../lib/why.ts";
@@ -192,6 +193,20 @@ export const TOOLS: Tool[] = [
     }
     const gaps = await c.sql`select body->>'source' source, count(*)::int n from tape.events where topic = 'system.gap' and seen_time > ${new Date(now - 900_000).toISOString()} group by 1`;
     for (const g of gaps) findings.push({ code: "data_gap", severity: "warn", scope: g.source as string, detail: `${g.n} gaps in 15 min` });
+    // B8: an archive that is more than one hour past the oldest hot partition's window
+    const windowHours = configValues().retention.hot_window_hours;
+    const parts = (await c.sql`select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'tape' and c.relkind = 'r' and c.relname ~ '^events_p_[0-9]{10}_inputs_hot$'`) as unknown as { relname: string }[];
+    let oldest = Number.POSITIVE_INFINITY;
+    for (const p of parts) {
+      const t = /events_p_(\d{10})_inputs_hot/.exec(p.relname)?.[1];
+      if (!t) continue;
+      oldest = Math.min(oldest, Date.UTC(Number(t.slice(0, 4)), Number(t.slice(4, 6)) - 1, Number(t.slice(6, 8)), Number(t.slice(8, 10)) + 1));
+    }
+    if (Number.isFinite(oldest)) {
+      const lag = Math.max(0, Math.round((now - (oldest + windowHours * 3_600_000)) / 1000));
+      if (lag > 3600) findings.push({ code: "archive_lag", severity: "warn", scope: "archive", detail: `${Math.round(lag / 60)} min past the hot window` });
+    }
     return { at: c.clock.iso(), findings };
   }),
 
