@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-276 keys. Secrets live only in `.env.local` and are not listed here.
+282 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -201,6 +201,12 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `INDEX_ROUND_TRIP_COST` | `0.03` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_SMART_MAX` | `500` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_SNIPER_SHARE` | `0.5` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `INDEX_COPY_LAG_S` | `30` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `INDEX_COPIER_SHARE` | `0.5` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `INDEX_BUNDLER_COINS` | `2` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `CREATOR_PAST_MIN` | `60` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `CREATOR_RUG_FRAC` | `0.3` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `FUNDER_LOOKUPS_PER_RUN` | `50` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `BUNDLE_SLOTS` | `3` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_COIN_IDLE_MIN` | `30` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_MAX_COINS` | `3000` | defaults that lived in code until fix plan 2.1; each key has one default, here |

@@ -503,6 +503,14 @@ create table if not exists idx.scout_wallet (
   role text not null,                 -- caller or smart; a wallet that is both is a caller
   at timestamptz not null
 );
+-- funder links (docs/PIPELINE.md section 3): who sent a fresh wallet its first SOL; null when the wallet is not fresh
+create table if not exists idx.funder (
+  wallet text primary key,
+  funder text,
+  signature text,
+  at timestamptz not null
+);
+create index if not exists funder_funder on idx.funder (funder) where funder is not null;
 create table if not exists idx.seed (
   wallet text primary key,
   source text not null,

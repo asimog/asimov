@@ -73,7 +73,7 @@ export const suite: Suite = {
         await db.sql`insert into mind.positions (id, strategy_id, mint, opened_at, tokens, tokens_left, cost_sol, rent_sol, entry_price, exit_bands, closed_at, net_sol, score)
           values (${`pos_${i}`}, ${spec.id}, ${`Old${i}`}, ${at}, 1, 0, 0.012, 0.002, 1e-7, ${db.sql.json([] as never)}, ${at}, ${r * 0.01}, ${0.5 + i / 100})`;
       }
-      tape.emit("coin.watched", { mint: MINT, reason: "metrics", wallet: null, note: null, buyers_60s: 20, net_sol_60s: 5, trigger_tx: null, features }, { source: "nats", subject: MINT });
+      tape.emit("coin.watched", { mint: MINT, reason: "metrics", wallet: null, note: null, buyers_60s: 20, net_sol_60s: 5, trigger_tx: null, features, creator_record: null }, { source: "nats", subject: MINT });
       for (const [kind, value] of Object.entries(board)) await putSignal(db.sql as unknown as Tx, clock, { kind, subject: MINT, value: { ...value, n: 2 }, confidence: 0.9, validMs: 3_600_000, inputs: [], analyzer: "test" });
       await tape.flush();
       for (let n = 1; n <= 30; n++) {

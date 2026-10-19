@@ -93,7 +93,9 @@ The Index reads only its rollups, never raw trades, so it survives Tape pruning.
 | `hold_med_s` | Median hold time |
 | `n_coins` | Distinct coins traded |
 
-Archetypes by rule: `sniper`, `bundler`, `dev`, `caller`, `copier`, `smart`. Snipers, bundlers and devs are never smart. Each refresh writes `index.refreshed` with its version and the smart set, so replays decide the same way without `idx.*` tables.
+Archetypes by rule: `sniper`, `bundler`, `dev`, `caller`, `copier`, `smart`. A `bundler` is an early buyer that shares a funder with another early buyer of the same coin on `INDEX_BUNDLER_COINS` coins; a `copier` buys within `INDEX_COPY_LAG_S` after a smart wallet on `INDEX_COPIER_SHARE` of its coins. Snipers, bundlers and devs are never smart.
+
+**Funder links** (`index/funders.ts`): a fresh wallet's funder is the source of the system transfer in its oldest transaction. A wallet with a full page of 1000 signatures is not fresh, and its funder stays unknown. Each Index run looks up `FUNDER_LOOKUPS_PER_RUN` early-slot buyers into `idx.funder`. Each refresh writes `index.refreshed` with its version and the smart set, so replays decide the same way without `idx.*` tables.
 
 The pump.fun leaderboard is one seed list. We never copy its order and never model or game pump.fun's rankings or Activity Metric.
 
@@ -109,7 +111,7 @@ One signal, `risk.state`, recomputed on every holder snapshot. The snapshot carr
 | `creator_sold` | Creator's share sold, creator's past coins and how they ended |
 | `top10_share` | Top-10 share excluding the curve and the AMM pool |
 | `sniper_share` | Supply bought by `sniper` wallets |
-| `creator_launches_7d` | Coins the creator launched in 7 days (mass deployer) |
+| `creator_launches_7d`, `creator_rug_rate` | Coins the creator launched in 7 days (mass deployer: the gate refuses past `max_creator_launches_7d` with `mass_deployer`), and the share of their past coins (at least `CREATOR_PAST_MIN` old) that did not graduate and fell under `CREATOR_RUG_FRAC` of their peak. The Scout writes the record on `coin.watched` |
 
 Two layers: the owner's floor in limits (the Risk Gate refuses), and each strategy's own stricter taste (evolves). A coin with no `risk.state` is refused.
 

@@ -30,7 +30,7 @@ export const suite: Suite = {
         created_at: clock.iso(), chain: "solana", quoted_callout_id: null, author_position: { amount_held: null, cost_basis_usd: null, pnl_usd: null }, via: "poll",
       }, { source: "feedreader", subject: "c1" });
       tape.emit("coin.watched", {
-        mint: "M1", reason: "heat", wallet: null, note: null, buyers_60s: 10, net_sol_60s: 2, trigger_tx: null,
+        mint: "M1", reason: "heat", wallet: null, note: null, buyers_60s: 10, net_sol_60s: 2, trigger_tx: null, creator_record: null,
         features: { from_birth: true, age_s: 1, first_slot: 1, creator: null, trades: 1, buyers: 1, holders_est: 1, mcap_usd: 1, bundle_buys: 0, bundle_wallets: 0, bundle_share: 0, dev_buy_sol: 0, block0_sniper_share: 0, sniper_share: 0, top_buyer_share: 0, creator_sold: 0, smart_buyers: 0 },
       }, { source: "nats", subject: "M1" });
       tape.emit("index.refreshed", { version: 1, window_days: 30, wallets: 0, coins: 1, smart: [] }, { source: "analyzer", subject: "index:1" });

@@ -32,6 +32,7 @@ export function indexSignals(clock: Clock): Consumer {
     const [h] = await tx`select id, seen_time, body from tape.events where topic = 'holders.snapshot' and subject = ${mint} and seen_time <= ${e.seen_time} order by seen_time desc, id desc limit 1`;
     const hb = h?.body as BodyOf<"holders.snapshot"> | undefined;
     const f = hb?.features && new Date(h!.seen_time as string).getTime() >= new Date(w.seen_time as string).getTime() ? hb.features : (w.body as BodyOf<"coin.watched">).features;
+    const cr = (w.body as BodyOf<"coin.watched">).creator_record;
     let creatorSold = f.creator_sold;
     if (f.creator) {
       const [s] = await tx`select coalesce(sum((body->>'tokens')::float) filter (where body->>'side' = 'sell'), 0) sold,
@@ -48,6 +49,7 @@ export function indexSignals(clock: Clock): Consumer {
       value: {
         bundle_share: f.bundle_share, bundle_wallets: f.bundle_wallets, sniper_share: f.sniper_share,
         top10_share: top10, creator_sold: creatorSold, holders_est: f.holders_est,
+        creator_launches_7d: cr?.launches_7d ?? null, creator_rug_rate: cr?.rug_rate ?? null,
         breaches: ratios.filter((x) => x > 1).length,
         score: Math.min(1, Math.max(...ratios) / 2), // 0.5 = at the floor, 1 = twice the floor
       },

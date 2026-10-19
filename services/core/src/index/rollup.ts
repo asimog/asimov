@@ -158,6 +158,11 @@ export class Rollup {
     return this.coins.get(mint)?.curve_account ?? null;
   }
 
+  /** Launches by a creator the Index holds but has not written to idx.coin yet: [mint, first seen ms]. */
+  unflushedLaunches(creator: string): [string, number][] {
+    return [...this.coins].filter(([, c]) => c.creator === creator && !c.flushed).map(([m, c]) => [m, c.first_seen_at]);
+  }
+
   /** What the launch sources know in memory: creator, curve account and creation time. */
   launchInfo(mint: string) {
     const c = this.coins.get(mint);

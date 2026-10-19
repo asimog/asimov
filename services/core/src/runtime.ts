@@ -7,6 +7,7 @@ import { slowSignals } from "./analyzers/slow-signals.ts";
 import { publisher } from "./hands/publisher.ts";
 import { replies } from "./hands/replies.ts";
 import { buildLeaderboards, compact } from "./index/compact.ts";
+import { linkFunders } from "./index/funders.ts";
 import { snapshotHolders } from "./index/holders.ts";
 import { refresh, seed } from "./index/refresh.ts";
 import type { Clock } from "./lib/clock.ts";
@@ -86,6 +87,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
   const indexJobs = async (seedToo: boolean) => {
     try {
       if (seedToo) await seed(sql, clock.iso());
+      await linkFunders(sql, pool, clock.iso());
       await refresh(sql, tape);
     } catch (err) {
       log.warn("index", { err: String(err) });

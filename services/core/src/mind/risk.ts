@@ -27,6 +27,7 @@ export type Limits = {
   max_top10_share: number;
   max_creator_sold: number;
   require_risk_state: boolean;
+  max_creator_launches_7d: number;
 };
 
 /** The defaults in `config/limits.default.json` (checked at boot), with empty lists; the lists come only from mind.lists. */
@@ -64,7 +65,7 @@ export async function loadLimits(sql: Sql | Tx, asOf?: string): Promise<Limits> 
 }
 
 export type GateIntent = { id: string; mint: string; side: "buy" | "sell"; size_sol: number; duplicate: boolean; creator?: string | null; caller?: string | null };
-export type GateRisk = { bundle_share: number; top10_share: number | null; creator_sold: number };
+export type GateRisk = { bundle_share: number; top10_share: number | null; creator_sold: number; creator_launches_7d?: number | null };
 export type GateQuote = { at_ms: number; impact_bps: number; real_sol: number | null; graduated: boolean; risk?: GateRisk | null };
 export type GateFlags = { kill: KillState; mode_ok: boolean; strategy_live: boolean };
 
@@ -93,6 +94,7 @@ export function riskGate(i: GateIntent, book: Book, L: Limits, q: GateQuote | nu
   if (r && r.bundle_share > L.max_bundle_share) return no("bundled", `first-slot buyers hold ${(r.bundle_share * 100).toFixed(0)}% of supply`);
   if (r && r.top10_share != null && r.top10_share > L.max_top10_share) return no("concentrated", `top 10 hold ${(r.top10_share * 100).toFixed(0)}%`);
   if (r && r.creator_sold > L.max_creator_sold) return no("creator_sold", `creator sold ${(r.creator_sold * 100).toFixed(0)}%`);
+  if (r?.creator_launches_7d != null && r.creator_launches_7d > L.max_creator_launches_7d) return no("mass_deployer", `creator launched ${r.creator_launches_7d} coins in 7 days`);
   if (i.size_sol > L.max_order_sol + 1e-12) return no("order_cap", `${i.size_sol} SOL over ${L.max_order_sol}`);
   if ((book.position_sol.get(i.mint) ?? 0) + i.size_sol > L.max_position_sol + 1e-12) return no("position_cap", "combined position over cap");
   if (!book.open_coins.has(i.mint) && book.open_coins.size >= L.max_open_coins) return no("open_coins_cap", `${book.open_coins.size} coins open`);

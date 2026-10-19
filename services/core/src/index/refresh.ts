@@ -16,6 +16,9 @@ const P = {
   smartMax: env.int("INDEX_SMART_MAX"),
   cost: env.num("INDEX_ROUND_TRIP_COST"), // fees both ways plus slippage at 0.02 SOL (docs/DECISIONS.md cost floor)
   sniperShare: env.num("INDEX_SNIPER_SHARE"),
+  copyLagS: env.num("INDEX_COPY_LAG_S"),
+  copierShare: env.num("INDEX_COPIER_SHARE"),
+  bundlerCoins: env.int("INDEX_BUNDLER_COINS"),
 };
 
 type Smart = BodyOf<"index.refreshed">["smart"][number];
@@ -47,7 +50,15 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
         w.peak_after >= 2 * w.copy_price early_right, -- the peak after their first buy, never an earlier one
         extract(epoch from (select min(k.created_at) from mem.callouts k where k.mint = w.mint and k.created_at > w.first_buy_at) - w.first_buy_at) lead_s,
         power(0.5, extract(epoch from (${now}::timestamptz - w.first_buy_at)) / 86400 / ${P.halfLifeDays}::float8) wt,
-        c.creator = w.wallet is_dev
+        c.creator = w.wallet is_dev,
+        -- bundler (C9): an early buyer that shares a funder with another early buyer of the same coin
+        w.early_slot and exists (select 1 from idx.funder f join idx.funder f2 on f2.funder = f.funder and f2.wallet <> f.wallet
+          join (select wallet, mint from idx.wallet_coin where early_slot union select wallet, mint from idx.wallet_coin_all where early_slot) e2 on e2.wallet = f2.wallet and e2.mint = w.mint
+          where f.wallet = w.wallet and f.funder is not null) shared_funder,
+        -- copier (C9): a smart wallet of the last version bought this coin shortly before them
+        exists (select 1 from (select wallet, mint, first_buy_at from idx.wallet_coin union all select wallet, mint, first_buy_at from idx.wallet_coin_all) s
+          join idx.wallet iw on iw.wallet = s.wallet and iw.archetype = 'smart'
+          where s.mint = w.mint and s.wallet <> w.wallet and s.first_buy_at < w.first_buy_at and s.first_buy_at >= w.first_buy_at - make_interval(secs => ${P.copyLagS}::float8)) copied
       from (
         -- one row per wallet x coin across the hourly and compacted tables, merged as the rollup upsert merges
         select wallet, mint, sum(sol_out) sol_out, sum(tok_in) tok_in, sum(tok_out) tok_out, min(first_buy_at) first_buy_at,
@@ -66,6 +77,8 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
       percentile_cont(0.5) within group (order by lead_s) lead_s,
       avg(early_slot::int) early_share,
       bool_or(is_dev) dev,
+      count(*) filter (where shared_funder)::int bundled,
+      avg(copied::int) copied_share,
       exists (select 1 from mem.callers k where k.wallet = t.wallet) caller,
       exists (select 1 from idx.seed s where s.wallet = t.wallet) seeded
     from t group by wallet having count(*) >= 2`;
@@ -79,8 +92,10 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
   const out = rows.map((r) => {
     const n = r.n as number;
     const winLcb = lcb(r.win as number, n);
-    const archetype = r.dev ? "dev" : (r.early_share as number) >= P.sniperShare ? "sniper"
+    // snipers, bundlers and devs are never smart; a copier that earns on its own is smart (docs/PIPELINE.md section 3)
+    const archetype = r.dev ? "dev" : (r.bundled as number) >= P.bundlerCoins ? "bundler" : (r.early_share as number) >= P.sniperShare ? "sniper"
       : (r.copy_net as number) > 1 && winLcb > pop && n >= (r.seeded ? P.minCoinsSeed : P.minCoins) ? "smart"
+      : (r.copied_share as number) >= P.copierShare && n >= P.minCoins ? "copier"
       : r.caller ? "caller" : "trader";
     const row = { wallet: r.wallet as string, version: v, n, copy_net: r.copy_net as number, copy_win_lcb: winLcb, early_right: r.early_right as number, lead_s: (r.lead_s as number | null) ?? null, archetype, seed: r.seeded ? "seed" : "firehose", refreshed_at: now };
     if (archetype === "smart") smart.push({ wallet: row.wallet, copy_net: row.copy_net, copy_win_lcb: winLcb, n, lead_s: row.lead_s, archetype });

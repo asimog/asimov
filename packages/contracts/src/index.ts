@@ -377,6 +377,8 @@ export const CoinWatched = z.object({
   net_sol_60s: num,
   trigger_tx: z.string().nullable(),
   features: CoinFeatures,
+  /** the creator's record at promotion (C9): launches in 7 days, past coins and how many were rugs; null when the creator is unknown */
+  creator_record: z.object({ launches_7d: num, past: num, rugs: num, rug_rate: num.nullable() }).nullable(),
 });
 
 /** A watched coin left the watched set (docs/PIPELINE.md): the chain recheck disagreed and the launch filter failed. */

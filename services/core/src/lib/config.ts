@@ -52,6 +52,8 @@ const SCHEMAS = {
     max_creator_sold: share,
     /** a buy on a coin with no live `risk.state` is refused (C7); only `true` is accepted, so the floor only gets stricter */
     require_risk_state: z.literal(true),
+    /** a creator with more launches than this in 7 days is a mass deployer: the gate refuses the buy (C9) */
+    max_creator_launches_7d: posInt,
   }),
   retention: z.strictObject({
     /** hours an `inputs_hot` partition stays before the archiver exports and drops it (B6) */

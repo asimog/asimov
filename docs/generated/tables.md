@@ -2,7 +2,7 @@
 
 Generated from `services/core/src/sql/schema.sql` by `npm run docs:gen`. Do not edit by hand.
 
-64 objects.
+65 objects.
 
 | Name | Kind | Line |
 |---|---|---|
@@ -48,25 +48,26 @@ Generated from `services/core/src/sql/schema.sql` by `npm run docs:gen`. Do not 
 | `idx.coin` | table | 474 |
 | `idx.wallet` | table | 488 |
 | `idx.scout_wallet` | table | 501 |
-| `idx.seed` | table | 506 |
-| `hands.orders` | table | 514 |
-| `hands.dead_letters` | table | 530 |
-| `books.entries` | table | 536 |
-| `books.balances` | table | 543 |
-| `books.lots` | table | 544 |
-| `books.realized` | table | 552 |
-| `books.proofs` | table | 553 |
-| `ops.kill` | table | 561 |
-| `ops.kill_counts` | table | 571 |
-| `mem.callout_replies` | table | 580 |
-| `slow.reports` | table | 584 |
-| `slow.jobs` | table | 591 |
-| `slow.cursors` | table | 596 |
-| `slow.pumpfun_callout` | view | 600 |
-| `slow.pumpfun_callout_comment` | view | 610 |
-| `slow.pumpfun_update` | view | 615 |
-| `slow.pumpfun_caller` | view | 619 |
-| `slow.pumpfun_coin` | view | 624 |
-| `slow.pumpfun_trade_flow` | view | 630 |
-| `slow.media` | view | 634 |
-| `slow.report_feed` | view | 643 |
+| `idx.funder` | table | 507 |
+| `idx.seed` | table | 514 |
+| `hands.orders` | table | 522 |
+| `hands.dead_letters` | table | 538 |
+| `books.entries` | table | 544 |
+| `books.balances` | table | 551 |
+| `books.lots` | table | 552 |
+| `books.realized` | table | 560 |
+| `books.proofs` | table | 561 |
+| `ops.kill` | table | 569 |
+| `ops.kill_counts` | table | 579 |
+| `mem.callout_replies` | table | 588 |
+| `slow.reports` | table | 592 |
+| `slow.jobs` | table | 599 |
+| `slow.cursors` | table | 604 |
+| `slow.pumpfun_callout` | view | 608 |
+| `slow.pumpfun_callout_comment` | view | 618 |
+| `slow.pumpfun_update` | view | 623 |
+| `slow.pumpfun_caller` | view | 627 |
+| `slow.pumpfun_coin` | view | 632 |
+| `slow.pumpfun_trade_flow` | view | 638 |
+| `slow.media` | view | 642 |
+| `slow.report_feed` | view | 651 |

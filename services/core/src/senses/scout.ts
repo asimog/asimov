@@ -4,6 +4,7 @@
 
 import type { BodyOf } from "@asimog/contracts";
 import type { NatsConnection } from "@nats-io/nats-core";
+import { creatorRecord } from "../index/creators.ts";
 import { Rollup } from "../index/rollup.ts";
 import { type Config, configValues } from "../lib/config.ts";
 import type { Sql } from "../lib/db.ts";
@@ -244,8 +245,9 @@ export class Scout {
     const te = this.tape.emit(t.on_curve === false ? "trade.amm" : "trade.curve", t, { source: "nats", subject: t.mint, eventTime: t.ts, dedupe: tradeKey(t) });
     const features = { ...f, creator: resolved.creator ?? f.creator, dev_buy_sol: resolved.dev_buy_sol, block0_sniper_share: resolved.block0_sniper_share };
     const note = reason === "follow" ? await this.followNote(t.wallet) : null;
+    const creator_record = features.creator ? await creatorRecord(this.sql, features.creator, now, this.rollup.unflushedLaunches(features.creator)) : null;
     const we = this.tape.emit("coin.watched", {
-      mint: t.mint, reason, wallet: reason === "caller_buy" || reason === "smart_buy" || reason === "follow" ? t.wallet : null, note, buyers_60s: q.buyers, net_sol_60s: q.net, trigger_tx: t.tx, features,
+      mint: t.mint, reason, wallet: reason === "caller_buy" || reason === "smart_buy" || reason === "follow" ? t.wallet : null, note, buyers_60s: q.buyers, net_sol_60s: q.net, trigger_tx: t.tx, features, creator_record,
     }, { source: "nats", subject: t.mint, causes: [te.id], dedupe: `watch:${t.mint}:${Math.floor(now / this.p.repromoteMs)}` });
     this.onPromote(t.mint, resolved.curve_account ?? this.rollup.curveAccount(t.mint), we.id, () => this.rollup.features(t.mint, this.tape.clock.now()));
   }

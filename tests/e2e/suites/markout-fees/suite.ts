@@ -37,7 +37,7 @@ export const suite: Suite = {
     let raw: number[] = [];
     let adj: number[] = [];
     try {
-      tape.emit("coin.watched", { mint: MINT, reason: "metrics", wallet: null, note: null, buyers_60s: 20, net_sol_60s: 5, trigger_tx: null, features }, { source: "nats", subject: MINT });
+      tape.emit("coin.watched", { mint: MINT, reason: "metrics", wallet: null, note: null, buyers_60s: 20, net_sol_60s: 5, trigger_tx: null, features, creator_record: null }, { source: "nats", subject: MINT });
       const sig = (kind: string, value: unknown) => putSignal(db.sql as unknown as Tx, clock, { kind, subject: MINT, value, confidence: 0.9, validMs: 3_600_000, inputs: [], analyzer: "test" });
       await sig("curve.progress", { progress: 0.2, mcap_usd: 9000 });
       await sig("flow.state", { buyers_60s: 20, heat: 1, top_share: 0 });

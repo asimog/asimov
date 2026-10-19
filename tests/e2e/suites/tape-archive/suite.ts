@@ -38,7 +38,7 @@ export const suite: Suite = {
         hotIds.push(e.id);
       }
       tape.emit("coin.watched", {
-        mint: "M1", reason: "heat", wallet: null, note: null, buyers_60s: 1, net_sol_60s: 1, trigger_tx: null,
+        mint: "M1", reason: "heat", wallet: null, note: null, buyers_60s: 1, net_sol_60s: 1, trigger_tx: null, creator_record: null,
         features: { from_birth: true, age_s: 1, first_slot: 1, creator: null, trades: 1, buyers: 1, holders_est: 1, mcap_usd: 1, bundle_buys: 0, bundle_wallets: 0, bundle_share: 0, dev_buy_sol: 0, block0_sniper_share: 0, sniper_share: 0, top_buyer_share: 0, creator_sold: 0, smart_buyers: 0 },
       }, { source: "nats", subject: "M1" });
       tape.emit("index.refreshed", { version: 1, window_days: 30, wallets: 0, coins: 1, smart: [] }, { source: "analyzer", subject: "index:1" });

@@ -35,7 +35,7 @@ export const suite: Suite = {
     const add = (name: string, pass: boolean, detail = "") => checks.push({ name, pass, detail });
     try {
       for (const [mint, reason] of [[SCOUTED, "metrics"], [FOLLOWED, "follow"]] as const) {
-        tape.emit("coin.watched", { mint, reason, wallet: reason === "follow" ? "Fw1" : null, note: null, buyers_60s: 20, net_sol_60s: 5, trigger_tx: null, features }, { source: "nats", subject: mint });
+        tape.emit("coin.watched", { mint, reason, wallet: reason === "follow" ? "Fw1" : null, note: null, buyers_60s: 20, net_sol_60s: 5, trigger_tx: null, features, creator_record: null }, { source: "nats", subject: mint });
         const sig = (kind: string, value: unknown) => putSignal(db.sql as unknown as Tx, clock, { kind, subject: mint, value, confidence: 0.9, validMs: 3_600_000, inputs: [], analyzer: "test" });
         await sig("curve.progress", { progress: 0.2, mcap_usd: 9000 });
         await sig("flow.state", { buyers_60s: 20, heat: 1, top_share: 0 });
