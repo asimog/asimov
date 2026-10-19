@@ -31,6 +31,7 @@ export const gateConfig = (): GateConfig => ({
 /** The fast probabilities the gate compares: each kind's first [0,1] field. */
 const FAST = ["precall.callout_p", "callers.wave_p", "hawkes.wave_p"];
 const JOB = { 1: "synthesis_coin", 2: "swarm_run" } as const;
+const GATE_TOPICS = ["precall.detected", "coin.watched", "callout.created", "synthesis.coin", "trade.curve"];
 
 /** Control split: sha256(mint) mod 2. Stable across runs, so a coin is always in the same arm. */
 export const armOf = (mint: string): "run" | "control" => (crypto.createHash("sha256").update(mint).digest()[31]! % 2 === 0 ? "run" : "control");
@@ -43,7 +44,7 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
   const coins = new Map<string, Coin>(); // the latest in-play start per mint
   const granted = new Map<string, Grant>(); // the latest grant per mint
   const runs: Record<1 | 2, number[]> = { 1: [], 2: [] }; // times of run grants that took quota, last hour
-  let nextHot = 0;
+  let hotBucket = -1; // the hot set runs once per HOT_SET_EVERY_S bucket of Tape time: the same buckets after a restart
   let loaded = false;
 
   /** Rebuild state from the Tape before `e`, as an uninterrupted run would have it. */
@@ -57,16 +58,16 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
     const rows = await tx`select id, topic, seen_time, subject, body from tape.events
       where topic in ('precall.detected', 'coin.watched', 'callout.created', 'jev.escalated') and seen_time >= ${since} and (seen_time, id) < (${e.seen_time}, ${e.id})
       order by seen_time, id`;
-    let lastHot = 0;
     for (const r of rows) {
       const at = (r.seen_time as Date).getTime();
       if (r.topic === "jev.escalated") {
         const b = r.body as BodyOf<"jev.escalated">;
         if (b.stage === 1 || b.stage === 2) record(b.subject, b.stage, at, b.arm, b.deferred);
-        if (b.gate_reasons.includes("hot_set")) lastHot = at;
       } else note({ topic: r.topic as string, body: r.body } as Envelope, at);
     }
-    nextHot = lastHot ? lastHot + cfg.hotEveryMs : 0;
+    // the bucket of the last event before `e` on the gate's topics: an uninterrupted run already ticked in it
+    const [prev] = await tx`select seen_time from tape.events where topic = any(${GATE_TOPICS}) and (seen_time, id) < (${e.seen_time}, ${e.id}) order by seen_time desc, id desc limit 1`;
+    hotBucket = prev ? Math.floor((prev.seen_time as Date).getTime() / cfg.hotEveryMs) : -1;
     loaded = true;
   }
 
@@ -179,7 +180,7 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
   return {
     name: "attention",
     startAtHead: true,
-    topics: ["precall.detected", "coin.watched", "callout.created", "synthesis.coin", "trade.curve"],
+    topics: GATE_TOPICS,
     batch: 500,
     stats,
     async handle(events, tx) {
@@ -188,8 +189,8 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
           if (!loaded) await load(tx, e);
           const now = Date.parse(e.seen_time);
           clock.advance?.(now);
-          if (now >= nextHot) {
-            nextHot = now + cfg.hotEveryMs;
+          if (Math.floor(now / cfg.hotEveryMs) > hotBucket) {
+            hotBucket = Math.floor(now / cfg.hotEveryMs);
             await hotSet(tx, e);
           }
           if (e.topic === "synthesis.coin") { // stage 1 is done: the gate may take the coin one stage further

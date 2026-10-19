@@ -57,15 +57,16 @@ export class Bridge {
 
   /** Runs left this hour for an engine and kind: jobs in the last hour that took a slot (not deferred, not expired). */
   private async quotaLeft(engine: Engine, kind: Kind, perHour: number): Promise<number> {
-    const [r] = await this.d.sql`select count(*)::int n from slow.jobs where engine = ${engine} and kind = ${kind} and slot >= ${this.iso(this.d.now() - 3_600_000)}
-      and state <> 'deferred' and coalesce(error, '') <> 'expired'`;
+    // by when a job took its slot (queued, or started in the last hour), not by its slot: a promoted job keeps an old slot
+    const [r] = await this.d.sql`select count(*)::int n from slow.jobs where engine = ${engine} and kind = ${kind}
+      and (state in ('queued', 'running') or started_at >= ${this.iso(this.d.now() - 3_600_000)})`;
     return perHour - (r!.n as number);
   }
 
   private async queue(t: Target, subject: string, slot: string, deferred?: string): Promise<boolean> {
     if (!this.d.engines[t.engine]) return false; // that engine is off: nothing to queue
     const why = deferred ?? (t.kind === "feed" || (await this.quotaLeft(t.engine, t.kind, this.perHour(t))) > 0 ? undefined : "quota"); // the feed has its own timer
-    const usd_cap = this.d.cfg.stageUsd[t.stage ?? PRESET_STAGE[t.preset] ?? 3];
+    const usd_cap = this.d.cfg.stageUsd[t.stage ?? PRESET_STAGE[t.preset] ?? 1]; // an unknown preset gets the smallest cap;
     const ok = await enqueue(this.d.sql, { id: this.d.newId(), engine: t.engine, kind: t.kind, subject, preset: t.preset, slot, stage: t.stage, usd_cap, deferred: why });
     if (ok) this.stats[why ? "deferred" : "queued"]++;
     return ok;

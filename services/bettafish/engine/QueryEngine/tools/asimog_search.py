@@ -40,7 +40,7 @@ class AsimogNewsAgency:
             " where (content ilike $1 or title ilike $1 or source_keyword ilike $1) and create_time >= $2 order by create_time desc limit $3",
             t, since_ms, limit,
         )
-        return [SearchResult(title=f"{r['title']} callout", url=r["note_url"], content=f"[cid:{r['note_id']}] {fence(r['content'])}", published_date=datetime.fromtimestamp(r["create_time"] / 1000).isoformat()) for r in rows]
+        return [SearchResult(title=fence(r["title"], 60) + " callout", url=r["note_url"], content=f"[cid:{r['note_id']}] {fence(r['content'])}", published_date=datetime.fromtimestamp(r["create_time"] / 1000).isoformat()) for r in rows]
 
     def _x(self, query: str, since: Optional[datetime], limit: int) -> List[SearchResult]:
         if not self.x_token:

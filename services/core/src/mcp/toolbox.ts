@@ -310,9 +310,9 @@ export const TOOLS: Tool[] = [
     return { claims_kept: claims.length, claims_dropped: total - claims.length };
   }),
 
-  tool("emit_forum_line", [CAP.synth], "Write one forum line (the live debate shown on /synthesis).", { synthesis_id: z.string(), round: z.number().int(), agent: z.enum(["insight", "query", "media", "host"]), text: z.string().max(600), cites: Cites }, async (a, c) => {
+  tool("emit_forum_line", [CAP.synth], "Write one forum line (the live debate shown on /synthesis).", { synthesis_id: z.string(), as_of: iso, window_min: z.number().min(1).max(1440), round: z.number().int(), agent: z.enum(["insight", "query", "media", "host"]), text: z.string().max(600), cites: Cites }, async (a, c) => {
     const text = mustText("forum line", a.text);
-    const found = await citedCallouts(c, a.cites, { from: new Date(0).toISOString(), to: c.clock.iso() }); // a forum line cites what was seen by now
+    const found = await citedCallouts(c, a.cites, windowOf(c, a));
     c.tape.emit("synthesis.forum_line", { ...a, text, cites: a.cites.filter((id) => found.has(id)) }, { source: source(c), subject: a.synthesis_id });
     await c.tape.flush();
     return { ok: true };
@@ -329,11 +329,10 @@ export const TOOLS: Tool[] = [
     const [A, B] = [full.filter((s) => s.branch === "A"), full.filter((s) => s.branch === "B")];
     if (!A.length) throw new Refusal("no_full_samples", "no full branch A sample: no wave probability");
     const wave_p = A.filter((s) => s.callers >= WAVE_CALLERS).length / A.length;
-    const d_callers = B.length ? mean(B.map((s) => s.callers)) - mean(A.map((s) => s.callers)) : 0;
-    const d_net_sol = B.length ? (mean(B.map((s) => s.net_lamports)) - mean(A.map((s) => s.net_lamports))) / 1e9 : 0;
+    const impact = B.length ? { d_callers: mean(B.map((s) => s.callers)) - mean(A.map((s) => s.callers)), d_net_sol: (mean(B.map((s) => s.net_lamports)) - mean(A.map((s) => s.net_lamports))) / 1e9 } : null; // no full B sample: no impact
     const truncated = full.length < a.samples.length;
     c.tape.emit("swarm.wave_p", { swarm_id: a.swarm_id, mint: a.mint, wave_p, samples: A.length, preset: a.preset, usd: a.usd, truncated }, { source: source(c), subject, dedupe: `swarm.wave_p:${a.swarm_id}` });
-    c.tape.emit("swarm.impact", { swarm_id: a.swarm_id, mint: a.mint, d_callers, d_net_sol, samples: A.length, truncated }, { source: source(c), subject, dedupe: `swarm.impact:${a.swarm_id}` });
+    if (impact) c.tape.emit("swarm.impact", { swarm_id: a.swarm_id, mint: a.mint, ...impact, samples: A.length, truncated }, { source: source(c), subject, dedupe: `swarm.impact:${a.swarm_id}` });
     let refused = 0;
     a.posts.forEach((p, i) => {
       const kept = keepText(p, ["agent", "archetype", "text"]);
@@ -344,7 +343,7 @@ export const TOOLS: Tool[] = [
       c.tape.emit("swarm.post", { swarm_id: a.swarm_id, mint: a.mint, ...kept, simulated: true }, { source: source(c), subject, dedupe: `swarm.post:${a.swarm_id}:${i}` });
     });
     await c.tape.flush();
-    return { wave_p, d_callers, d_net_sol, samples: A.length, truncated, posts_written: a.posts.length - refused, posts_refused: refused };
+    return { wave_p, ...impact, samples: A.length, truncated, posts_written: a.posts.length - refused, posts_refused: refused };
   }, true),
 
   tool("emit_swarm_beliefs", [CAP.swarm], "Write a swarm run's belief drift: mean stance per archetype per round, per branch and sample. SIMULATED.", {
@@ -425,7 +424,8 @@ export const TOOLS: Tool[] = [
     a.summary = mustText("summary", a.summary);
     if (a.markdown !== null) a.markdown = mustText("markdown", a.markdown);
     const now = c.clock.iso();
-    const callouts = a.cites.length ? new Set((await c.sql`select callout_id from mem.callouts where callout_id = any(${a.cites}) and seen_at <= ${now}`).map((r) => r.callout_id as string)) : new Set<string>();
+    const callouts = a.cites.length ? new Set((await c.sql`select callout_id from mem.callouts where callout_id = any(${a.cites}) and seen_at <= ${now}
+      and (${a.window_from}::timestamptz is null or seen_at >= ${a.window_from}) and (${a.window_to}::timestamptz is null or seen_at <= ${a.window_to})`).map((r) => r.callout_id as string)) : new Set<string>();
     const events = a.cites.length ? new Set((await c.sql`select id from tape.events where id = any(${a.cites}) and seen_time <= ${now}`).map((r) => r.id as string)) : new Set<string>();
     const cites = a.cites.filter((x) => callouts.has(x) || events.has(x));
     const parents = a.parent_reports.length ? (await c.sql`select report_id from slow.reports where report_id = any(${a.parent_reports}) and published_at <= ${now}`).map((r) => r.report_id as string) : [];

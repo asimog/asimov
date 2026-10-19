@@ -73,7 +73,7 @@ export const suite: Suite = {
       const base: Record<string, Record<string, unknown>> = {
         emit_synthesis_feed: { ...feed("Callers buy early.", "co_in"), coin_stances: [{ mint: MINT, symbol: "FROG", stance: "bullish", why: "Early buys.", cites: ["co_in"] }], suspicious: [{ pattern: "bundle", text: "Many early wallets.", cites: ["co_in"] }] },
         emit_synthesis_coin: { synthesis_id: "c", mint: MINT, as_of, window_min: 60, stance: "bullish", narrative: "Callers buy early.", preset: "nano", claims: [{ text: "One caller bought.", cites: ["co_in"] }] },
-        emit_forum_line: { synthesis_id: "fl", round: 1, agent: "insight", text: "Callers buy early.", cites: ["co_in"] },
+        emit_forum_line: { synthesis_id: "fl", as_of, window_min: 60, round: 1, agent: "insight", text: "Callers buy early.", cites: ["co_in"] },
         emit_swarm_result: { swarm_id: "w", mint: MINT, preset: "nano", usd: 0, samples: [{ branch: "A", callers: 1, actions: 4, net_lamports: 0, truncated: false }], posts: [{ branch: "A", platform: "pumpfun", round: 1, agent: "Ava", archetype: "degen", text: "Buying a little." }] },
         emit_swarm_beliefs: { swarm_id: "wb", mint: MINT, topic: "wave", branches: { A: [[{ round: 1, stance: { degen: 0.1 } }]] } },
         propose_strategy: { spec: seedSpecs()[0], why: ["Tests a rule."] },

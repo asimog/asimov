@@ -31,7 +31,7 @@ export async function mapOutput(c: Cores, job: Job, out: RunOutput, parents: str
   const run = { as_of: window.to, window_min: Math.round((Date.parse(window.to ?? "") - Date.parse(window.from ?? "")) / 60_000) };
   if (out.synthesis_feed) await write(c.synth, "emit_synthesis_feed", { synthesis_id: job.id, preset: job.preset, ...out.synthesis_feed, ...run });
   if (out.synthesis_coin) await write(c.synth, "emit_synthesis_coin", { synthesis_id: job.id, mint: job.subject, preset: job.preset, ...out.synthesis_coin, ...run });
-  for (const f of out.forum_lines ?? []) await write(c.synth, "emit_forum_line", { synthesis_id: job.id, ...f }); // the engine's own round
+  for (const f of out.forum_lines ?? []) await write(c.synth, "emit_forum_line", { synthesis_id: job.id, ...f, ...run }); // the engine's own round
   if (out.swarm) await write(c.swarm, "emit_swarm_result", { swarm_id: job.id, mint: job.subject, preset: job.preset, ...out.swarm });
   if (out.beliefs) await write(c.swarm, "emit_swarm_beliefs", { swarm_id: job.id, mint: job.subject, ...out.beliefs });
   return m;
