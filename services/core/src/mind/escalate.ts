@@ -17,13 +17,13 @@ import { loadLimits } from "./risk.ts";
 
 export type GateConfig = {
   pLow: number; pHigh: number; disagree: number; hotSize: number; hotEveryMs: number; solUsd: number;
-  stageUsd: Record<1 | 2, number>; windowMs: number; calloutMs: number;
+  stageUsd: Record<1 | 2, number>; windowMs: number; calloutMs: number; recheckMs: number;
 };
 export const gateConfig = (): GateConfig => ({
   pLow: env.num("ESC_P_LOW"), pHigh: env.num("ESC_P_HIGH"), disagree: env.num("ESC_DISAGREE"),
   hotSize: env.int("HOT_SET_SIZE"), hotEveryMs: env.num("HOT_SET_EVERY_S") * 1000, solUsd: env.num("SOL_USD"),
   stageUsd: { 1: env.num("SLOW_STAGE1_USD_PER_RUN"), 2: env.num("SLOW_STAGE2_USD_PER_RUN") },
-  windowMs: env.int("ENTRY_WINDOW_MIN") * 60_000, calloutMs: 60_000,
+  windowMs: env.int("ENTRY_WINDOW_MIN") * 60_000, calloutMs: env.num("ESC_CALLOUT_S") * 1000, recheckMs: env.num("ESC_RECHECK_MIN") * 60_000,
 });
 
 /** The fast probabilities the gate compares: each kind's first [0,1] field. */
@@ -39,6 +39,7 @@ type Grant = { stage: 1 | 2; at_ms: number; arm: "run" | "control" };
 
 export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateConfig()): Consumer & { stats: Record<string, number> } {
   const stats = { grants: 0, control: 0, hot: 0 };
+  let pending = { grants: 0, control: 0, hot: 0 }; // this batch's counts, added to stats once it commits
   const coins = new Map<string, Coin>(); // the latest in-play start per mint
   const granted = new Map<string, Grant>(); // the latest grant per mint
   let hotBucket = -1; // the hot set runs once per HOT_SET_EVERY_S bucket of Tape time: the same buckets after a restart
@@ -49,7 +50,7 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
     coins.clear();
     granted.clear();
     const now = Date.parse(e.seen_time);
-    const since = new Date(now - cfg.windowMs).toISOString();
+    const since = new Date(now - Math.max(cfg.windowMs, cfg.recheckMs)).toISOString();
     const rows = await tx`select id, topic, seen_time, subject, body from tape.events
       where topic in ('precall.detected', 'coin.watched', 'callout.created', 'jev.escalated') and seen_time >= ${since} and (seen_time, id) < (${e.seen_time}, ${e.id})
       order by seen_time, id`;
@@ -116,8 +117,8 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
     const arm = armOf(mint);
     await tape.emitIn(tx, "jev.escalated", { subject: mint, gate_reasons: arm === "control" ? [...reasons, "control"] : reasons, job: arm === "control" ? null : JOB[stage], voi, stage, arm }, { source: "attention", subject: mint, causes: [e.id], after: e.seen_time });
     granted.set(mint, { stage, at_ms: now, arm });
-    stats.grants++;
-    if (arm === "control") stats.control++;
+    pending.grants++;
+    if (arm === "control") pending.control++;
   }
 
   /**
@@ -152,11 +153,11 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
       .filter((x) => x.rank > 0)
       .sort((a, b) => b.rank - a.rank || (a.mint < b.mint ? -1 : 1))
       .slice(0, cfg.hotSize);
-    // a coin granted within ENTRY_WINDOW_MIN was checked recently: the hot set refreshes it once the window has passed
+    // a coin granted within ESC_RECHECK_MIN was checked recently: the hot set refreshes it once that has passed
     const now = Date.parse(e.seen_time);
-    const due = ranked.filter((r) => now - (granted.get(r.mint)?.at_ms ?? -Infinity) > cfg.windowMs);
+    const due = ranked.filter((r) => now - (granted.get(r.mint)?.at_ms ?? -Infinity) > cfg.recheckMs);
     for (const x of due) await grant(tx, e, x.mint, 1, ["hot_set", `rank ${x.rank.toFixed(3)}`], x.rank);
-    stats.hot += due.length;
+    pending.hot += due.length;
   }
 
   return {
@@ -165,6 +166,10 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
     topics: GATE_TOPICS,
     batch: 500,
     stats,
+    afterCommit() {
+      for (const k of Object.keys(stats) as (keyof typeof stats)[]) stats[k] += pending[k];
+      pending = { grants: 0, control: 0, hot: 0 };
+    },
     async handle(events, tx) {
       try {
         for (const e of events) {
@@ -184,10 +189,11 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
           const mint = note(e, now);
           if (!mint) continue;
           const g = granted.get(mint);
-          if (!g || now - g.at_ms > cfg.windowMs) await evaluate(tx, e, mint, 1); // one stage 1 per in-play window
+          if (!g || now - g.at_ms > cfg.recheckMs) await evaluate(tx, e, mint, 1); // one stage 1 per ESC_RECHECK_MIN
         }
       } catch (err) {
         loaded = false; // the transaction rolls back; rebuild from the Tape next batch
+        pending = { grants: 0, control: 0, hot: 0 };
         throw err;
       }
     },

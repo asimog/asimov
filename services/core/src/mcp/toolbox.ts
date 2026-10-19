@@ -60,7 +60,7 @@ export interface Tool {
   run(a: never, c: ToolCtx): Promise<unknown>;
 }
 /** `strict`: an unknown argument is refused, not dropped (a number core computes must not arrive from an engine). */
-const tool = <S extends z.ZodRawShape>(name: string, caps: string[], desc: string, shape: S, run: (a: z.infer<z.ZodObject<S>>, c: ToolCtx) => Promise<unknown>, strict = false): Tool => ({ name, caps, desc, input: strict ? z.strictObject(shape) : z.object(shape), run: run as Tool["run"] });
+const tool = <S extends z.ZodRawShape>(name: string, caps: string[], desc: string, shape: S, run: (a: z.infer<z.ZodObject<S>>, c: ToolCtx) => Promise<unknown>, o: { strict?: boolean } = {}): Tool => ({ name, caps, desc, input: o.strict ? z.strictObject(shape) : z.object(shape), run: run as Tool["run"] });
 
 const ANY_LANE = ALL_CAPS.filter((c) => c !== CAP.swarmRead); // the read-only worker token records nothing
 const source = (c: ToolCtx) => SOURCE[c.cap] ?? "agents";
@@ -344,7 +344,7 @@ export const TOOLS: Tool[] = [
     });
     await c.tape.flush();
     return { wave_p, ...impact, samples: A.length, truncated, posts_written: a.posts.length - refused, posts_refused: refused };
-  }, true),
+  }, { strict: true }),
 
   tool("emit_swarm_beliefs", [CAP.swarm], "Write a swarm run's belief drift: mean stance per archetype per round, per branch and sample. SIMULATED.", {
     swarm_id: z.string(), mint: z.string(), topic: z.string().max(40),
@@ -421,8 +421,8 @@ export const TOOLS: Tool[] = [
     summary: z.string().min(10).max(600), cites: z.array(z.string()).max(200).default([]), parent_reports: z.array(z.string()).max(20).default([]),
     ir: z.record(z.string(), z.unknown()).nullable().default(null), markdown: z.string().max(400_000).nullable().default(null), simulated: z.boolean().default(false),
   }, async (a, c) => {
-    a.summary = requireText("summary", a.summary);
-    if (a.markdown !== null) a.markdown = requireText("markdown", a.markdown);
+    const summary = requireText("summary", a.summary);
+    const markdown = a.markdown === null ? null : requireText("markdown", a.markdown);
     const now = c.clock.iso();
     const callouts = a.cites.length ? new Set((await c.sql`select callout_id from mem.callouts where callout_id = any(${a.cites}) and seen_at <= ${now}
       and (${a.window_from}::timestamptz is null or seen_at >= ${a.window_from}) and (${a.window_to}::timestamptz is null or seen_at <= ${a.window_to})`).map((r) => r.callout_id as string)) : new Set<string>();
@@ -430,12 +430,12 @@ export const TOOLS: Tool[] = [
     const cites = a.cites.filter((x) => callouts.has(x) || events.has(x));
     const parents = a.parent_reports.length ? (await c.sql`select report_id from slow.reports where report_id = any(${a.parent_reports}) and published_at <= ${now}`).map((r) => r.report_id as string) : [];
     if (parents.length !== a.parent_reports.length) throw new Refusal("bad_parent", "a parent report is unknown or newer than now");
-    const body = { ir: a.ir, markdown: a.markdown };
+    const body = { ir: a.ir, markdown };
     const sha256 = (await import("node:crypto")).createHash("sha256").update(canonical(body)).digest("hex");
     await c.sql`insert into slow.reports (report_id, producer, kind, subject, window_from, window_to, preset, sha256, summary, cites, parent_reports, ir, markdown, published_at)
-      values (${a.report_id}, ${a.producer}, ${a.kind}, ${a.subject}, ${a.window_from}, ${a.window_to}, ${a.preset}, ${sha256}, ${a.summary}, ${cites}, ${parents}, ${a.ir ? c.sql.json(a.ir as never) : null}, ${a.markdown}, ${now})
+      values (${a.report_id}, ${a.producer}, ${a.kind}, ${a.subject}, ${a.window_from}, ${a.window_to}, ${a.preset}, ${sha256}, ${summary}, ${cites}, ${parents}, ${a.ir ? c.sql.json(a.ir as never) : null}, ${markdown}, ${now})
       on conflict (report_id) do nothing`;
-    c.tape.emit("report.published", { report_id: a.report_id, producer: a.producer, kind: a.kind, subject: a.subject, window_from: a.window_from, window_to: a.window_to, preset: a.preset, sha256, summary: a.summary, cites, parent_reports: parents, simulated: a.simulated, cites_dropped: a.cites.length - cites.length }, { source: source(c), subject: a.subject, dedupe: `report:${a.report_id}` });
+    c.tape.emit("report.published", { report_id: a.report_id, producer: a.producer, kind: a.kind, subject: a.subject, window_from: a.window_from, window_to: a.window_to, preset: a.preset, sha256, summary, cites, parent_reports: parents, simulated: a.simulated, cites_dropped: a.cites.length - cites.length }, { source: source(c), subject: a.subject, dedupe: `report:${a.report_id}` });
     await c.tape.flush();
     return { report_id: a.report_id, sha256, cites_kept: cites.length, cites_dropped: a.cites.length - cites.length };
   }),
