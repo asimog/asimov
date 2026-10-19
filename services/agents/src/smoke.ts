@@ -1,14 +1,16 @@
 // One short real model call per lane (docs/OPS.md "Slow-mind suites"): `npm run agents:smoke`. A lane without its key
 // (LLM_KEY_<LANE> in .env.local) is skipped and said so. Costs a fraction of a cent per lane.
 import { LANES, Lane, loadEnv } from "@asimog/lane";
+import { configValues } from "../../core/src/lib/config.ts";
 
 const env = loadEnv();
+const { models } = configValues();
 for (const name of LANES) {
   if (!env[`LLM_KEY_${name}`]) {
     console.log(JSON.stringify({ lane: name, skipped: `no LLM_KEY_${name}` }));
     continue;
   }
-  const lane = new Lane(name, { env: { ...env, LLM_STUB: "0" } });
+  const lane = new Lane(name, { env: { ...env, LLM_STUB: "0" }, models: [models.default] }); // the primary only: a fallback would hide a bad key
   const r = await lane.ask({ system: "Answer in five words or fewer.", user: "Name one color.", maxTokens: 16 });
   console.log(JSON.stringify({ lane: name, answer: r.text.trim().slice(0, 60), usd: r.usd }));
 }

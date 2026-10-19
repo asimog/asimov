@@ -22,7 +22,8 @@ export interface AgentsOpts {
   sql: Sql;
   mcpUrl: string;
   token: (agent: AgentName) => string | undefined;
-  lane: (name: LaneName) => Lane;
+  /** the lane for one agent: spend metered under the lane name, model chain per agent (config/models.json) */
+  lane: (name: LaneName, agent: AgentName) => Lane;
   checkpointer?: BaseCheckpointSaver;
   now?: () => number;
   enabled?: AgentName[];
@@ -93,7 +94,7 @@ export class AgentsRuntime {
 
   async runJob(job: Job): Promise<{ ok: boolean; cost_usd: number; result?: unknown; error?: string }> {
     const spec = AGENTS[job.agent];
-    const lane = this.o.lane(spec.lane);
+    const lane = this.o.lane(spec.lane, job.agent);
     const usd0 = lane.usd;
     const belt = await this.belt(job.agent);
     const ev = (kind: "started" | "done", extra: Record<string, unknown> = {}) => belt.call("job_event", { kind, job_id: job.id, agent: job.agent, trigger_event: job.trigger.type === "event" ? String((job.trigger.event as { id?: string }).id ?? "") : null, ...extra });

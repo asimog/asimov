@@ -1,0 +1,5 @@
+{
+  "default": "deepseek/deepseek-v4.1-flash",
+  "agents": {},
+  "fallback": ["deepseek/deepseek-chat-v3-0324:free", "meta-llama/llama-3.3-70b-instruct:free"]
+}

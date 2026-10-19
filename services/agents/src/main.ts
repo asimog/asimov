@@ -1,6 +1,7 @@
 // Agents service: `tsx services/agents/src/main.ts`. Deterministic ticks queue jobs; a worker runs them.
 // Needs the core MCP server (MCP_PORT) and one token per agent (MCP_TOKEN_<AGENT>) in .env.local.
-import { Lane, type LaneName, loadEnv, need } from "@asimog/lane";
+import { Lane, loadEnv, need } from "@asimog/lane";
+import { configValues, modelChain } from "../../core/src/lib/config.ts";
 import { makeCheckpointer } from "./checkpoint.ts";
 import { connect, migrate, PgSpend } from "./db.ts";
 import { AGENT_NAMES, AGENTS, type AgentName } from "./lanes.ts";
@@ -13,13 +14,14 @@ const sql = connect(url);
 await migrate(sql);
 const checkpointer = await makeCheckpointer(url);
 const spend = new PgSpend(sql);
-const lanes = new Map<LaneName, Lane>();
+const models = configValues().models;
+const lanes = new Map<AgentName, Lane>();
 const enabled = (env.AGENTS_ENABLED ? env.AGENTS_ENABLED.split(",").map((s) => s.trim()) : AGENT_NAMES.filter((a) => a !== "noop")) as AgentName[];
 const rt = new AgentsRuntime({
   sql,
   mcpUrl: need(env, "MCP_URL"),
   token: (a) => env[AGENTS[a].tokenEnv] ?? env[`MCP_TOKEN_${a.toUpperCase()}`],
-  lane: (n) => lanes.get(n) ?? (lanes.set(n, new Lane(n, { spend })), lanes.get(n)!),
+  lane: (n, a) => lanes.get(a) ?? (lanes.set(a, new Lane(n, { spend, models: modelChain(models, a) })), lanes.get(a)!),
   checkpointer,
   enabled,
 });

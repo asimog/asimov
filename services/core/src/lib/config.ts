@@ -55,6 +55,13 @@ const SCHEMAS = {
     /** a creator with more launches than this in 7 days is a mass deployer: the gate refuses the buy (C9) */
     max_creator_launches_7d: posInt,
   }),
+  /** Model per thinking agent and the free fallback chain (E4); keys are env (LLM_KEY_<LANE>, LLM_FALLBACK_KEY), never config. */
+  models: z.strictObject({
+    default: z.string().min(1),
+    agents: z.partialRecord(z.enum(["postmortem", "researcher", "ops", "reporter", "integrity"]), z.string().min(1)),
+    /** tried in order when the primary fails; OpenRouter free models, called with LLM_FALLBACK_KEY */
+    fallback: z.array(z.string().min(1)).min(1),
+  }),
   retention: z.strictObject({
     /** hours an `inputs_hot` partition stays before the archiver exports and drops it (B6) */
     hot_window_hours: posInt,
@@ -135,6 +142,11 @@ function check(file: ConfigFile, json: unknown): unknown {
   if (r.success) return r.data;
   const i = r.error.issues[0]!;
   throw new Error(`config/${file}.json: ${i.path.length ? i.path.join(".") : "(file)"}: ${i.message}`);
+}
+
+/** The ordered model chain for one thinking agent: its model (or the default), then the fallbacks. */
+export function modelChain(m: Config["models"], agent: string): string[] {
+  return [m.agents[agent as keyof typeof m.agents] ?? m.default, ...m.fallback];
 }
 
 const values = (l: Loaded): Config => Object.fromEntries(CONFIG_FILES.map((f) => [f, l[f].value])) as Config;

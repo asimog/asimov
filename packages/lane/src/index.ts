@@ -1,5 +1,6 @@
 // A lane is one thinking lane's door to a model (docs/SYSTEM.md): its own OpenRouter key, its own hourly USD limit, checked
-// before every call. `LLM_STUB=1` (or a stub passed in) swaps the model for a scripted one, so everything runs offline.
+// before every call. `models` is the chain from config/models.json (E4): the first uses LLM_KEY_<LANE>, the rest are free
+// fallbacks on LLM_FALLBACK_KEY, tried in order when a call fails. `LLM_STUB=1` (or a stub passed in) swaps the model for a scripted one, so everything runs offline.
 
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { AIMessage, type BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
@@ -89,12 +90,12 @@ export interface LaneOpts {
   spend?: SpendStore;
   capUsdHour?: number;
   now?: () => number;
-  model?: string;
+  /** primary model, then fallbacks (config `modelChain`); required unless stubbed */
+  models?: string[];
 }
 
 export class Lane {
   readonly stubbed: boolean;
-  private chat: BaseChatModel | null = null;
   private readonly spend: SpendStore;
   private readonly cap: number;
   private readonly price: { inM: number; outM: number };
@@ -113,18 +114,38 @@ export class Lane {
     if (this.stubbed) console.warn(JSON.stringify({ lane: name, llm: "stub", note: "LLM_STUB is on: answers are canned, not a model" }));
   }
 
-  private model(maxTokens?: number): BaseChatModel {
-    if (this.chat && !maxTokens) return this.chat;
+  private models(maxTokens?: number): { model: string; chat: BaseChatModel | Error }[] {
+    if (this.stubbed) return [{ model: "stub", chat: new StubChat(this.name, this.o.stub ?? (() => "{}")) }];
     const e = this.o.env ?? loadEnv();
-    const m: BaseChatModel = this.stubbed
-      ? new StubChat(this.name, this.o.stub ?? (() => "{}"))
-      : (() => {
-          const apiKey = e[`LLM_KEY_${this.name}`];
-          if (!apiKey) throw new NoLaneKey(`no key for lane ${this.name}: set LLM_KEY_${this.name} in .env.local`);
-          return new ChatOpenAI({ apiKey, model: this.o.model ?? e[`LLM_MODEL_${this.name}`] ?? need(e, "LLM_MODEL_CHEAP"), temperature: 0.2, maxTokens, configuration: { baseURL: need(e, "LLM_BASE_URL") } });
-        })();
-    if (!maxTokens) this.chat = m;
-    return m;
+    const ids = this.o.models ?? [];
+    if (!ids.length) throw new Error(`lane ${this.name}: no models (config/models.json)`);
+    return ids.map((model, i) => {
+      const keyName = i === 0 ? `LLM_KEY_${this.name}` : "LLM_FALLBACK_KEY";
+      const apiKey = e[keyName];
+      if (!apiKey) return { model, chat: new NoLaneKey(`no key: set ${keyName} in .env.local`) };
+      // no client retries: a failure moves down the chain at once
+      return { model, chat: new ChatOpenAI({ apiKey, model, temperature: 0.2, maxTokens, maxRetries: 0, configuration: { baseURL: need(e, "LLM_BASE_URL") } }) };
+    });
+  }
+
+  /** The first model in the chain that answers; throws naming every model's failure. */
+  private async invoke(req: Request) {
+    const msgs = [new SystemMessage(req.system), new HumanMessage(req.user)];
+    const failed: string[] = [];
+    for (const { model, chat } of this.models(req.maxTokens)) {
+      if (chat instanceof Error) {
+        failed.push(`${model}: ${chat.message}`);
+        continue;
+      }
+      try {
+        const res = await chat.invoke(msgs);
+        if (failed.length) console.warn(JSON.stringify({ lane: this.name, fallback: model, failed }));
+        return res;
+      } catch (err) {
+        failed.push(`${model}: ${String((err as Error).message ?? err).slice(0, 160)}`);
+      }
+    }
+    throw new Error(`lane ${this.name}: every model failed (${failed.join("; ")})`);
   }
 
   private hour(): string {
@@ -140,7 +161,7 @@ export class Lane {
     const hour = this.hour();
     const spent = await this.spend.get(this.name, hour);
     if (spent >= this.cap) throw new BudgetExceeded(this.name, spent, this.cap);
-    const res = await this.model(req.maxTokens).invoke([new SystemMessage(req.system), new HumanMessage(req.user)]);
+    const res = await this.invoke(req);
     const text = typeof res.content === "string" ? res.content : JSON.stringify(res.content);
     const u = (res as AIMessage).usage_metadata;
     const usd = ((u?.input_tokens ?? Math.ceil((req.system.length + req.user.length) / 4)) * this.price.inM + (u?.output_tokens ?? Math.ceil(text.length / 4)) * this.price.outM) / 1e6;

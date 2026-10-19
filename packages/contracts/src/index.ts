@@ -583,7 +583,7 @@ export type ListKind = (typeof LIST_KINDS)[number];
 export const LimitsChanged = z.object({ version: z.number().int(), key: z.string(), value: z.unknown(), by: z.literal("admin") });
 export const ListsLoaded = z.object({ kind: z.enum(LIST_KINDS), version: z.number().int(), count: z.number().int(), sha256: z.string(), by: z.literal("admin") });
 /** Pipeline config files (docs/OPS.md section 1); each boot writes one `config.loaded` per file, and replays read it from the Tape. */
-export const CONFIG_FILES = ["feeds", "filters", "limits.default", "retention", "schedules"] as const;
+export const CONFIG_FILES = ["feeds", "filters", "limits.default", "models", "retention", "schedules"] as const;
 export type ConfigFile = (typeof CONFIG_FILES)[number];
 export const ConfigLoaded = z.object({ file: z.enum(CONFIG_FILES), sha256: z.string(), value: z.unknown() });
 export const ProofPublished = z.object({ n: z.number().int(), hour: z.string(), sha256: z.string(), prev_sha256: z.string(), memo_sig: z.string().nullable() });

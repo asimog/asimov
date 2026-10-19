@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-300 keys. Secrets live only in `.env.local` and are not listed here.
+301 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -103,6 +103,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `NEO4J_HEAP` | `512m` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `LLM_KEY_SYNTH` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `LLM_KEY_SWARM` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `LLM_FALLBACK_KEY` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `INSIGHT_ENGINE_API_KEY` | `${LLM_KEY_SYNTH}` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `INSIGHT_ENGINE_BASE_URL` | `${LLM_BASE_URL}` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `INSIGHT_ENGINE_MODEL_NAME` | `${LLM_MODEL_CHEAP}` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |

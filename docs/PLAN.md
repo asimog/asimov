@@ -42,7 +42,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | # | Work | Check |
 |---|---|---|
 | B0 | Done 2026-10-19. The Tape never drops an accepted event silently (`docs/tasks/B0.md`) | `tape-durable`: database stopped mid-run, zero dropped |
-| B1 | Done 2026-10-19. Config module for `config/*.json` (feeds, filters, retention, schedules; `models.json` comes with E4) with `config.loaded` (`docs/tasks/B1.md`) | `config-load`: a bad field stops boot naming `launch.max_dev_buy_sol`; `config.loaded` carries each file hash |
+| B1 | Done 2026-10-19. Config module for `config/*.json` (feeds, filters, retention, schedules; `models.json` added by E4) with `config.loaded` (`docs/tasks/B1.md`) | `config-load`: a bad field stops boot naming `launch.max_dev_buy_sol`; `config.loaded` carries each file hash |
 | B2 | Done 2026-10-19. Feed sources (`recent`, `hot`, `follow`; every chain read, `solana` stored) and configurable callout filters (chain, minimum position, mcap at call), from the recorded real slice (`docs/tasks/B2.md`) | `feed-filters` passed on the slice: only passing callouts stored; rejected counted by reason and chain and sampled; a threshold change needs no code |
 | B3 | Done 2026-10-19. Launch filters (dev buy, block-0 snipers, bundles, blocklists) before promotion, facts from NATS then the RPC pool then the pump.fun API, with a rule for unknown (`docs/tasks/B3.md`) | `launch-filters` passed: filtered launches never reach the watched set |
 | B4 | Done 2026-10-19. `follow_wallets` list and the follow feed (`docs/tasks/B4.md`) | `follow-wallets` passed: a followed wallet's buy promotes its coin |
@@ -89,7 +89,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | E2 | Rug feed room from scraped comments and `risk.state`, evidence classes kept apart | `verify-asimog` screenshots and page text |
 | E3 | Wiki: pages from the Index and ledger, Wiki writer agent for prose, versioned rows, `/wiki` room, export to a pluggable wiki target (bucket or GitHub docs) | A page rebuilds byte-identical from the same data |
 | E5 | Embeddings in the agent runtime: OpenRouter embedding model, pgvector table with model and `seen_at`, as-of search; used for callout copies and narratives, reply rug reports, wiki and report retrieval | A replay search returns nothing seen after its time; spend metered |
-| E4 | `config/models.json` with per-agent models and the free fallback chain on `LLM_FALLBACK_KEY` | A failing primary falls back in a short run |
+| E4 | Done 2026-10-19. `config/models.json` with per-agent models and the free fallback chain on `LLM_FALLBACK_KEY` (`docs/tasks/E4.md`) | `model-fallback`: PASS, primary 500s and `free-a` answers on the fallback key in 100 ms, one call each |
 
 ### F. Hardening and truth (fix plan Phase 6)
 
