@@ -1,4 +1,4 @@
-// Plan A5 and A6. `risk.state` is recomputed on every holder snapshot (bundle, fresh and sniper shares ride on the snapshot), and a restart
+// Plan A5 and A6. `risk.state` is recomputed on every holder snapshot (bundle and sniper shares ride on the snapshot), and a restart
 // restores the coin's creator. The Index numbers are hand computed: early_right uses the peak after the wallet's first buy, the copy price
 // survives a rollup flush, and copy value is marked at a fixed horizon (INDEX_MIN_AGE_MIN after the first buy), not at the last trade.
 import type { BodyOf, Trade } from "../../../../packages/contracts/src/index.ts";
@@ -15,8 +15,8 @@ import type { Suite } from "../../lib/suite.ts";
 
 const MINT = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const features = (o: Partial<BodyOf<"coin.watched">["features"]> = {}): BodyOf<"coin.watched">["features"] => ({
-  from_birth: true, fresh_known: true, age_s: 30, first_slot: 100, creator: null, trades: 10, buyers: 6, holders_est: 6, mcap_usd: 9000, bundle_buys: 1, bundle_wallets: 1,
-  bundle_share: 0.05, fresh_share: 0.1, sniper_share: 0, top_buyer_share: 0.2, creator_sold: 0, smart_buyers: 0, ...o,
+  from_birth: true, age_s: 30, first_slot: 100, creator: null, trades: 10, buyers: 6, holders_est: 6, mcap_usd: 9000, bundle_buys: 1, bundle_wallets: 1,
+  bundle_share: 0.05, sniper_share: 0, top_buyer_share: 0.2, creator_sold: 0, smart_buyers: 0, ...o,
 });
 const snapshot = (f: ReturnType<typeof features>) => ({ mint: MINT, supply: 1e9, top: [{ account: "A1", amount: 1e8 }], excluded: [], top10_share: 0.2, features: f });
 
@@ -43,9 +43,9 @@ export const suite: Suite = {
       at(0);
       tape.emit("coin.watched", { mint: MINT, reason: "heat", wallet: null, buyers_60s: 5, net_sol_60s: 3, trigger_tx: null, features: features() }, { source: "nats", subject: MINT });
       at(1);
-      tape.emit("holders.snapshot", snapshot(features({ bundle_share: 0.1, fresh_share: 0.2, sniper_share: 0.05 })), { source: "rpc", subject: MINT });
+      tape.emit("holders.snapshot", snapshot(features({ bundle_share: 0.1, sniper_share: 0.05 })), { source: "rpc", subject: MINT });
       at(2);
-      tape.emit("holders.snapshot", snapshot(features({ bundle_share: 0.3, fresh_share: 0.4, sniper_share: 0.15 })), { source: "rpc", subject: MINT });
+      tape.emit("holders.snapshot", snapshot(features({ bundle_share: 0.3, sniper_share: 0.15 })), { source: "rpc", subject: MINT });
       await tape.flush();
       const consumer = indexSignals(clock);
       while (await step(db.sql, consumer)) { /* drain */ }
@@ -53,7 +53,7 @@ export const suite: Suite = {
       const v = sigs.map((s) => s.value as Record<string, number>);
       add("one risk.state per event: the watch and two snapshots", sigs.length === 3, `${sigs.length} signals`);
       add("the second snapshot gives a different risk.state from the first", v.length === 3 && v[1]!.bundle_share !== v[2]!.bundle_share && v[1]!.score !== v[2]!.score, JSON.stringify([v[1], v[2]]));
-      add("bundle, fresh and sniper shares come from the snapshot", v[2]?.bundle_share === 0.3 && v[2]?.fresh_share === 0.4 && v[2]?.sniper_share === 0.15, JSON.stringify(v[2]));
+      add("bundle and sniper shares come from the snapshot", v[2]?.bundle_share === 0.3 && v[2]?.sniper_share === 0.15, JSON.stringify(v[2]));
 
       // ---- A5: a restart restores the creator and adds deltas
       const base = t0 + 10 * MIN;

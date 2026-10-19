@@ -105,7 +105,6 @@ One signal, `risk.state`, recomputed on every holder snapshot. The snapshot carr
 | Field | From |
 |---|---|
 | `bundle_share`, `bundle_wallets` | Wallets buying in the creation slot or the next two, and the supply they still hold (coins seen from birth); shared funders |
-| `fresh_share` | Early buyers the Index has never seen trade |
 | `creator_sold` | Creator's share sold, creator's past coins and how they ended |
 | `top10_share` | Top-10 share excluding the curve and the AMM pool |
 | `sniper_share` | Supply bought by `sniper` wallets |

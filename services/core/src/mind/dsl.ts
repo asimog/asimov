@@ -16,7 +16,7 @@ export const CATALOG: Record<string, SigInfo> = {
   "caller.dna": { subject: "caller", system: 1, unit: ["net_win", "followers_norm"], fields: ["n", "resolved", "net_win", "med_net", "med_age", "med_pre", "followers", "followers_norm"] },
   "curve.progress": { subject: "mint", system: 1, unit: ["progress"], fields: ["progress", "real_sol", "mcap_usd"] },
   "flow.state": { subject: "mint", system: 1, unit: ["heat", "top_share"], fields: ["buys_60s", "sells_60s", "buyers_60s", "net_sol_60s", "accel", "known_callers_buying"] },
-  "risk.state": { subject: "mint", system: 1, unit: ["score", "bundle_share", "fresh_share", "sniper_share", "top10_share", "creator_sold"], fields: ["bundle_wallets", "holders_est", "breaches"] },
+  "risk.state": { subject: "mint", system: 1, unit: ["score", "bundle_share", "sniper_share", "top10_share", "creator_sold"], fields: ["bundle_wallets", "holders_est", "breaches"] },
   "wallets.smart_buying": { subject: "mint", system: 1, unit: ["score"], fields: ["n", "copy_net_med", "lead_s_med"] },
   "precall.callout_p": { subject: "mint", system: 1, unit: ["p", "caller_p", "p_peak"], fields: ["n_buys", "n_called", "lag_med_s", "med_peak", "pop_rate", "callers_buying", "buy_sol"] },
   "jev.callout.kind": { subject: "callout", system: 1, unit: ["p.fresh_call", "p.hype", "p.exit_notice", "p.fud", "p.other"], fields: ["choice"] },

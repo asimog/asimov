@@ -10,7 +10,7 @@ type Coin = {
   first_seen_at: number; first_slot: number | null; from_birth: boolean; creator: string | null; curve_account: string | null; created_ms: number | null;
   last_price: number | null; peak_price: number | null; last_at: number; trades: number; mcap_usd: number | null;
   bundle_buys: number; bundle_sol: number; bundle_wallets: Set<string>; buy_sol: number; graduated: boolean;
-  bal: Map<string, number>; bought: Map<string, number>; fresh_sol: number; sniper_sol: number; smart: Set<string>; creator_sold: number; creator_bought: number;
+  bal: Map<string, number>; bought: Map<string, number>; sniper_sol: number; smart: Set<string>; creator_sold: number; creator_bought: number;
   pending: { wallet: string; due: number; at: number }[]; // first buys still waiting for their copy price
   marks: { wallet: string; due: number; at: number }[]; // first buys still waiting for their mark price (price at first buy + horizon)
   after: Map<string, { peak: number; at: number }>; // buyer -> highest price since their first buy, and when that buy was
@@ -20,8 +20,6 @@ type Coin = {
 
 const P = {
   latencyMs: env.num("FILL_LATENCY_MEDIAN_MS"),
-  freshWarmupMs: env.num("INDEX_FRESH_WARMUP_H") * 3_600_000,
-  knownMax: env.int("INDEX_KNOWN_WALLETS"),
   launchPrice: 30 / 1_073_000_000, // SOL per token at a fresh curve (virtual reserves 30 SOL / 1.073B tokens)
   bundleSlots: env.int("BUNDLE_SLOTS"),
   idleMs: env.int("INDEX_COIN_IDLE_MIN") * 60_000,
@@ -39,17 +37,13 @@ export class Rollup {
 
   private wc = new Map<string, WC>(); // `${wallet}|${mint}` -> changes since the last flush
   private coins = new Map<string, Coin>();
-  private known = new Map<string, number>(); // wallet -> first time we saw it trade; the INDEX_KNOWN_WALLETS most recently active, oldest first
   smart = new Set<string>(); // from the latest Index version
+  private held = new Set<string>(); // coins with an open position of ours: never forgotten or slimmed
   snipers = new Set<string>();
   stats = { trades: 0, coins: 0, wallets: 0, flushed: 0, coin_wallets: 0, evicted: 0 };
-  private since = Number.POSITIVE_INFINITY; // the oldest wallet the Index knows: how far back "fresh" can be judged
 
-  /** Wallets the Index already knows, so a restart does not call everyone fresh. */
+  /** Smart and sniper wallets from the latest Index, and the live coins' creators. */
   async load(sql: Sql) {
-    for (const r of await sql`select wallet, min(coalesce(first_buy_at, last_at)) at from idx.wallet_coin where last_at > now() - interval '7 days'
-        group by 1 order by max(last_at) limit ${P.knownMax}`)
-      this.since = Math.min(this.since, (this.known.set(r.wallet as string, (r.at as Date).getTime()), (r.at as Date).getTime()));
     for (const r of await sql`select wallet, archetype from idx.wallet where archetype in ('smart', 'sniper')`) (r.archetype === "smart" ? this.smart : this.snipers).add(r.wallet as string);
     // coins still live when we stopped keep their creator (and what the creator sold), so the creator-sold check survives a restart
     for (const r of await sql`select c.*, w.tok_in, w.tok_out from idx.coin c left join idx.wallet_coin w on w.mint = c.mint and w.wallet = c.creator
@@ -77,7 +71,7 @@ export class Rollup {
     if (!c) {
       c = {
         first_seen_at: now, first_slot: null, from_birth: false, creator: null, curve_account: null, created_ms: null, last_price: null, peak_price: null, last_at: now, trades: 0, mcap_usd: null,
-        bundle_buys: 0, bundle_sol: 0, bundle_wallets: new Set(), buy_sol: 0, graduated: false, bal: new Map(), bought: new Map(), fresh_sol: 0, sniper_sol: 0, smart: new Set(), creator_sold: 0, creator_bought: 0, pending: [], marks: [], after: new Map(), flushed: null, slim: false,
+        bundle_buys: 0, bundle_sol: 0, bundle_wallets: new Set(), buy_sol: 0, graduated: false, bal: new Map(), bought: new Map(), sniper_sol: 0, smart: new Set(), creator_sold: 0, creator_bought: 0, pending: [], marks: [], after: new Map(), flushed: null, slim: false,
       };
       this.coins.set(mint, c);
     }
@@ -128,7 +122,6 @@ export class Rollup {
       }
       c.buy_sol += t.sol;
       c.bought.set(t.wallet, (c.bought.get(t.wallet) ?? 0) + t.sol);
-      if (!this.known.has(t.wallet) && now - this.since >= P.freshWarmupMs) c.fresh_sol += t.sol;
       if (this.snipers.has(t.wallet)) c.sniper_sol += t.sol;
       if (this.smart.has(t.wallet)) c.smart.add(t.wallet);
       if (t.wallet === c.creator) c.creator_bought += tokens;
@@ -140,12 +133,6 @@ export class Rollup {
       if (t.wallet === c.creator) c.creator_sold += tokens;
     }
     c.bal.set(t.wallet, (c.bal.get(t.wallet) ?? 0) + (t.side === "buy" ? tokens : -tokens));
-    // recently active wallets only: "fresh" means not seen trading within this memory, and memory stays bounded
-    const first = this.known.get(t.wallet) ?? now;
-    this.known.delete(t.wallet);
-    this.known.set(t.wallet, first);
-    if (this.known.size > P.knownMax) this.known.delete(this.known.keys().next().value!);
-    if (this.since === Number.POSITIVE_INFINITY) this.since = now;
   }
 
   /** This minute's changes for a wallet on a coin; a trade-less touch (a late copy price, a new peak) starts an empty one dated at the first buy. */
@@ -174,7 +161,6 @@ export class Rollup {
     const holders = [...c.bal.entries()].filter(([w, b]) => b > 1 && w !== c.curve_account).length;
     return {
       from_birth: c.from_birth,
-      fresh_known: now - this.since >= P.freshWarmupMs,
       age_s: c.created_ms ? (now - c.created_ms) / 1000 : (now - c.first_seen_at) / 1000,
       first_slot: c.first_slot,
       creator: c.creator,
@@ -186,7 +172,6 @@ export class Rollup {
       bundle_wallets: c.bundle_wallets.size,
       // what the first-slot buyers still hold, as a share of the whole supply: the part that can be dumped on followers
       bundle_share: Math.min(1, [...c.bundle_wallets].reduce((a, w) => a + Math.max(0, c.bal.get(w) ?? 0), 0) / SUPPLY),
-      fresh_share: share(c.fresh_sol),
       sniper_share: share(c.sniper_sol),
       top_buyer_share: share([...c.bought.values()].reduce((m, v) => Math.max(m, v), 0)), // no spread: a coin can have more buyers than the call stack allows arguments
       creator_sold: c.creator_bought > 0 ? Math.min(1, c.creator_sold / c.creator_bought) : 0,
@@ -196,6 +181,7 @@ export class Rollup {
 
   /** Write the minute's changes; forget coins idle for INDEX_COIN_IDLE_MIN. */
   async flush(sql: Sql, now: number) {
+    this.held = new Set((await sql`select distinct mint from mind.positions where closed_at is null`).map((r) => r.mint as string));
     for (const [mint, c] of this.coins) this.settle(mint, c, now, c.last_price ?? 0); // no trade since the horizon: the last price is the price at it
     const batch = this.wc;
     this.wc = new Map(); // trades keep arriving while we write
@@ -242,16 +228,16 @@ export class Rollup {
       const c = this.coins.get(k.mint)!;
       c.flushed = { trades: (c.flushed?.trades ?? 0) + k.trades, bundle_buys: (c.flushed?.bundle_buys ?? 0) + k.bundle_buys, bundle_sol: (c.flushed?.bundle_sol ?? 0) + k.bundle_sol };
     }
-    for (const [mint, c] of this.coins) if (c.last_at < now - P.idleMs) this.coins.delete(mint);
+    for (const [mint, c] of this.coins) if (c.last_at < now - P.idleMs && !this.held.has(mint)) this.coins.delete(mint);
     this.evict();
     let coinWallets = 0;
     for (const c of this.coins.values()) coinWallets += c.bal.size + c.bought.size;
-    this.stats = { ...this.stats, coins: this.coins.size, wallets: this.known.size, flushed: this.stats.flushed + rows.length, coin_wallets: coinWallets };
+    this.stats = { ...this.stats, coins: this.coins.size, flushed: this.stats.flushed + rows.length, coin_wallets: coinWallets };
   }
 
-  /** Memory grows with the wallet maps on live coins. Over INDEX_MAX_COINS full coins, the least recently active ones that are already written leave: whole when they owe no copy price or mark, otherwise slimmed to the small state those need. Idx rows are unchanged; only launch features of a coin that wakes up later see fewer wallets. */
+  /** Memory grows with the wallet maps on live coins. Over INDEX_MAX_COINS full coins (open positions of ours never count and never leave), the least recently active ones that are already written leave: whole when they owe no copy price or mark, otherwise slimmed to the small state those need. Idx rows are unchanged; only launch features of a coin that wakes up later see fewer wallets. */
   private evict() {
-    const full = [...this.coins].filter(([, c]) => !c.slim);
+    const full = [...this.coins].filter(([mint, c]) => !c.slim && !this.held.has(mint));
     if (full.length <= this.maxCoins) return;
     full.sort((a, b) => a[1].last_at - b[1].last_at);
     for (const [mint, c] of full.slice(0, full.length - this.maxCoins)) {

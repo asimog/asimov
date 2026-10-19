@@ -1,6 +1,6 @@
 // The rollup holds a map per wallet on every live coin, so full coins are what memory grows with. Mock trades over many more coins
 // than INDEX_MAX_COINS never push the wallet maps past the cap, idx.coin still holds every trade, and a coin still owed a copy price
-// is slimmed, not forgotten.
+// is slimmed, not forgotten, and a coin we hold is never dropped.
 import { Rollup } from "../../../../services/core/src/index/rollup.ts";
 import type { Check } from "../../lib/checks.ts";
 import { freshDb } from "../../lib/freshdb.ts";
@@ -49,6 +49,15 @@ export const suite: Suite = {
       p.trade(trade(mint(9001), "B", n++), now + 1);
       await p.flush(db.sql, now + 2);
       add("a coin owed a copy price is slimmed, not forgotten", p.stats.coins === 2 && p.stats.evicted === 1 && p.stats.coin_wallets === 2, `${p.stats.coins} coins, ${p.stats.coin_wallets} wallet entries`);
+      const h = new Rollup(1);
+      await db.sql`insert into mind.positions (id, strategy_id, mint, opened_at, tokens, tokens_left, cost_sol, rent_sol, entry_price, exit_bands) values ('P1', 's', ${mint(9100)}, now(), 1, 1, 0.1, 0, 4e-8, '[]')`;
+      for (const [i, m] of [9100, 9101, 9102].entries()) for (let w = 0; w < WALLETS; w++) h.trade(trade(mint(m), `W${w}`, n++), now + i * 10 + w);
+      await h.flush(db.sql, now + 100);
+      await h.flush(db.sql, now + 100 + 2 * 3_600_000); // everything idle for two hours
+      add("a coin with an open position survives idle time and the cap", h.stats.coins === 1 && h.stats.coin_wallets === WALLETS * 2, `${h.stats.coins} coins kept`);
+      await db.sql`update mind.positions set closed_at = now() where id = 'P1'`;
+      await h.flush(db.sql, now + 200 + 2 * 3_600_000);
+      add("once the position closes the coin is forgotten", h.stats.coins === 0, `${h.stats.coins} coins`);
       return { checks, metrics: { peak_wallet_entries: peak, evicted: r.stats.evicted } };
     } finally {
       await db.done();

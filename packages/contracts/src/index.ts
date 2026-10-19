@@ -281,7 +281,6 @@ export const BudgetSpent = z.object({ analyzer: z.string(), units: z.string(), a
 /** Launch features the Scout measured before promoting a coin (docs/PIPELINE.md section 3). All seen at promotion time. */
 export const CoinFeatures = z.object({
   from_birth: z.boolean(), // seen from its first trade: only then are bundle features measured
-  fresh_known: z.boolean(), // the Index is old enough (INDEX_FRESH_WARMUP_H) to call a wallet new
   age_s: num.nullable(),
   first_slot: num.nullable(),
   creator: z.string().nullable(),
@@ -292,7 +291,6 @@ export const CoinFeatures = z.object({
   bundle_buys: num,
   bundle_wallets: num,
   bundle_share: num,
-  fresh_share: num,
   sniper_share: num,
   top_buyer_share: num,
   creator_sold: num,

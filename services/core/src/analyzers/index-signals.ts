@@ -41,12 +41,12 @@ export function indexSignals(clock: Clock): Consumer {
     }
     const L = await loadLimits(tx, e.seen_time);
     const top10 = hb ? hb.top10_share : null;
-    const ratios = [f.bundle_share / L.max_bundle_share, (top10 ?? 0) / L.max_top10_share, f.fresh_share / L.max_fresh_share, creatorSold / L.max_creator_sold];
+    const ratios = [f.bundle_share / L.max_bundle_share, (top10 ?? 0) / L.max_top10_share, creatorSold / L.max_creator_sold];
     await putSignal(tx, clock, {
       kind: "risk.state",
       subject: mint,
       value: {
-        bundle_share: f.bundle_share, bundle_wallets: f.bundle_wallets, fresh_share: f.fresh_share, sniper_share: f.sniper_share,
+        bundle_share: f.bundle_share, bundle_wallets: f.bundle_wallets, sniper_share: f.sniper_share,
         top10_share: top10, creator_sold: creatorSold, holders_est: f.holders_est,
         breaches: ratios.filter((x) => x > 1).length,
         score: Math.min(1, Math.max(...ratios) / 2), // 0.5 = at the floor, 1 = twice the floor

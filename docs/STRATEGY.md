@@ -136,7 +136,7 @@ Owner limits (defaults in `config/limits.default.json`, changed only by `ctl lim
 | `daily_loss_stop_frac` (live book), `max_drawdown_frac` | 0.25, 0.4 |
 | `max_consecutive_losses`, `loss_cooldown_min` | 5, 30 |
 | `max_impact_bps`, `min_real_sol`, `max_quote_age_ms`, `max_slippage_bps` | 300, 3, 3000, 300 |
-| `max_bundle_share`, `max_top10_share`, `max_fresh_share`, `max_creator_sold` | 0.2, 0.3, 0.6, 0.5 |
+| `max_bundle_share`, `max_top10_share`, `max_creator_sold` | 0.2, 0.3, 0.5 |
 | `max_creator_launches_7d`, `require_risk_state` | 10, true |
 
 Reason codes are listed in `mind/risk.ts` and appear on every rejection: quote, impact, liquidity, caps, loss stops, risk floors, lists, kill state, mode, duplicates, balance, strategy stage.
