@@ -85,8 +85,8 @@ export const suite: Suite = {
       await timed("baseline", () => sleep(5000));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
       let n = 0;
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: bf, miroshark: ms }, now: () => Date.now(), newId: () => `sj_fan${n++}`, cfg: { feedEveryMin: 1440, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 600, pollMs: 300, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100 } });
-      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.5, stage: 2, arm: "run", deferred: false }, { source: "attention", subject: MINT_A });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: bf, miroshark: ms }, now: () => Date.now(), newId: () => `sj_fan${n++}`, cfg: { feedEveryMin: 1440, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 600, pollMs: 300, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100, coinWindowMin: 60 } });
+      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.5, stage: 2, arm: "run" }, { source: "attention", subject: MINT_A });
       await w.tape.flush();
       await bridge.schedule();
       await w.sql`update slow.jobs set state = 'done' where kind = 'feed'`; // the feed slot is not under test

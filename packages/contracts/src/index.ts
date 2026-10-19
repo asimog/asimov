@@ -502,11 +502,10 @@ export const ReportPublished = z.object({
   report_id: z.string(), producer: z.string(), kind: z.enum(["feed", "coin", "swarm"]), subject: z.string(), window_from: iso.nullable(), window_to: iso.nullable(),
   preset: z.string(), sha256: z.string(), summary: z.string(), cites: z.array(z.string()), parent_reports: z.array(z.string()), simulated: z.boolean(), cites_dropped: z.number().int(),
 });
-export const AttentionGrant = z.object({ job: z.enum(["session_read", "swarm_run", "synthesis_deep", "x_lookup"]), subject: z.string(), voi: z.number(), cost_est: z.number(), budget_left: z.number() });
-/** The escalation gate's choice (docs/SLOW-MIND.md section 3). `control` coins record the choice with no job; `deferred` waits for room. */
+/** The escalation gate's choice (docs/SLOW-MIND.md section 3). `control` coins record the choice with no job; room (quota, caps) is the Bridge's. */
 export const JevEscalated = z.object({
   subject: z.string(), gate_reasons: z.array(z.string()), job: z.enum(["synthesis_coin", "swarm_run"]).nullable(), voi: z.number(),
-  stage: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]), arm: z.enum(["run", "control"]), deferred: z.boolean(),
+  stage: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]), arm: z.enum(["run", "control"]),
 });
 export const OpsRestartRequested = z.object({ scope: z.string(), reason: z.string() });
 export const OpsStopRequested = z.object({ action: z.enum(["pause", "kill"]), scope: z.string(), reason: z.string() });
@@ -659,7 +658,6 @@ export const TOPICS = {
   "ops.restart_requested": OpsRestartRequested,
   "report.published": ReportPublished,
   "swarm.beliefs": SwarmBeliefs,
-  "attention.grant": AttentionGrant,
   "jev.escalated": JevEscalated,
   "soul.updated": SoulUpdated,
   "job.queued": JobEvent,
@@ -723,7 +721,7 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "post.queued": "derived", "synthesis.feed": "derived", "mood.feed": "derived", "synthesis.coin": "derived",
   "synthesis.forum_line": "derived", "swarm.wave_p": "derived", "swarm.impact": "derived", "swarm.post": "derived",
   "proposal.strategy": "derived", "jevq.proposed": "derived", "report.drafted": "derived", "integrity.text": "derived",
-  "ops.alert": "derived", "report.published": "derived", "swarm.beliefs": "derived", "attention.grant": "derived",
+  "ops.alert": "derived", "report.published": "derived", "swarm.beliefs": "derived",
   "jev.escalated": "derived", "soul.updated": "derived", "job.queued": "derived", "job.started": "derived", "job.done": "derived",
 };
 

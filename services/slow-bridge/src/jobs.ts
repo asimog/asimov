@@ -33,16 +33,17 @@ export async function expireDeferred(sql: Sql, before: string, at: string) {
   await sql`update slow.jobs set state = 'failed', error = 'expired', finished_at = ${at} where state = 'deferred' and slot < ${before}`;
 }
 
-/** Move the `n` oldest deferred jobs of one engine and kind to the queue. A job deferred by the day cap waits for its expiry. */
+/** Move the `n` oldest deferred jobs of one engine and kind to the queue (the caller checks the day cap first). */
 export async function promoteDeferred(sql: Sql, engine: Engine, kind: Kind, n: number) {
   if (n <= 0) return;
   await sql`update slow.jobs set state = 'queued', error = null
-    where id in (select id from slow.jobs where state = 'deferred' and error <> 'day_cap' and engine = ${engine} and kind = ${kind} order by slot, id limit ${n} for update skip locked)`;
+    where id in (select id from slow.jobs where state = 'deferred' and engine = ${engine} and kind = ${kind} order by slot, id limit ${n} for update skip locked)`;
 }
 
-/** Real spend of one engine on the UTC day of `slot` (jobs grouped by their own slot's day). */
-export async function daySpend(sql: Sql, engine: Engine, slot: string): Promise<number> {
-  const [r] = await sql`select coalesce(sum(cost_usd), 0)::float usd from slow.jobs where engine = ${engine} and left(slot, 10) = ${slot.slice(0, 10)}`;
+/** Real spend of one engine on the UTC day of `at`, by when each run finished (or started, while it runs). */
+export async function daySpend(sql: Sql, engine: Engine, at: string): Promise<number> {
+  const [r] = await sql`select coalesce(sum(cost_usd), 0)::float usd from slow.jobs where engine = ${engine}
+    and coalesce(finished_at, started_at) >= ${`${at.slice(0, 10)}T00:00:00Z`} and coalesce(finished_at, started_at) < ${`${at.slice(0, 10)}T00:00:00Z`}::timestamptz + interval '1 day'`;
   return r!.usd as number;
 }
 

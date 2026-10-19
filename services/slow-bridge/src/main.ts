@@ -35,6 +35,7 @@ const bridge = new Bridge({
     deferMaxMin: num(env, "SLOW_DEFER_MAX_MIN", 90),
     stageUsd: { 1: Number(need(env, "SLOW_STAGE1_USD_PER_RUN")), 2: Number(need(env, "SLOW_STAGE2_USD_PER_RUN")), 3: Number(need(env, "SLOW_STAGE3_USD_PER_RUN")) },
     dayUsd: Number(need(env, "SLOW_USD_PER_DAY")),
+    coinWindowMin: Number(need(env, "ENTRY_WINDOW_MIN")),
   },
 });
 // escalations on their own timer (SLOW_SCHEDULE_S), runs on theirs (SLOW_TICK_S): a long run never delays reading a grant

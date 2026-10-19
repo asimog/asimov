@@ -63,7 +63,7 @@ export const suite: Suite = {
       if (!(await eng.healthy())) return { checks: [{ name: "the worker starts", pass: false, detail: log.slice(-400) }], metrics: {} };
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
       let n = 0;
-      const cfg = { feedEveryMin: 1, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "nano", miroshark: "nano" }, chain: "parallel" as const, chainWaitS: 1, runTimeoutS: 120, pollMs: 200, deferMaxMin: 90, stageUsd: { 1: CAP_USD, 2: 1, 3: 1 }, dayUsd: 100 };
+      const cfg = { feedEveryMin: 1, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "nano", miroshark: "nano" }, chain: "parallel" as const, chainWaitS: 1, runTimeoutS: 120, pollMs: 200, deferMaxMin: 90, stageUsd: { 1: CAP_USD, 2: 1, 3: 1 }, dayUsd: 100, coinWindowMin: 60 };
 
       // 1. a nano feed run (stage 1 cap) against a provider that bills $0.01 per call
       const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => Date.now(), newId: () => `sj_cap${++n}`, cfg });
@@ -79,12 +79,18 @@ export const suite: Suite = {
       // 2. the engine has spent past the day cap: a new grant is deferred and never reaches it
       const calls = llm.calls.length;
       const capped = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => Date.now(), newId: () => `sj_day${++n}`, cfg: { ...cfg, dayUsd: CAP_USD } });
-      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["test"], job: "synthesis_coin", voi: 0.4, stage: 1, arm: "run", deferred: false }, { source: "attention", subject: MINT_A });
+      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["test"], job: "synthesis_coin", voi: 0.4, stage: 1, arm: "run" }, { source: "attention", subject: MINT_A });
       await w.tape.flush();
       await capped.schedule();
       await capped.drain();
       const [day] = await w.sql`select state, error from slow.jobs where subject = ${MINT_A} and kind = 'coin'`;
       add("past the day cap a job is deferred, not run", day?.state === "deferred" && day.error === "day_cap" && llm.calls.length === calls, `${day?.state}, reason ${day?.error}, ${llm.calls.length - calls} new model calls`);
+      // 3. a new day: the spend so far belongs to yesterday, so the waiting job runs (it has not expired)
+      await w.sql`update slow.jobs set started_at = started_at - interval '1 day', finished_at = finished_at - interval '1 day' where cost_usd > 0`;
+      await capped.schedule();
+      await capped.drain();
+      const [next] = await w.sql`select state, error from slow.jobs where subject = ${MINT_A} and kind = 'coin'`;
+      add("a day-capped job runs once a new day has budget", next?.state === "done", `${next?.state}${next?.error ? ` ${next.error}` : ""}`);
       return { checks, metrics: { spent, calls: llm.calls.length } };
     } finally {
       worker.kill();

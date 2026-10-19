@@ -54,7 +54,7 @@ export const suite: Suite = {
       precall(SURE, 2);
       precall(CONTROL, 3);
       await tape.flush();
-      const gate = escalationGate(tape, clock, { ...gateConfig(), perHour: { 1: 100, 2: 100 } });
+      const gate = escalationGate(tape, clock, gateConfig());
       while (await step(db.sql, gate)) { /* drain */ }
       const [first] = await db.sql`select seen_time from tape.events where topic = 'jev.escalated' and subject = ${UNSURE} and not (body->'gate_reasons' ? 'hot_set')`;
       const grantMs = first ? (first.seen_time as Date).getTime() : t0;
@@ -84,8 +84,9 @@ export const suite: Suite = {
       const ticks = [...new Set(hot.map((x) => x.at))];
       const perTick = ticks.map((t) => new Set(hot.filter((x) => x.at === t).map((x) => x.subject)));
       const top5 = HOT.slice(0, 5);
-      add("the hot set grants stage 1 every 90 s of Tape time", ticks.length === 2 && ticks[1]! - ticks[0]! === 90_000 && perTick.every((s) => s.size === 5 && top5.every((m) => s.has(m))) && hot.every((x) => x.stage === 1),
-        `${perTick.map((s) => s.size).join(" and ")} coins at ${ticks.map((t) => (t - t0) / 1000).join(", ")} s`);
+      // the 91 s tick finds all five checked within ENTRY_WINDOW_MIN: no second grant until the window has passed
+      add("the hot set grants stage 1 to the top five, then skips them within the window", ticks.length === 1 && perTick[0]!.size === 5 && top5.every((m) => perTick[0]!.has(m)) && hot.every((x) => x.stage === 1),
+        `${perTick.map((s) => s.size).join(" and ")} coins at ${ticks.map((t) => (t - t0) / 1000).join(", ")} s; none again at 91 s`);
 
       const fast = structuredClone(seedSpecs().find((s) => s.horizon === "fast")!);
       fast.universe.all.push({ sig: "synthesis.coin", field: "stance", op: "==", v: "bullish" });

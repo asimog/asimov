@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextvars
+import dataclasses
 import hmac
 import json
 import os
@@ -382,7 +383,8 @@ async def one_run(req: dict, branch: str, sample: int, profiles: list[dict], mdl
             from mcp_agent_bridge import parse_tool_calls
             calls = [c for t in texts[i] for c in parse_tool_calls(t)][: env_int("MCP_MAX_CALLS_PER_TURN", 2)]
             texts[i].clear()
-            mcp_results[i] = mcp["bridge"].dispatch_calls(calls) if calls else []
+            # what core's read tools return (callout text, reports) reaches the persona only inside the fence (patch D4)
+            mcp_results[i] = [dataclasses.replace(x, data=fence(json.dumps(x.data, default=str), 600)) for x in mcp["bridge"].dispatch_calls(calls)] if calls else []
             mcp_calls += len(calls)
         con = sqlite3.connect(db)
         new = con.execute("SELECT rowid, user_id, content, likes FROM callout WHERE rowid > ? UNION ALL SELECT -rowid, user_id, content, 0 FROM reply", (callout_after,)).fetchall()

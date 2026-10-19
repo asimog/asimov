@@ -2,9 +2,9 @@
 // It writes `jev.escalated` and nothing else; the Slow Bridge turns a `run` grant into jobs. It never blocks a trade: the desk
 // reads none of its output.
 // Ways it fails: (1) a replay must give the same grants: every input is the Tape, the Board and mind.* as of the event's seen_time,
-// and state is rebuilt from the Tape after a restart; (2) a coin storm spends the quota: a grant with no room is written
-// `deferred` (the Bridge picks it up later), never dropped; (3) value is never proven without a control: half the coins, by a
-// stable hash of the mint, are recorded as `control` with no job.
+// and state is rebuilt from the Tape after a restart; (2) a coin storm: one grant per coin per ENTRY_WINDOW_MIN, the hot set
+// included, and the Bridge alone owns quota and caps (a grant with no room waits there); (3) value is never proven without a
+// control: half the coins, by a stable hash of the mint, are recorded as `control` with no job.
 import crypto from "node:crypto";
 import type { BodyOf, Envelope } from "@asimog/contracts";
 import type { Clock } from "../lib/clock.ts";
@@ -17,13 +17,12 @@ import { loadLimits } from "./risk.ts";
 
 export type GateConfig = {
   pLow: number; pHigh: number; disagree: number; hotSize: number; hotEveryMs: number; solUsd: number;
-  stageUsd: Record<1 | 2, number>; perHour: Record<1 | 2, number>; windowMs: number; calloutMs: number;
+  stageUsd: Record<1 | 2, number>; windowMs: number; calloutMs: number;
 };
 export const gateConfig = (): GateConfig => ({
   pLow: env.num("ESC_P_LOW"), pHigh: env.num("ESC_P_HIGH"), disagree: env.num("ESC_DISAGREE"),
   hotSize: env.int("HOT_SET_SIZE"), hotEveryMs: env.num("HOT_SET_EVERY_S") * 1000, solUsd: env.num("SOL_USD"),
   stageUsd: { 1: env.num("SLOW_STAGE1_USD_PER_RUN"), 2: env.num("SLOW_STAGE2_USD_PER_RUN") },
-  perHour: { 1: env.int("BETTAFISH_COIN_RUNS_PER_HOUR"), 2: env.int("SWARM_RUNS_PER_HOUR") },
   windowMs: env.int("ENTRY_WINDOW_MIN") * 60_000, calloutMs: 60_000,
 });
 
@@ -36,13 +35,12 @@ const GATE_TOPICS = ["precall.detected", "coin.watched", "callout.created", "syn
 export const armOf = (mint: string): "run" | "control" => (crypto.createHash("sha256").update(mint).digest()[31]! % 2 === 0 ? "run" : "control");
 
 type Coin = { reason: "precall" | "smart_buy" | "callout"; at_ms: number; caller: string | null; callout_id: string | null };
-type Grant = { stage: 1 | 2; at_ms: number; arm: "run" | "control"; deferred: boolean };
+type Grant = { stage: 1 | 2; at_ms: number; arm: "run" | "control" };
 
 export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateConfig()): Consumer & { stats: Record<string, number> } {
-  const stats = { grants: 0, control: 0, deferred: 0, hot: 0 };
+  const stats = { grants: 0, control: 0, hot: 0 };
   const coins = new Map<string, Coin>(); // the latest in-play start per mint
   const granted = new Map<string, Grant>(); // the latest grant per mint
-  const runs: Record<1 | 2, number[]> = { 1: [], 2: [] }; // times of run grants that took quota, last hour
   let hotBucket = -1; // the hot set runs once per HOT_SET_EVERY_S bucket of Tape time: the same buckets after a restart
   let loaded = false;
 
@@ -50,10 +48,8 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
   async function load(tx: Tx, e: Envelope) {
     coins.clear();
     granted.clear();
-    runs[1] = [];
-    runs[2] = [];
     const now = Date.parse(e.seen_time);
-    const since = new Date(now - Math.max(cfg.windowMs, 3_600_000)).toISOString();
+    const since = new Date(now - cfg.windowMs).toISOString();
     const rows = await tx`select id, topic, seen_time, subject, body from tape.events
       where topic in ('precall.detected', 'coin.watched', 'callout.created', 'jev.escalated') and seen_time >= ${since} and (seen_time, id) < (${e.seen_time}, ${e.id})
       order by seen_time, id`;
@@ -61,18 +57,13 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
       const at = (r.seen_time as Date).getTime();
       if (r.topic === "jev.escalated") {
         const b = r.body as BodyOf<"jev.escalated">;
-        if (b.stage === 1 || b.stage === 2) record(b.subject, b.stage, at, b.arm, b.deferred);
+        if (b.stage === 1 || b.stage === 2) granted.set(b.subject, { stage: b.stage, at_ms: at, arm: b.arm });
       } else note({ topic: r.topic as string, body: r.body } as Envelope, at);
     }
     // the bucket of the last event before `e` on the gate's topics: an uninterrupted run already ticked in it
     const [prev] = await tx`select seen_time from tape.events where topic = any(${GATE_TOPICS}) and (seen_time, id) < (${e.seen_time}, ${e.id}) order by seen_time desc, id desc limit 1`;
     hotBucket = prev ? Math.floor((prev.seen_time as Date).getTime() / cfg.hotEveryMs) : -1;
     loaded = true;
-  }
-
-  function record(mint: string, stage: 1 | 2, at: number, arm: "run" | "control", deferred: boolean) {
-    granted.set(mint, { stage, at_ms: at, arm, deferred });
-    if (arm === "run" && !deferred) runs[stage].push(at);
   }
 
   /** In play (docs/STRATEGY.md section 3) as the gate needs it: precall, smart_buy, or a callout. */
@@ -123,19 +114,15 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
   async function grant(tx: Tx, e: Envelope, mint: string, stage: 1 | 2, reasons: string[], voi: number) {
     const now = Date.parse(e.seen_time);
     const arm = armOf(mint);
-    runs[stage] = runs[stage].filter((t) => now - t < 3_600_000);
-    const deferred = arm === "run" && runs[stage].length >= cfg.perHour[stage];
-    const why = [...reasons, ...(arm === "control" ? ["control"] : []), ...(deferred ? ["quota"] : [])];
-    await tape.emitIn(tx, "jev.escalated", { subject: mint, gate_reasons: why, job: arm === "control" ? null : JOB[stage], voi, stage, arm, deferred }, { source: "attention", subject: mint, causes: [e.id], after: e.seen_time });
-    record(mint, stage, now, arm, deferred);
+    await tape.emitIn(tx, "jev.escalated", { subject: mint, gate_reasons: arm === "control" ? [...reasons, "control"] : reasons, job: arm === "control" ? null : JOB[stage], voi, stage, arm }, { source: "attention", subject: mint, causes: [e.id], after: e.seen_time });
+    granted.set(mint, { stage, at_ms: now, arm });
     stats.grants++;
     if (arm === "control") stats.control++;
-    if (deferred) stats.deferred++;
   }
 
   /**
    * Escalate one stage when the coin is in play, the fast signals are unsure, and the value of information beats the stage's
-   * cost: VOI = P(change) x stake, P(change) = 1 - |2p - 1| (1 at p 0.5, 0 at p 0 or 1), stake = the owner's max_order_sol;
+   * cost (room is the Bridge's): VOI = P(change) x stake, P(change) = 1 - |2p - 1| (1 at p 0.5, 0 at p 0 or 1), stake = the owner's max_order_sol;
    * cost = SLOW_STAGE<n>_USD_PER_RUN / SOL_USD.
    */
   async function evaluate(tx: Tx, e: Envelope, mint: string, stage: 1 | 2) {
@@ -165,9 +152,11 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
       .filter((x) => x.rank > 0)
       .sort((a, b) => b.rank - a.rank || (a.mint < b.mint ? -1 : 1))
       .slice(0, cfg.hotSize);
-    // a coin whose last grant still waits for room gets no second one: deferred grants would only pile up
-    for (const x of ranked.filter((r) => !granted.get(r.mint)?.deferred)) await grant(tx, e, x.mint, 1, ["hot_set", `rank ${x.rank.toFixed(3)}`], x.rank);
-    stats.hot += ranked.length;
+    // a coin granted within ENTRY_WINDOW_MIN was checked recently: the hot set refreshes it once the window has passed
+    const now = Date.parse(e.seen_time);
+    const due = ranked.filter((r) => now - (granted.get(r.mint)?.at_ms ?? -Infinity) > cfg.windowMs);
+    for (const x of due) await grant(tx, e, x.mint, 1, ["hot_set", `rank ${x.rank.toFixed(3)}`], x.rank);
+    stats.hot += due.length;
   }
 
   return {
@@ -189,7 +178,7 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
           if (e.topic === "synthesis.coin") { // stage 1 is done: the gate may take the coin one stage further
             const mint = (e.body as BodyOf<"synthesis.coin">).mint;
             const g = granted.get(mint);
-            if (g?.stage === 1 && g.arm === "run" && !g.deferred) await evaluate(tx, e, mint, 2);
+            if (g?.stage === 1 && g.arm === "run") await evaluate(tx, e, mint, 2);
             continue;
           }
           const mint = note(e, now);

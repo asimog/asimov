@@ -5,8 +5,8 @@
 // Ways it fails: an engine is down (the job fails with the reason, the next slot tries again; ingestion never waits);
 // a run hangs (RUN_TIMEOUT_S, then failed); the Bridge restarts mid-run (running jobs older than the timeout requeue);
 // a slot is still running when the next comes (one job per (engine, kind, subject, slot), never queued twice);
-// an escalation storm (per-hour quotas per engine: a grant with no room is deferred, promoted oldest first when room
-// returns, and expires after SLOW_DEFER_MAX_MIN); a long run delays escalations (schedule and drain run on their own loops).
+// an escalation storm (the Bridge alone owns room: per-hour quotas per engine and the day cap; a grant with no room is deferred,
+// promoted oldest first when room returns, and expires after SLOW_DEFER_MAX_MIN); a long run delays escalations (schedule and drain run on their own loops).
 import type { EngineClient } from "./engine.ts";
 import { claim, daySpend, defer, enqueue, expireDeferred, finish, promoteDeferred, requeueStale } from "./jobs.ts";
 import { type Cores, mapOutput } from "./mapper.ts";
@@ -27,6 +27,7 @@ export type BridgeConfig = {
   deferMaxMin: number; // SLOW_DEFER_MAX_MIN
   stageUsd: Record<1 | 2 | 3, number>; // SLOW_STAGE<n>_USD_PER_RUN: each run's cap
   dayUsd: number; // SLOW_USD_PER_DAY, per engine
+  coinWindowMin: number; // a coin run reads the coin's in-play window (ENTRY_WINDOW_MIN) of callouts
 };
 
 export type BridgeDeps = { sql: Sql; cores: Cores; engines: Record<Engine, EngineClient | null>; now: () => number; newId: () => string; cfg: BridgeConfig };
@@ -63,9 +64,14 @@ export class Bridge {
     return perHour - (r!.n as number);
   }
 
-  private async queue(t: Target, subject: string, slot: string, deferred?: string): Promise<boolean> {
+  /** SLOW_USD_PER_DAY: the engine's real spend today (UTC, by the Bridge's clock) at or past the cap. */
+  private async dayCapped(engine: Engine): Promise<boolean> {
+    return (await daySpend(this.d.sql, engine, this.iso())) >= this.d.cfg.dayUsd;
+  }
+
+  private async queue(t: Target, subject: string, slot: string): Promise<boolean> {
     if (!this.d.engines[t.engine]) return false; // that engine is off: nothing to queue
-    const why = deferred ?? (t.kind === "feed" || (await this.quotaLeft(t.engine, t.kind, this.perHour(t))) > 0 ? undefined : "quota"); // the feed has its own timer
+    const why = (await this.dayCapped(t.engine)) ? "day_cap" : (t.kind === "feed" || (await this.quotaLeft(t.engine, t.kind, this.perHour(t))) > 0 ? undefined : "quota"); // the feed has its own timer
     const usd_cap = this.d.cfg.stageUsd[t.stage ?? PRESET_STAGE[t.preset] ?? 1]; // an unknown preset gets the smallest cap;
     const ok = await enqueue(this.d.sql, { id: this.d.newId(), engine: t.engine, kind: t.kind, subject, preset: t.preset, slot, stage: t.stage, usd_cap, deferred: why });
     if (ok) this.stats[why ? "deferred" : "queued"]++;
@@ -76,10 +82,7 @@ export class Bridge {
   private targets(e: Ev): Target[] {
     const b = e.body;
     if (b.arm === "control" || b.job === null) return []; // control: recorded by core, never run
-    if (typeof b.stage === "number") return STAGES[b.stage]?.(this.d.cfg.presets) ?? [];
-    if (b.job === "synthesis_deep") return [{ engine: "bettafish", kind: "coin", preset: this.d.cfg.presets.bettafish, stage: 3 }]; // attention.grant: the owner's presets
-    if (b.job === "swarm_run") return [{ engine: "miroshark", kind: "swarm", preset: this.d.cfg.presets.miroshark, stage: 3 }];
-    return [];
+    return STAGES[Number(b.stage)]?.(this.d.cfg.presets) ?? [];
   }
 
   /** Queue what is due: expire and promote deferred jobs (oldest first), the feed slot, then each new escalation. */
@@ -88,16 +91,16 @@ export class Bridge {
     const before = this.stats.queued;
     await expireDeferred(this.d.sql, this.iso(t - this.d.cfg.deferMaxMin * 60_000), this.iso(t));
     for (const [engine, kind, perHour] of [["bettafish", "coin", this.d.cfg.coinRunsPerHour], ["miroshark", "swarm", this.d.cfg.swarmRunsPerHour]] as const)
-      await promoteDeferred(this.d.sql, engine, kind, await this.quotaLeft(engine, kind, perHour));
+      if (!(await this.dayCapped(engine))) await promoteDeferred(this.d.sql, engine, kind, await this.quotaLeft(engine, kind, perHour)); // a new day has budget again
     const period = this.d.cfg.feedEveryMin * 60_000;
     await this.queue({ engine: "bettafish", kind: "feed", preset: this.d.cfg.presets.bettafish, stage: null }, "global", this.iso(Math.floor(t / period) * period));
 
     const [cur] = await this.d.sql`select seen_time, event_id from slow.cursors where name = 'escalations'`;
-    const { events } = await this.d.cores.exchange.call<{ events: Ev[] }>("events_since", { topics: ["attention.grant", "jev.escalated"], after_seen_time: cur?.seen_time ? (cur.seen_time as Date).toISOString() : undefined, after_id: (cur?.event_id as string | undefined) ?? undefined, limit: 50 });
+    const { events } = await this.d.cores.exchange.call<{ events: Ev[] }>("events_since", { topics: ["jev.escalated"], after_seen_time: cur?.seen_time ? (cur.seen_time as Date).toISOString() : undefined, after_id: (cur?.event_id as string | undefined) ?? undefined, limit: 50 });
     for (const e of events) {
       const mint = String(e.body.subject ?? e.subject);
       const slot = new Date(e.seen_time).toISOString();
-      for (const target of this.targets(e)) await this.queue(target, mint, slot, e.body.deferred === true ? "core_deferred" : undefined);
+      for (const target of this.targets(e)) await this.queue(target, mint, slot);
       await this.d.sql`insert into slow.cursors (name, seen_time, event_id) values ('escalations', ${slot}, ${e.id})
         on conflict (name) do update set seen_time = excluded.seen_time, event_id = excluded.event_id`;
     }
@@ -127,7 +130,7 @@ export class Bridge {
     await requeueStale(this.d.sql, this.iso(this.d.now() - this.d.cfg.runTimeoutS * 2000));
     const job = await claim(this.d.sql, this.iso());
     if (!job) return false;
-    if ((await daySpend(this.d.sql, job.engine, job.slot)) >= this.d.cfg.dayUsd) { // SLOW_USD_PER_DAY: never run, wait for expiry
+    if (await this.dayCapped(job.engine)) { // SLOW_USD_PER_DAY: wait for a new day (or expiry), never run past the cap
       await defer(this.d.sql, job.id, "day_cap");
       this.stats.deferred++;
       return true;
@@ -139,7 +142,7 @@ export class Bridge {
       if (!engine) throw new Error(`${job.engine} is off`);
       await this.waitForChain(job);
       const parents = await this.parents(job);
-      const windowMin = job.kind === "feed" ? this.d.cfg.feedWindowMin : 60;
+      const windowMin = job.kind === "feed" ? this.d.cfg.feedWindowMin : this.d.cfg.coinWindowMin;
       // MiroShark reads no database: the swarm's seed (the coin dossier, the parent reports' text) comes in the request
       const extra = job.engine === "miroshark"
         ? { dossier: await this.d.cores.swarm.call("coin_dossier", { mint: job.subject }), parent_texts: (await this.d.cores.exchange.call<{ reports: { report_id: string; producer: string; summary: string; markdown: string | null }[] }>("reports_for", { subject: job.subject, producer_prefix: "bettafish.", limit: 3 })).reports }

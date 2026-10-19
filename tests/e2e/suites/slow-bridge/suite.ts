@@ -66,8 +66,8 @@ export const suite: Suite = {
       let t = w.clock.now();
       let n = 0;
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-      const cfg = { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel" as const, chainWaitS: 1, runTimeoutS: 5, pollMs: 20, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100 };
-      const grant = (mint: string, stage: 1 | 2) => w.tape.emit("jev.escalated", { subject: mint, gate_reasons: ["test"], job: stage === 1 ? "synthesis_coin" : "swarm_run", voi: 0.4, stage, arm: "run", deferred: false }, { source: "attention", subject: mint });
+      const cfg = { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel" as const, chainWaitS: 1, runTimeoutS: 5, pollMs: 20, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100, coinWindowMin: 60 };
+      const grant = (mint: string, stage: 1 | 2) => w.tape.emit("jev.escalated", { subject: mint, gate_reasons: ["test"], job: stage === 1 ? "synthesis_coin" : "swarm_run", voi: 0.4, stage, arm: "run" }, { source: "attention", subject: mint });
       const jobOf = async (mint: string) => (await w.sql`select state, error from slow.jobs where subject = ${mint} order by slot desc limit 1`)[0] as { state: string; error: string | null } | undefined;
       const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", bf.url, WORKER_TOKEN), miroshark: new EngineClient("miroshark", ms.url, WORKER_TOKEN) }, now: () => t, newId: () => `sj_t${++n}`, cfg });
 
@@ -85,7 +85,7 @@ export const suite: Suite = {
 
       // 2. one escalation feeds both engines at once; the swarm gets the BettaFish report as a parent
       t += 60_000;
-      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.4, stage: 2, arm: "run", deferred: false }, { source: "attention", subject: MINT_A });
+      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.4, stage: 2, arm: "run" }, { source: "attention", subject: MINT_A });
       await w.tape.flush();
       t += 1000;
       await bridge.schedule();
@@ -103,7 +103,7 @@ export const suite: Suite = {
 
       // 3. a later BettaFish coin run gets the MiroShark report as a parent: reports flow both ways
       t += 120_000;
-      w.tape.emit("attention.grant", { job: "synthesis_deep", subject: MINT_A, voi: 0.5, cost_est: 0.01, budget_left: 1 }, { source: "attention", subject: MINT_A });
+      w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["owner"], job: "synthesis_coin", voi: 0.5, stage: 3, arm: "run" }, { source: "attention", subject: MINT_A });
       await w.tape.flush();
       t += 1000;
       await bridge.schedule();

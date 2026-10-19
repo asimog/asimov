@@ -33,7 +33,7 @@ export const ALL_CAPS: string[] = Object.values(CAP);
 /** Who a capability's writes are recorded as on the Tape. */
 const SOURCE: Record<string, Source> = { [CAP.synth]: "bettafish", [CAP.swarm]: "miroshark", [CAP.soul]: "soul", [CAP.exchange]: "slow-bridge", [CAP.swarmRead]: "miroshark" };
 /** Topic prefixes and signal kinds a capability may read through `events_since` and `board_signals`. */
-const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["attention.grant", "jev.escalated"] };
+const READ_TOPICS: Record<string, string[]> = { [CAP.propose]: ["position.closed"], [CAP.ops]: ["system.", "kill.", "ops."], [CAP.exchange]: ["jev.escalated"] };
 const READ_KINDS: Record<string, string[]> = { [CAP.integrity]: ["integrity.finding"], [CAP.report]: ["synthesis.", "mood.", "swarm."] };
 
 /** Sources written by thinking lanes and core on their behalf. */
@@ -96,7 +96,7 @@ async function citedCallouts(c: ToolCtx, ids: string[], w: Window): Promise<Map<
 
 // ---------- one public-text check (publicText) on every text field of every write ----------
 /** The claim with its text fields cleaned, or null when one is refused (the claim is dropped and counted). */
-function keepText<T extends Record<string, unknown>>(x: T, fields: (keyof T & string)[]): T | null {
+function passClaim<T extends Record<string, unknown>>(x: T, fields: (keyof T & string)[]): T | null {
   const out: Record<string, unknown> = { ...x };
   for (const f of fields) {
     const v = x[f];
@@ -108,14 +108,14 @@ function keepText<T extends Record<string, unknown>>(x: T, fields: (keyof T & st
   return out as T;
 }
 /** A field whose refusal refuses the whole call. */
-function mustText(what: string, text: string): string {
+function requireText(what: string, text: string): string {
   const r = publicText(text);
   if (r.failed.length) throw new Refusal("guard", `${what} refused: ${r.failed.join(", ")}`);
   return r.text;
 }
-const keepAll = <T extends Record<string, unknown>>(xs: T[], fields: (keyof T & string)[], ok: (x: T) => boolean) =>
+const passClaims = <T extends Record<string, unknown>>(xs: T[], fields: (keyof T & string)[], ok: (x: T) => boolean) =>
   xs.flatMap((x) => {
-    const t = keepText(x, fields);
+    const t = passClaim(x, fields);
     return t && ok(x) ? [t] : [];
   });
 const cited = (found: Map<string, string>, cites: string[], mint?: string) => cites.length > 0 && cites.every((id) => found.has(id) && (!mint || found.get(id) === mint));
@@ -285,9 +285,9 @@ export const TOOLS: Tool[] = [
     suspicious: z.array(z.object({ pattern: z.string().max(40), text: z.string().max(400), cites: Cites })).max(12),
   }, async (a, c) => {
     const found = await citedCallouts(c, [...a.narratives, ...a.coin_stances, ...a.suspicious].flatMap((x) => x.cites), windowOf(c, a));
-    const narratives = keepAll(a.narratives, ["title", "summary"], (x) => cited(found, x.cites));
-    const coin_stances = keepAll(a.coin_stances, ["symbol", "why"], (x) => cited(found, x.cites, x.mint));
-    const suspicious = keepAll(a.suspicious, ["pattern", "text"], (x) => cited(found, x.cites));
+    const narratives = passClaims(a.narratives, ["title", "summary"], (x) => cited(found, x.cites));
+    const coin_stances = passClaims(a.coin_stances, ["symbol", "why"], (x) => cited(found, x.cites, x.mint));
+    const suspicious = passClaims(a.suspicious, ["pattern", "text"], (x) => cited(found, x.cites));
     const kept = narratives.length + coin_stances.length + suspicious.length;
     const total = a.narratives.length + a.coin_stances.length + a.suspicious.length + a.dropped_before;
     c.tape.emit("synthesis.feed", { synthesis_id: a.synthesis_id, window_min: a.window_min, preset: a.preset, narratives, coin_stances, suspicious, claims_total: total, claims_dropped: total - kept }, { source: source(c), subject: "global", dedupe: `synthesis.feed:${a.synthesis_id}` });
@@ -301,9 +301,9 @@ export const TOOLS: Tool[] = [
     synthesis_id: z.string(), mint: z.string(), as_of: iso, window_min: z.number().min(1).max(1440), stance: Stance, narrative: z.string().max(600), preset: z.string(), dropped_before: z.number().int().min(0).default(0),
     claims: z.array(z.object({ text: z.string().max(400), cites: Cites })).max(20),
   }, async (a, c) => {
-    const narrative = mustText("narrative", a.narrative);
+    const narrative = requireText("narrative", a.narrative);
     const found = await citedCallouts(c, a.claims.flatMap((x) => x.cites), windowOf(c, a));
-    const claims = keepAll(a.claims, ["text"], (x) => cited(found, x.cites, a.mint));
+    const claims = passClaims(a.claims, ["text"], (x) => cited(found, x.cites, a.mint));
     const total = a.claims.length + a.dropped_before;
     c.tape.emit("synthesis.coin", { synthesis_id: a.synthesis_id, mint: a.mint, stance: a.stance, narrative, claims, claims_total: total, claims_dropped: total - claims.length, preset: a.preset }, { source: source(c), subject: a.mint, dedupe: `synthesis.coin:${a.synthesis_id}` });
     await c.tape.flush();
@@ -311,7 +311,7 @@ export const TOOLS: Tool[] = [
   }),
 
   tool("emit_forum_line", [CAP.synth], "Write one forum line (the live debate shown on /synthesis).", { synthesis_id: z.string(), as_of: iso, window_min: z.number().min(1).max(1440), round: z.number().int(), agent: z.enum(["insight", "query", "media", "host"]), text: z.string().max(600), cites: Cites }, async (a, c) => {
-    const text = mustText("forum line", a.text);
+    const text = requireText("forum line", a.text);
     const found = await citedCallouts(c, a.cites, windowOf(c, a));
     c.tape.emit("synthesis.forum_line", { ...a, text, cites: a.cites.filter((id) => found.has(id)) }, { source: source(c), subject: a.synthesis_id });
     await c.tape.flush();
@@ -335,7 +335,7 @@ export const TOOLS: Tool[] = [
     if (impact) c.tape.emit("swarm.impact", { swarm_id: a.swarm_id, mint: a.mint, ...impact, samples: A.length, truncated }, { source: source(c), subject, dedupe: `swarm.impact:${a.swarm_id}` });
     let refused = 0;
     a.posts.forEach((p, i) => {
-      const kept = keepText(p, ["agent", "archetype", "text"]);
+      const kept = passClaim(p, ["agent", "archetype", "text"]);
       if (!kept) {
         refused++;
         return;
@@ -350,7 +350,7 @@ export const TOOLS: Tool[] = [
     swarm_id: z.string(), mint: z.string(), topic: z.string().max(40),
     branches: z.record(z.string(), z.array(z.array(z.object({ round: z.number().int(), stance: z.record(z.string(), z.number().min(-1).max(1)) })).max(50)).max(10)),
   }, async (a, c) => {
-    c.tape.emit("swarm.beliefs", { ...a, topic: mustText("topic", a.topic), simulated: true }, { source: source(c), subject: a.mint, dedupe: `swarm.beliefs:${a.swarm_id}` });
+    c.tape.emit("swarm.beliefs", { ...a, topic: requireText("topic", a.topic), simulated: true }, { source: source(c), subject: a.mint, dedupe: `swarm.beliefs:${a.swarm_id}` });
     await c.tape.flush();
     return { ok: true };
   }),
@@ -359,7 +359,7 @@ export const TOOLS: Tool[] = [
   tool("propose_strategy", [CAP.propose], "Propose a strategy spec. Core validates it; a valid proposal is only a record.", { spec: z.record(z.string(), z.unknown()), why: z.array(z.string().max(300)).min(1).max(8), because: z.array(z.string()).max(12).default([]) }, async (a, c) => {
     const v = validateSpec(a.spec);
     if (!v.ok) throw new Refusal("bad_spec", v.reasons.join("; "));
-    const why = a.why.map((w) => mustText("why", w));
+    const why = a.why.map((w) => requireText("why", w));
     const proposal_id = c.clock.id("strategy");
     c.tape.emit("proposal.strategy", { proposal_id, by: source(c), spec: v.spec as unknown as Record<string, unknown>, why, because: a.because }, { source: source(c), subject: proposal_id, causes: a.because });
     await c.tape.flush();
@@ -367,7 +367,7 @@ export const TOOLS: Tool[] = [
   }),
 
   tool("propose_question", [CAP.jev], "Propose a Jev question; it starts in shadow.", { pack: z.enum(["callout", "coin", "callers", "entry", "exit", "reply", "link"]), text: z.string().min(10).max(200), type: z.enum(["yes_no", "probability"]) }, async (a, c) => {
-    const text = mustText("question", a.text);
+    const text = requireText("question", a.text);
     if (!text.trim().endsWith("?")) throw new Refusal("guard", "question refused: not_a_question");
     const question_id = c.clock.id("task");
     c.tape.emit("jevq.proposed", { question_id, pack: a.pack, text, type: a.type, by: source(c) }, { source: source(c), subject: question_id });
@@ -376,28 +376,28 @@ export const TOOLS: Tool[] = [
   }),
 
   tool("ops_alert", [CAP.ops], "Alert the owner.", { severity: z.enum(["info", "warn", "page"]), text: z.string().min(5).max(500), finding: z.string().max(120) }, async (a, c) => {
-    const b = { ...a, text: mustText("alert", a.text), finding: mustText("finding", a.finding) };
+    const b = { ...a, text: requireText("alert", a.text), finding: requireText("finding", a.finding) };
     c.tape.emit("ops.alert", b, { source: source(c), subject: b.finding });
     await c.tape.flush();
     return { ok: true };
   }),
 
   tool("ops_stop", [CAP.ops], "Ask for a pause or a kill. Stopping only; nothing here can start anything.", { action: z.enum(["pause", "kill"]), scope: z.string().max(60), reason: z.string().min(5).max(300) }, async (a, c) => {
-    const b = { ...a, scope: mustText("scope", a.scope), reason: mustText("reason", a.reason) };
+    const b = { ...a, scope: requireText("scope", a.scope), reason: requireText("reason", a.reason) };
     c.tape.emit("ops.stop_requested", b, { source: source(c), subject: b.scope });
     await c.tape.flush();
     return { ok: true };
   }),
 
   tool("ops_restart_request", [CAP.ops], "Ask the owner to restart one consumer or sense. A request only: nothing here restarts anything.", { scope: z.string().max(60), reason: z.string().min(5).max(300) }, async (a, c) => {
-    const b = { scope: mustText("scope", a.scope), reason: mustText("reason", a.reason) };
+    const b = { scope: requireText("scope", a.scope), reason: requireText("reason", a.reason) };
     c.tape.emit("ops.restart_requested", b, { source: source(c), subject: b.scope });
     await c.tape.flush();
     return { ok: true };
   }),
 
   tool("draft_report", [CAP.report], "Store the daily report draft after the prose Guard.", { day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), text: z.string().min(20).max(4000) }, async (a, c) => {
-    const text = mustText("report", a.text);
+    const text = requireText("report", a.text);
     const report_id = c.clock.id("task");
     c.tape.emit("report.drafted", { report_id, day: a.day, text, checks: ["length", "no_emoji", "no_dash", "no_promise", "no_person"] }, { source: source(c), subject: report_id, dedupe: `report:${a.day}` });
     await c.tape.flush();
@@ -408,7 +408,7 @@ export const TOOLS: Tool[] = [
     const [s] = await c.sql`select confidence from board.signals where id = ${a.finding_id} and kind = 'integrity.finding'`;
     if (!s) throw new Refusal("not_found", `no finding ${a.finding_id}`);
     if ((s.confidence as number) < 0.85) throw new Refusal("below_threshold", "findings under 0.85 are not written up");
-    const text = mustText("text", a.text);
+    const text = requireText("text", a.text);
     c.tape.emit("integrity.text", { finding_id: a.finding_id, text, checks: ["length", "no_emoji", "no_dash", "no_promise", "no_person"] }, { source: source(c), subject: a.finding_id, dedupe: `integrity.text:${a.finding_id}` });
     await c.tape.flush();
     return { ok: true };
@@ -421,8 +421,8 @@ export const TOOLS: Tool[] = [
     summary: z.string().min(10).max(600), cites: z.array(z.string()).max(200).default([]), parent_reports: z.array(z.string()).max(20).default([]),
     ir: z.record(z.string(), z.unknown()).nullable().default(null), markdown: z.string().max(400_000).nullable().default(null), simulated: z.boolean().default(false),
   }, async (a, c) => {
-    a.summary = mustText("summary", a.summary);
-    if (a.markdown !== null) a.markdown = mustText("markdown", a.markdown);
+    a.summary = requireText("summary", a.summary);
+    if (a.markdown !== null) a.markdown = requireText("markdown", a.markdown);
     const now = c.clock.iso();
     const callouts = a.cites.length ? new Set((await c.sql`select callout_id from mem.callouts where callout_id = any(${a.cites}) and seen_at <= ${now}
       and (${a.window_from}::timestamptz is null or seen_at >= ${a.window_from}) and (${a.window_to}::timestamptz is null or seen_at <= ${a.window_to})`).map((r) => r.callout_id as string)) : new Set<string>();
@@ -454,7 +454,7 @@ export const TOOLS: Tool[] = [
 
   tool("job_event", ANY_LANE, "Record that a job was queued, started or done.", { kind: z.enum(["queued", "started", "done"]), job_id: z.string(), agent: z.string().max(40), trigger_event: z.string().nullable().default(null), cost_usd: z.number().min(0).optional(), error: z.string().max(300).optional() }, async (a, c) => {
     const { kind, ...rest } = a;
-    const body = { ...rest, agent: mustText("agent", rest.agent), ...(rest.error === undefined ? {} : { error: mustText("error", rest.error) }) };
+    const body = { ...rest, agent: requireText("agent", rest.agent), ...(rest.error === undefined ? {} : { error: requireText("error", rest.error) }) };
     c.tape.emit(`job.${kind}`, body, { source: source(c), subject: a.job_id });
     await c.tape.flush();
     return { ok: true };
