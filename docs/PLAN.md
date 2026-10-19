@@ -26,7 +26,7 @@ Every row is built and pushed (2cf6401). These still wait for their check on the
 
 | # | Work | Task |
 |---|---|---|
-| A1 | The desk wakes on `precall.detected` whatever the consumer order (order proof passed); restart proof pending | `docs/tasks/A1-restart.md` |
+| A1 | The desk wakes on `precall.detected` whatever the consumer order (order proof passed); restart proof passed 2026-10-19 | `docs/tasks/A1-restart.md` |
 | A7 | caller.dna and the ledger agree | `docs/tasks/A7.md` |
 | A8 | Scout bounded (passed); core's heap still grows over a 30-min smoke | `docs/tasks/A8-heap.md` |
 | A10 | `coin.graduated` derived on the first AMM trade after curve trades | `docs/tasks/A10.md` |

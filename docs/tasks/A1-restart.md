@@ -30,4 +30,4 @@ The live-leg checks in the same suite (task A13).
 `git diff --stat`; commands run with results; what was not run and why.
 
 ## State
-Open.
+Done 2026-10-19: `npm run e2e -- replay-determinism` printed `ok   a restart halfway gives the same derived hash: 1f5ae2a7a28bb9f5 vs 1f5ae2a7a28bb9f5`. No code change. The live-leg fill check failed (`ledger.entry:1`); that is A13.
