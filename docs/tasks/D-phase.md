@@ -27,7 +27,7 @@ Lane B may run as one subagent with its own write lists while you do lane A (`do
 - Per row: `pnpm typecheck`, `npm run lint:changed`, the row's suite, `npm run docs:gen` plus `docs:check` when topics or settings change. Run each new check against the old code to see it fail. Update the doc, fill the task file's State, and make one commit per row, staging files by name. Do not push until the owner says so.
 
 ## Ask the owner before you build (do not guess)
-1. **D1 and D2, the money numbers:** proposed defaults are `SLOW_STAGE1_USD_PER_RUN=0.02`, `SLOW_STAGE2_USD_PER_RUN=0.15`, `SLOW_STAGE3_USD_PER_RUN=1.00`, `SLOW_USD_PER_DAY=3`, `ESC_P_LOW=0.35`, `ESC_P_HIGH=0.65`, `ESC_DISAGREE=0.3`, `HOT_SET_SIZE=5`, `HOT_SET_EVERY_S=90`. Confirm or change them.
+1. **D1 and D2, the money numbers: decided by the owner on 2026-10-19 as low test limits while the phase is built.** `SLOW_STAGE1_USD_PER_RUN=0.005`, `SLOW_STAGE2_USD_PER_RUN=0.03`, `SLOW_STAGE3_USD_PER_RUN=0.10`, `SLOW_USD_PER_DAY=0.50`, `ESC_P_LOW=0.35`, `ESC_P_HIGH=0.65`, `ESC_DISAGREE=0.3`, `HOT_SET_SIZE=5`, `HOT_SET_EVERY_S=90`. Put these in `.env.example` and record the decision in `docs/DECISIONS.md`; no need to ask again.
 2. **D6:** compute mood in core from callout counts, or remove `mood.feed` entirely?
 Record each answer as a row in `docs/DECISIONS.md`.
 
