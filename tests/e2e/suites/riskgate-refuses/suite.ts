@@ -5,7 +5,7 @@ import type { Suite } from "../../lib/suite.ts";
 const DEFAULT_LIMITS = defaultLimits();
 const NOW = 1_800_000_000_000;
 const book = (o: Partial<Book> = {}): Book => ({ equity_sol: 0.2, open_cost_sol: 0, open_coins: new Set(), position_sol: new Map(), realized_today_sol: 0, ...o });
-const quote = (o: Partial<GateQuote> = {}): GateQuote => ({ at_ms: NOW - 500, impact_bps: 40, real_sol: 8, graduated: false, ...o });
+const quote = (o: Partial<GateQuote> = {}): GateQuote => ({ at_ms: NOW - 500, impact_bps: 40, real_sol: 8, graduated: false, risk: { bundle_share: 0.05, top10_share: 0.2, creator_sold: 0 }, ...o });
 const flags = (o: Partial<GateFlags> = {}): GateFlags => ({ kill: "running", mode_ok: true, strategy_live: true, ...o });
 const buy = (o: Partial<GateIntent> = {}): GateIntent => ({ id: "in_x", mint: "MintA", side: "buy", size_sol: 0.02, duplicate: false, ...o });
 const five = new Set(["a", "b", "c", "d", "e"]);
@@ -34,6 +34,11 @@ const CASES: { name: string; expect: string | "ok"; run: () => ReturnType<typeof
   { name: "sixth coin", expect: "open_coins_cap", run: () => riskGate(buy(), book({ open_coins: five, open_cost_sol: 0.05, equity_sol: 1 }), DEFAULT_LIMITS, quote(), flags(), NOW) },
   { name: "free SOL under the floor", expect: "wallet_balance_low", run: () => riskGate(buy(), book({ open_cost_sol: 0.09, open_coins: new Set(["x"]) }), DEFAULT_LIMITS, quote(), flags(), NOW) },
   { name: "lost 25% today", expect: "daily_loss_stop", run: () => riskGate(buy(), book({ equity_sol: 0.15, realized_today_sol: -0.05 }), DEFAULT_LIMITS, quote(), flags(), NOW) },
+  { name: "bundled coin", expect: "bundled", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote({ risk: { bundle_share: 0.35, top10_share: 0.2, creator_sold: 0 } }), flags(), NOW) },
+  { name: "top 10 hold 45%", expect: "concentrated", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote({ risk: { bundle_share: 0.05, top10_share: 0.45, creator_sold: 0 } }), flags(), NOW) },
+  { name: "creator sold 80%", expect: "creator_sold", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote({ risk: { bundle_share: 0.05, top10_share: 0.2, creator_sold: 0.8 } }), flags(), NOW) },
+  { name: "no risk.state on the coin", expect: "no_risk_state", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote({ risk: null }), flags(), NOW) },
+  { name: "graduated coin with no risk.state", expect: "no_risk_state", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote({ graduated: true, real_sol: null, risk: null }), flags(), NOW) },
   { name: "graduated coin skips the curve liquidity rule", expect: "ok", run: () => riskGate(buy(), book(), DEFAULT_LIMITS, quote({ graduated: true, real_sol: null }), flags(), NOW) },
 ];
 

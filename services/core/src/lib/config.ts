@@ -50,6 +50,8 @@ const SCHEMAS = {
     max_bundle_share: share,
     max_top10_share: share,
     max_creator_sold: share,
+    /** a buy on a coin with no live `risk.state` is refused (C7); only `true` is accepted, so the floor only gets stricter */
+    require_risk_state: z.literal(true),
   }),
   retention: z.strictObject({
     /** hours an `inputs_hot` partition stays before the archiver exports and drops it (B6) */

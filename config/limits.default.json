@@ -11,5 +11,6 @@
   "max_slippage_bps": 300,
   "max_bundle_share": 0.2,
   "max_top10_share": 0.3,
-  "max_creator_sold": 0.5
+  "max_creator_sold": 0.5,
+  "require_risk_state": true
 }

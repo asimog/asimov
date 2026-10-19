@@ -139,7 +139,7 @@ Owner limits (defaults in `config/limits.default.json`, changed only by `ctl lim
 | `max_bundle_share`, `max_top10_share`, `max_creator_sold` | 0.2, 0.3, 0.5 |
 | `max_creator_launches_7d`, `require_risk_state` | 10, true |
 
-Reason codes are listed in `mind/risk.ts` and appear on every rejection: quote, impact, liquidity, caps, loss stops, risk floors, lists, kill state, mode, duplicates, balance, strategy stage.
+Reason codes are listed in `mind/risk.ts` and appear on every rejection: quote, impact, liquidity, caps, loss stops, risk floors (and `no_risk_state` when a coin has no `risk.state`), lists, kill state, mode, duplicates, balance, strategy stage.
 
 ## 8. Fill model
 

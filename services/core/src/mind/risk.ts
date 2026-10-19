@@ -26,6 +26,7 @@ export type Limits = {
   max_bundle_share: number;
   max_top10_share: number;
   max_creator_sold: number;
+  require_risk_state: boolean;
 };
 
 /** The defaults in `config/limits.default.json` (checked at boot), with empty lists; the lists come only from mind.lists. */
@@ -88,6 +89,7 @@ export function riskGate(i: GateIntent, book: Book, L: Limits, q: GateQuote | nu
   if (!q.graduated && (q.real_sol ?? 0) < L.min_real_sol) return no("liquidity_too_low", `curve real SOL ${(q.real_sol ?? 0).toFixed(2)}`);
   if (q.impact_bps > L.max_impact_bps) return no("impact_too_high", `${q.impact_bps.toFixed(0)} bps`);
   const r = q.risk;
+  if (!r && L.require_risk_state) return no("no_risk_state", "no live risk.state for this coin: rug and bundle checks have not run");
   if (r && r.bundle_share > L.max_bundle_share) return no("bundled", `first-slot buyers hold ${(r.bundle_share * 100).toFixed(0)}% of supply`);
   if (r && r.top10_share != null && r.top10_share > L.max_top10_share) return no("concentrated", `top 10 hold ${(r.top10_share * 100).toFixed(0)}%`);
   if (r && r.creator_sold > L.max_creator_sold) return no("creator_sold", `creator sold ${(r.creator_sold * 100).toFixed(0)}%`);

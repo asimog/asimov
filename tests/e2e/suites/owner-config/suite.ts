@@ -26,9 +26,14 @@ export const suite: Suite = {
     try {
       const file = JSON.parse(fs.readFileSync(path.join(env.root, "config", "limits.default.json"), "utf8")) as Record<string, number>;
       const shown = await showLimits(w.sql);
-      const same = Object.keys(file).every((k) => shown.limits[k] === file[k]) && shown.defaults_in_force.length === Object.keys(file).length;
+      const nums = Object.keys(file).filter((k) => typeof file[k] === "number");
+      const same = nums.every((k) => shown.limits[k] === file[k]) && shown.defaults_in_force.length === nums.length && file.require_risk_state === (true as unknown);
       check("limits show reads the defaults from config/limits.default.json", same, `${shown.defaults_in_force.length} defaults in force`);
       await w.fund(w.wallets.trade, 0.2);
+      await w.intent("buy", { size_sol: 0.005, risk: false }); // before any risk.state exists for the coin
+      await w.settle();
+      check("a buy on a coin with no risk.state is refused", (await rejected("no_risk_state")) === 1, `${await rejected("no_risk_state")} no_risk_state rejections`);
+
       await w.intent("buy", { size_sol: 0.015 });
       await w.settle();
       check("a 0.015 SOL buy passes under the default 0.02 cap", (await orders()) === 1, `${await orders()} orders`);

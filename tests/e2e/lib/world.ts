@@ -3,12 +3,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { putSignal } from "../../../services/core/src/board/board.ts";
 import { orderGate } from "../../../services/core/src/hands/order-gate.ts";
 import type { SignCtx, SignerClient, SignReply } from "../../../services/core/src/hands/signer-client.ts";
 import { trader } from "../../../services/core/src/hands/trader.ts";
 import { type Clock, liveClock } from "../../../services/core/src/lib/clock.ts";
 import type { Sql } from "../../../services/core/src/lib/db.ts";
-import { type Consumer, drain } from "../../../services/core/src/tape/consumer.ts";
+import { type Consumer, drain, type Tx } from "../../../services/core/src/tape/consumer.ts";
 import { Tape } from "../../../services/core/src/tape/tape.ts";
 import { books, recordDeposit } from "../../../services/core/src/treasury/books.ts";
 import { kill } from "../../../services/core/src/treasury/kill.ts";
@@ -93,8 +94,10 @@ export async function world(tag: string, o: { live?: boolean; strategies?: strin
   }
 
   /** a trade on the coin (so the gate has a fresh quote) then an intent from the live strategy */
-  async function intent(side: "buy" | "sell", o2: { size_sol?: number; fraction?: number; strategy?: string; mint?: string; ghost?: boolean } = {}) {
+  async function intent(side: "buy" | "sell", o2: { size_sol?: number; fraction?: number; strategy?: string; mint?: string; ghost?: boolean; risk?: false } = {}) {
     const mint = o2.mint ?? keys.mint;
+    if (o2.risk !== false) // the rug checks the Index would have run: a clean coin
+      await putSignal(db.sql as unknown as Tx, clock, { kind: "risk.state", subject: mint, value: { bundle_share: 0, top10_share: 0.1, creator_sold: 0 }, confidence: 0.9, validMs: 3_600_000, inputs: [], analyzer: "test" });
     const price = chain.prices.get(mint)!;
     tape.emit("trade.curve", { mint, tx: `t${chain.next()}`, slot_index_id: null, ts: clock.iso(), side: "buy", wallet: keys.stranger.publicKey.toBase58(), sol: 1, usd: null, tokens: 1e6, price_sol: price, price_usd: null, mcap_usd: null, on_curve: true, program: null }, { source: "nats", subject: mint });
     await tape.flush();
