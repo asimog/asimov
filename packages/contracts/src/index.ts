@@ -291,7 +291,7 @@ export const CalibrationMap = z.object({
   family: z.string(),
   version: z.number().int(),
   decisions: z.number().int(),
-  bins: z.array(z.object({ lo: num, hi: num, n: z.number().int(), win: num, mean: num })),
+  bins: z.array(z.object({ lo: num, hi: num, n: z.number().int(), win: num, mean: num, payoff: num.nullable() })),
 });
 
 export const KernelAllocation = z.object({

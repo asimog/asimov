@@ -6,17 +6,26 @@ const OPEN = "<<<";
 const CLOSE = ">>>";
 
 /** Control characters (tab and newline stay), zero-width marks and bidi overrides: they can hide text from a reader. */
-const hidden = (c: number) => (c < 0x20 && c !== 0x09 && c !== 0x0a) || c === 0x7f || (c >= 0x200b && c <= 0x200f) || (c >= 0x202a && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069);
+const hidden = (c: number) => (c < 0x20 && c !== 0x09 && c !== 0x0a) || c === 0x7f || (c >= 0x200b && c <= 0x200f) || (c >= 0x202a && c <= 0x202e) || (c >= 0x2060 && c <= 0x2069) || c === 0xfeff;
+
+/**
+ * What a reader will see: hidden characters removed, then NFKC, which folds full-width and compatibility letters to
+ * plain ones. The rules and the fence read the same text, so nothing hidden from the rules reaches a model.
+ */
+export function clean(text: string | null | undefined): string {
+  return Array.from(text ?? "")
+    .filter((c) => !hidden(c.codePointAt(0)!))
+    .join("")
+    .normalize("NFKC");
+}
 
 /** Wrap untrusted text in a fence it cannot break: fence marks and hidden characters inside it are removed. */
 export function fence(text: string | null | undefined, max = 800): string {
-  const clean = Array.from(text ?? "")
-    .filter((c) => !hidden(c.codePointAt(0)!))
-    .join("")
+  const body = clean(text)
     .replaceAll(OPEN, "")
     .replaceAll(CLOSE, "")
     .slice(0, max);
-  return `${OPEN}${clean}${CLOSE}`;
+  return `${OPEN}${body}${CLOSE}`;
 }
 
 /** Plain injection attempts, refused before any model sees the text. Each rule names what it caught. */
@@ -29,5 +38,6 @@ const RULES: { name: string; re: RegExp }[] = [
 
 /** The rules a text breaks; empty when none. */
 export function guardRules(text: string): string[] {
-  return RULES.filter((r) => r.re.test(text)).map((r) => r.name);
+  const seen = clean(text);
+  return RULES.filter((r) => r.re.test(seen)).map((r) => r.name);
 }

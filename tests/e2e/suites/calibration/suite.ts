@@ -50,11 +50,15 @@ export const suite: Suite = {
     const spec = seedSpecs().find((s) => s.family === "launch_scan")!;
     const board = { "curve.progress": { mcap_usd: 9000, progress: 0.2 }, "flow.state": { buyers_60s: 20, heat: 1, top_share: 0 }, "risk.state": { score: 0 }, "wallets.smart_buying": { score: 1 } };
     const quote = () => ({ slippage_bps: 10, impact_bps: 20 });
-    const sure = [{ lo: 0, hi: 1, n: 20, win: 0.99, mean: 0.5 }, { lo: 0.1, hi: 1, n: 20, win: 0.99, mean: 0.5 }, { lo: 0.2, hi: 1, n: 20, win: 0.99, mean: 0.5 }];
+    const sure = [0, 0.1, 0.2].map((lo) => ({ lo, hi: 1, n: 20, win: 0.99, mean: 0.5, payoff: 3 }));
     const d = evaluateEntry(spec, board, quote, { budget_sol: 1 }, sure);
     const g = geometry(spec);
-    const k = Math.min(CALIB.kellyCap, spec.size.kelly_fraction * ((0.99 * g.b - 0.01) / g.b));
-    add("full sizing is fractional Kelly on the bin's win share, capped at KELLY_CAP", d.enter && Math.abs(d.size_sol - Math.min(spec.size.max_sol, k)) < 1e-9, d.enter ? `${d.size_sol.toFixed(4)} SOL of a 1 SOL budget, cap ${CALIB.kellyCap}` : d.reason);
+    const k = Math.min(CALIB.kellyCap, spec.size.kelly_fraction * ((0.99 * 3 - 0.01) / 3));
+    add("full sizing is fractional Kelly on the bin's win share and measured payoff, capped at KELLY_CAP", d.enter && Math.abs(d.size_sol - Math.min(spec.size.max_sol, k)) < 1e-9, d.enter ? `${d.size_sol.toFixed(4)} SOL of a 1 SOL budget, cap ${CALIB.kellyCap}` : d.reason);
+    // many small wins and few big losses: the take-profit geometry says bet, the measured payoff says no
+    const thin = sure.map((b) => ({ ...b, win: 0.6, mean: 0.05, payoff: 0.1 }));
+    const dt = evaluateEntry(spec, board, quote, { budget_sol: 1 }, thin);
+    add("Kelly uses the bin's measured payoff, not the spec's take-profit", !dt.enter && dt.reason === "no_budget", dt.enter ? `entered ${dt.size_sol.toFixed(4)} SOL (geometry b ${g.b.toFixed(2)})` : dt.reason);
     const losing = sure.map((b) => ({ ...b, win: 0.3, mean: -0.05 }));
     const dl = evaluateEntry(spec, board, quote, { fixed_sol: 0.005 }, losing);
     add("a bin whose mean net is under the costs refuses the entry", !dl.enter && dl.reason === "below_cost_floor", dl.enter ? "entered" : dl.reason);

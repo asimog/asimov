@@ -178,8 +178,10 @@ export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: numbe
   if (score < spec.enter_if.score_gte) return { enter: false, reason: "below_threshold", score, terms };
   const g = geometry(spec);
   const bin = map ? binFor(map, score) : null;
+  // Kelly's b: the bin's measured payoff when it has one; with only wins the limit is p; else the spec's geometry
   const p = bin ? bin.win : score;
-  const kelly = Math.max(0, (p * g.b - (1 - p)) / g.b);
+  const b = bin ? bin.payoff : g.b;
+  const kelly = b === null ? (bin && bin.win === 1 ? p : 0) : b > 0 ? Math.max(0, (p * b - (1 - p)) / b) : 0;
   if (!bin && kelly <= 0) return { enter: false, reason: "no_edge", score, terms };
   const size = Math.min(spec.size.max_sol, "fixed_sol" in sizing ? sizing.fixed_sol : Math.min(CALIB.kellyCap, spec.size.kelly_fraction * kelly) * sizing.budget_sol);
   if (size <= 0) return { enter: false, reason: "no_budget", score, terms };

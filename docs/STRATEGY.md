@@ -85,7 +85,7 @@ A score is a ranking, not a probability. Per family, closed ghost decisions are 
 
 - Entry needs the map's expected net at this score, minus this trade's slippage and fees, above zero.
 - Until a family has a map with at least 3 bins, every entry uses the fixed probe size.
-- After that: fractional Kelly on the map's win chance, capped at `KELLY_CAP`, then by the kernel share and stage, then by the owner's limits.
+- After that: fractional Kelly on the map's win chance and the bin's measured payoff (mean win over mean loss, not the take-profit), capped at `KELLY_CAP`, then by the kernel share and stage, then by the owner's limits.
 - A term whose signal confidence is below `TERM_MIN_CONF` (0.3) counts as missing.
 - Before a map, the score is only a ranking: the geometry floor (take-profit and stop) filters entries, and the size is the probe.
 
