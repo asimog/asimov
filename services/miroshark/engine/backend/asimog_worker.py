@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextvars
 import json
 import os
 import re
@@ -46,7 +47,81 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scr
 
 RUNS: dict[str, dict] = {}
 LOCK = threading.Lock()
-REQUIRED = ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL_NAME"]
+REQUIRED = ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL_NAME", "LLM_PRICE_IN_PER_M", "LLM_PRICE_OUT_PER_M"]
+
+
+class SpendCap(Exception):
+    """The run passed its usd_cap: an agent's call fails like any agent error (its turn is skipped) and the round loop stops."""
+
+
+class Meter:
+    """Real spend of one run (D2): each model response's token usage times the prices in env (USD per million tokens,
+    LLM_PRICE_IN_PER_M and LLM_PRICE_OUT_PER_M; never a price in code). `over` once spend passes the run's usd_cap."""
+
+    def __init__(self, cap: float | None):
+        self.usd, self.cap, self.lock = 0.0, cap, threading.Lock()
+        self.price_in, self.price_out = float(os.environ["LLM_PRICE_IN_PER_M"]) / 1e6, float(os.environ["LLM_PRICE_OUT_PER_M"]) / 1e6
+
+    def over(self) -> bool:
+        return self.cap is not None and self.usd > self.cap
+
+    def add(self, usage) -> None:
+        if usage is not None:
+            with self.lock:
+                self.usd += (getattr(usage, "prompt_tokens", 0) or 0) * self.price_in + (getattr(usage, "completion_tokens", 0) or 0) * self.price_out
+
+
+METER: contextvars.ContextVar = contextvars.ContextVar("asimog_meter", default=None)
+METERS: dict[str, Meter] = {}
+
+
+class _MeteredStream:
+    """A streamed answer: its usage arrives on the last chunk (stream_options.include_usage)."""
+
+    def __init__(self, stream, meter: Meter):
+        self._s, self._m = stream, meter
+
+    def __iter__(self):
+        for chunk in self._s:
+            self._m.add(getattr(chunk, "usage", None))
+            yield chunk
+
+    def __getattr__(self, name):
+        return getattr(self._s, name)
+
+
+def meter_openai(over_cap) -> None:
+    """Every chat call through the openai client checks the run's cap first (raising `over_cap`), then adds its usage."""
+    from openai.resources.chat.completions import AsyncCompletions, Completions
+
+    sync, aio = Completions.create, AsyncCompletions.create
+
+    def gate(k: dict):
+        m = METER.get()
+        if m and m.over():
+            raise over_cap(f"spent {m.usd:.4f} of {m.cap} USD")
+        if m and k.get("stream"):
+            k.setdefault("stream_options", {"include_usage": True})
+        return m
+
+    def create(self, *a, **k):
+        m = gate(k)
+        r = sync(self, *a, **k)
+        if m:
+            if k.get("stream"):
+                return _MeteredStream(r, m)
+            m.add(getattr(r, "usage", None))
+        return r
+
+    async def acreate(self, *a, **k):
+        m = gate(k)
+        r = await aio(self, *a, **k)
+        if m and not k.get("stream"):
+            m.add(getattr(r, "usage", None))
+        return r
+
+    Completions.create, AsyncCompletions.create = create, acreate
+
 FOLLOWER_MIX = {"degen_follower": 0.3, "paper_hand": 0.15, "diamond_hand": 0.15, "sniper": 0.1, "exit_farmer": 0.1, "smart": 0.15, "bundler": 0.05}
 HOUSE = "Asimog"
 TWITTER_ACTIONS = ["create_post", "like_post", "repost", "follow", "do_nothing", "quote_post"]  # upstream TWITTER_ACTIONS
@@ -234,8 +309,9 @@ async def one_run(req: dict, branch: str, sample: int, profiles: list[dict], mdl
     drift: list[dict] = []
     pump_after = tw_after = 0
     callout_after = 0
+    meter = METER.get()
     for r in range(rounds):
-        if time.time() > deadline:
+        if time.time() > deadline or (meter and meter.over()):  # out of time or past the run's usd_cap: stop, keep what ran
             truncated = True
             break
         if r > 0:  # what each agent learned last round, injected with upstream's marker injectors
@@ -349,6 +425,8 @@ def persona_mcp():
 
 
 def execute(run_id: str, req: dict) -> None:
+    meter = METERS[run_id]
+    METER.set(meter)
     try:
         import asimog_graph
         mdl = model()
@@ -376,7 +454,7 @@ def execute(run_id: str, req: dict) -> None:
                    f" (wave = {wave_at} or more callers calling); our callout changes callers by {d_callers:+.1f} and net flow by {d_net:+.3f} SOL." + (" No simulated actions." if quiet else ""))
         from asimog_report import TITLE, VOICE, numbers_for
         numbers = numbers_for(res, wave_p, wave_at, d_callers, d_net)
-        if os.getenv("SWARM_REPORT", "agent") == "agent":
+        if os.getenv("SWARM_REPORT", "agent") == "agent" and not meter.over():  # past the cap: the numbers-only report, no more model calls
             from asimog_report import SwarmReportAgent
             requirement = f"{summary}\nCoin: ${sym} ({req['subject']}). Platforms: {', '.join(sorted(platforms()))}.\n" + "\n".join(f"{k}: {v}" for k, v in numbers.items()) + f"\n{VOICE}"
             rep = SwarmReportAgent(gid, run_id, requirement, store, core(["reports_for", "coin_flow_since"]), req["subject"], req.get("started_at") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())).write(numbers)
@@ -388,8 +466,9 @@ def execute(run_id: str, req: dict) -> None:
         ir = {"template": TITLE, "sections": rep["sections"], "graph": {"graph_id": gid, "features": asimog_graph.FEATURES, "seeded": seeded, **counts},
               "platforms": sorted(platforms()), "branches": {k: [{kk: vv for kk, vv in x.items() if kk != "posts"} for x in v] for k, v in res.items()}}
         out = {"beliefs": {"topic": sym, "branches": {k: [x["drift"] for x in v] for k, v in res.items()}},
-               "swarm": {"samples": sm["samples"], "actions": sm["actions"], "usd": 0.0, "truncated": truncated, "wave_p": wave_p, "d_callers": d_callers, "d_net_sol": d_net, "posts": posts},
-               "reports": [{"producer": "miroshark.report", "kind": "swarm", "subject": req["subject"], "summary": summary[:590], "cites": cites, "markdown": md, "ir": ir, "simulated": True}]}
+               "swarm": {"samples": sm["samples"], "actions": sm["actions"], "usd": meter.usd, "truncated": truncated, "wave_p": wave_p, "d_callers": d_callers, "d_net_sol": d_net, "posts": posts},
+               "reports": [{"producer": "miroshark.report", "kind": "swarm", "subject": req["subject"], "summary": summary[:590], "cites": cites, "markdown": md, "ir": ir, "simulated": True}],
+               "cost_usd": meter.usd, "truncated": truncated}
         with LOCK:
             RUNS[run_id] = {"state": "done", "output": out}
     except Exception as err:  # noqa: BLE001
@@ -414,7 +493,8 @@ class Handler(BaseHTTPRequestHandler):
         if m:
             with LOCK:
                 r = RUNS.get(m.group(1))
-            return self._send(200 if r else 404, r or {"state": "failed", "error": "unknown run"})
+                spent = METERS.get(m.group(1))
+            return self._send(200 if r else 404, {**r, "cost_usd": spent.usd if spent else 0.0} if r else {"state": "failed", "error": "unknown run"})
         self._send(404, {})
 
     def do_POST(self):  # noqa: N802
@@ -424,6 +504,7 @@ class Handler(BaseHTTPRequestHandler):
         run_id = str(req["job_id"])
         with LOCK:
             RUNS[run_id] = {"state": "running"}
+            METERS[run_id] = Meter(float(req["usd_cap"]) if req.get("usd_cap") is not None else None)
         threading.Thread(target=execute, args=(run_id, req), daemon=True).start()
         self._send(200, {"run_id": run_id})
 
@@ -437,6 +518,7 @@ def main() -> None:
     ap.add_argument("--host", default=os.getenv("MIROSHARK_HOST", "127.0.0.1"))
     a = ap.parse_args()
     check_env()
+    meter_openai(SpendCap)
     print(json.dumps({"msg": "asimog_worker (miroshark) up", "host": a.host, "port": a.port, "platforms": sorted(platforms()), "graph": os.getenv("SWARM_GRAPH_FEATURES", "off")}), flush=True)
     ThreadingHTTPServer((a.host, a.port), Handler).serve_forever()
 

@@ -4,8 +4,9 @@ import type { Engine, Job, Kind } from "./types.ts";
 
 type Sql = import("postgres").Sql<Record<string, unknown>>;
 
-export async function enqueue(sql: Sql, j: { engine: Engine; kind: Kind; subject: string; preset: string; slot: string; id: string; deferred?: string }): Promise<boolean> {
-  const r = await sql`insert into slow.jobs (id, engine, kind, subject, preset, slot, state, error) values (${j.id}, ${j.engine}, ${j.kind}, ${j.subject}, ${j.preset}, ${j.slot}, ${j.deferred ? "deferred" : "queued"}, ${j.deferred ?? null})
+export async function enqueue(sql: Sql, j: { engine: Engine; kind: Kind; subject: string; preset: string; slot: string; id: string; stage: number | null; usd_cap: number; deferred?: string }): Promise<boolean> {
+  const r = await sql`insert into slow.jobs (id, engine, kind, subject, preset, slot, stage, usd_cap, state, error)
+    values (${j.id}, ${j.engine}, ${j.kind}, ${j.subject}, ${j.preset}, ${j.slot}, ${j.stage}, ${j.usd_cap}, ${j.deferred ? "deferred" : "queued"}, ${j.deferred ?? null})
     on conflict (engine, kind, subject, slot) do nothing returning id`;
   return r.length > 0;
 }
@@ -13,7 +14,7 @@ export async function enqueue(sql: Sql, j: { engine: Engine; kind: Kind; subject
 /** The oldest queued job, marked running; null when none. Safe with several Bridge processes (skip locked). */
 export async function claim(sql: Sql, at: string): Promise<Job | null> {
   const [r] = await sql`update slow.jobs set state = 'running', started_at = ${at}
-    where id = (select id from slow.jobs where state = 'queued' order by slot, id for update skip locked limit 1) returning id, engine, kind, subject, preset, slot`;
+    where id = (select id from slow.jobs where state = 'queued' order by slot, id for update skip locked limit 1) returning id, engine, kind, subject, preset, slot, stage, usd_cap`;
   return (r as Job | undefined) ?? null;
 }
 
@@ -32,9 +33,20 @@ export async function expireDeferred(sql: Sql, before: string, at: string) {
   await sql`update slow.jobs set state = 'failed', error = 'expired', finished_at = ${at} where state = 'deferred' and slot < ${before}`;
 }
 
-/** Move the `n` oldest deferred jobs of one engine and kind to the queue. */
+/** Move the `n` oldest deferred jobs of one engine and kind to the queue. A job deferred by the day cap waits for its expiry. */
 export async function promoteDeferred(sql: Sql, engine: Engine, kind: Kind, n: number) {
   if (n <= 0) return;
   await sql`update slow.jobs set state = 'queued', error = null
-    where id in (select id from slow.jobs where state = 'deferred' and engine = ${engine} and kind = ${kind} order by slot, id limit ${n} for update skip locked)`;
+    where id in (select id from slow.jobs where state = 'deferred' and error <> 'day_cap' and engine = ${engine} and kind = ${kind} order by slot, id limit ${n} for update skip locked)`;
+}
+
+/** Real spend of one engine on the UTC day of `slot` (jobs grouped by their own slot's day). */
+export async function daySpend(sql: Sql, engine: Engine, slot: string): Promise<number> {
+  const [r] = await sql`select coalesce(sum(cost_usd), 0)::float usd from slow.jobs where engine = ${engine} and left(slot, 10) = ${slot.slice(0, 10)}`;
+  return r!.usd as number;
+}
+
+/** A claimed job that may not run now goes back to waiting, with the reason. */
+export async function defer(sql: Sql, id: string, reason: string) {
+  await sql`update slow.jobs set state = 'deferred', error = ${reason}, started_at = null where id = ${id}`;
 }

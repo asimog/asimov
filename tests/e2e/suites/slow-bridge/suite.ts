@@ -66,7 +66,7 @@ export const suite: Suite = {
       let t = w.clock.now();
       let n = 0;
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-      const cfg = { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel" as const, chainWaitS: 1, runTimeoutS: 5, pollMs: 20, deferMaxMin: 90 };
+      const cfg = { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel" as const, chainWaitS: 1, runTimeoutS: 5, pollMs: 20, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100 };
       const grant = (mint: string, stage: 1 | 2) => w.tape.emit("jev.escalated", { subject: mint, gate_reasons: ["test"], job: stage === 1 ? "synthesis_coin" : "swarm_run", voi: 0.4, stage, arm: "run", deferred: false }, { source: "attention", subject: mint });
       const jobOf = async (mint: string) => (await w.sql`select state, error from slow.jobs where subject = ${mint} order by slot desc limit 1`)[0] as { state: string; error: string | null } | undefined;
       const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: new EngineClient("bettafish", bf.url), miroshark: new EngineClient("miroshark", ms.url) }, now: () => t, newId: () => `sj_t${++n}`, cfg });

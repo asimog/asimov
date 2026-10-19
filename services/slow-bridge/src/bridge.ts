@@ -8,7 +8,7 @@
 // an escalation storm (per-hour quotas per engine: a grant with no room is deferred, promoted oldest first when room
 // returns, and expires after SLOW_DEFER_MAX_MIN); a long run delays escalations (schedule and drain run on their own loops).
 import type { EngineClient } from "./engine.ts";
-import { claim, enqueue, expireDeferred, finish, promoteDeferred, requeueStale } from "./jobs.ts";
+import { claim, daySpend, defer, enqueue, expireDeferred, finish, promoteDeferred, requeueStale } from "./jobs.ts";
 import { type Cores, mapOutput } from "./mapper.ts";
 import type { Engine, Job, Kind } from "./types.ts";
 
@@ -25,19 +25,23 @@ export type BridgeConfig = {
   runTimeoutS: number;
   pollMs: number;
   deferMaxMin: number; // SLOW_DEFER_MAX_MIN
+  stageUsd: Record<1 | 2 | 3, number>; // SLOW_STAGE<n>_USD_PER_RUN: each run's cap
+  dayUsd: number; // SLOW_USD_PER_DAY, per engine
 };
 
 export type BridgeDeps = { sql: Sql; cores: Cores; engines: Record<Engine, EngineClient | null>; now: () => number; newId: () => string; cfg: BridgeConfig };
 
 type Ev = { id: string; seen_time: string; subject: string | null; body: Record<string, unknown> };
-type Target = { engine: Engine; kind: Kind; preset: string };
+type Target = { engine: Engine; kind: Kind; preset: string; stage: 1 | 2 | 3 | null };
 
 /** What each stage runs (docs/SLOW-MIND.md section 3): stage 1 BettaFish nano; stage 2 BettaFish lite and a small swarm; stage 3 the owner's presets. */
 const STAGES: Record<number, (p: BridgeConfig["presets"]) => Target[]> = {
-  1: () => [{ engine: "bettafish", kind: "coin", preset: "nano" }],
-  2: () => [{ engine: "bettafish", kind: "coin", preset: "lite" }, { engine: "miroshark", kind: "swarm", preset: "nano" }],
-  3: (p) => [{ engine: "bettafish", kind: "coin", preset: p.bettafish }, { engine: "miroshark", kind: "swarm", preset: p.miroshark }],
+  1: () => [{ engine: "bettafish", kind: "coin", preset: "nano", stage: 1 }],
+  2: () => [{ engine: "bettafish", kind: "coin", preset: "lite", stage: 2 }, { engine: "miroshark", kind: "swarm", preset: "nano", stage: 2 }],
+  3: (p) => [{ engine: "bettafish", kind: "coin", preset: p.bettafish, stage: 3 }, { engine: "miroshark", kind: "swarm", preset: p.miroshark, stage: 3 }],
 };
+/** A feed run has no stage: its cap follows its preset's size. */
+const PRESET_STAGE: Record<string, 1 | 2 | 3> = { nano: 1, lite: 2, full: 3 };
 
 export class Bridge {
   stats = { queued: 0, deferred: 0, runs: 0, done: 0, failed: 0, reports: 0, writes: 0, refused: 0 };
@@ -61,7 +65,8 @@ export class Bridge {
   private async queue(t: Target, subject: string, slot: string, deferred?: string): Promise<boolean> {
     if (!this.d.engines[t.engine]) return false; // that engine is off: nothing to queue
     const why = deferred ?? (t.kind === "feed" || (await this.quotaLeft(t.engine, t.kind, this.perHour(t))) > 0 ? undefined : "quota"); // the feed has its own timer
-    const ok = await enqueue(this.d.sql, { id: this.d.newId(), engine: t.engine, kind: t.kind, subject, preset: t.preset, slot, deferred: why });
+    const usd_cap = this.d.cfg.stageUsd[t.stage ?? PRESET_STAGE[t.preset] ?? 3];
+    const ok = await enqueue(this.d.sql, { id: this.d.newId(), engine: t.engine, kind: t.kind, subject, preset: t.preset, slot, stage: t.stage, usd_cap, deferred: why });
     if (ok) this.stats[why ? "deferred" : "queued"]++;
     return ok;
   }
@@ -71,8 +76,8 @@ export class Bridge {
     const b = e.body;
     if (b.arm === "control" || b.job === null) return []; // control: recorded by core, never run
     if (typeof b.stage === "number") return STAGES[b.stage]?.(this.d.cfg.presets) ?? [];
-    if (b.job === "synthesis_deep") return [{ engine: "bettafish", kind: "coin", preset: this.d.cfg.presets.bettafish }]; // attention.grant
-    if (b.job === "swarm_run") return [{ engine: "miroshark", kind: "swarm", preset: this.d.cfg.presets.miroshark }];
+    if (b.job === "synthesis_deep") return [{ engine: "bettafish", kind: "coin", preset: this.d.cfg.presets.bettafish, stage: 3 }]; // attention.grant: the owner's presets
+    if (b.job === "swarm_run") return [{ engine: "miroshark", kind: "swarm", preset: this.d.cfg.presets.miroshark, stage: 3 }];
     return [];
   }
 
@@ -84,7 +89,7 @@ export class Bridge {
     for (const [engine, kind, perHour] of [["bettafish", "coin", this.d.cfg.coinRunsPerHour], ["miroshark", "swarm", this.d.cfg.swarmRunsPerHour]] as const)
       await promoteDeferred(this.d.sql, engine, kind, await this.quotaLeft(engine, kind, perHour));
     const period = this.d.cfg.feedEveryMin * 60_000;
-    await this.queue({ engine: "bettafish", kind: "feed", preset: this.d.cfg.presets.bettafish }, "global", this.iso(Math.floor(t / period) * period));
+    await this.queue({ engine: "bettafish", kind: "feed", preset: this.d.cfg.presets.bettafish, stage: null }, "global", this.iso(Math.floor(t / period) * period));
 
     const [cur] = await this.d.sql`select seen_time, event_id from slow.cursors where name = 'escalations'`;
     const { events } = await this.d.cores.exchange.call<{ events: Ev[] }>("events_since", { topics: ["attention.grant", "jev.escalated"], after_seen_time: cur?.seen_time ? (cur.seen_time as Date).toISOString() : undefined, after_id: (cur?.event_id as string | undefined) ?? undefined, limit: 50 });
@@ -121,8 +126,14 @@ export class Bridge {
     await requeueStale(this.d.sql, this.iso(this.d.now() - this.d.cfg.runTimeoutS * 2000));
     const job = await claim(this.d.sql, this.iso());
     if (!job) return false;
+    if ((await daySpend(this.d.sql, job.engine, job.slot)) >= this.d.cfg.dayUsd) { // SLOW_USD_PER_DAY: never run, wait for expiry
+      await defer(this.d.sql, job.id, "day_cap");
+      this.stats.deferred++;
+      return true;
+    }
     this.stats.runs++;
     const engine = this.d.engines[job.engine];
+    let spent = 0; // the engine's real spend, from its last status poll: recorded even when the run fails
     try {
       if (!engine) throw new Error(`${job.engine} is off`);
       await this.waitForChain(job);
@@ -132,17 +143,18 @@ export class Bridge {
       const extra = job.engine === "miroshark"
         ? { dossier: await this.d.cores.swarm.call("coin_dossier", { mint: job.subject }), parent_texts: (await this.d.cores.exchange.call<{ reports: { report_id: string; producer: string; summary: string; markdown: string | null }[] }>("reports_for", { subject: job.subject, producer_prefix: "bettafish.", limit: 3 })).reports }
         : {};
-      const runId = await engine.start({ job_id: job.id, kind: job.kind, subject: job.subject, preset: job.preset, window_min: windowMin, started_at: this.iso(), as_of: job.slot, parent_reports: parents, ...extra });
+      const runId = await engine.start({ job_id: job.id, kind: job.kind, subject: job.subject, preset: job.preset, usd_cap: job.usd_cap, window_min: windowMin, started_at: this.iso(), as_of: job.slot, parent_reports: parents, ...extra });
       const until = this.d.now() + this.d.cfg.runTimeoutS * 1000;
       for (;;) {
         const s = await engine.status(runId);
+        spent = s.cost_usd ?? s.output?.cost_usd ?? spent;
         if (s.state === "failed") throw new Error(`engine: ${s.error ?? "failed"}`);
         if (s.state === "done") {
           const m = await mapOutput(this.d.cores, job, s.output ?? {}, parents, { from: this.iso(Date.parse(job.slot) - windowMin * 60_000), to: job.slot });
           this.stats.reports += m.reports.length;
           this.stats.writes += m.writes.length;
           this.stats.refused += m.refused.length;
-          await finish(this.d.sql, job.id, this.iso(), { ok: !m.failed, cost_usd: s.output?.cost_usd ?? 0, result: m, error: m.failed });
+          await finish(this.d.sql, job.id, this.iso(), { ok: !m.failed, cost_usd: spent, result: { ...m, truncated: s.output?.truncated === true }, error: m.failed });
           this.stats[m.failed ? "failed" : "done"]++;
           return true;
         }
@@ -150,7 +162,7 @@ export class Bridge {
         await new Promise((r) => setTimeout(r, this.d.cfg.pollMs));
       }
     } catch (err) {
-      await finish(this.d.sql, job.id, this.iso(), { ok: false, cost_usd: 0, error: String((err as Error).message ?? err).slice(0, 300) });
+      await finish(this.d.sql, job.id, this.iso(), { ok: false, cost_usd: spent, error: String((err as Error).message ?? err).slice(0, 300) });
       this.stats.failed++;
       return true;
     }

@@ -9,7 +9,7 @@ import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
 import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
 import type { Check } from "../../lib/checks.ts";
 import { llmStub } from "../../lib/llm-stub.ts";
-import { CAP, MINT_A, slowEnv, WALLETS } from "../../lib/slow.ts";
+import { CAP, MINT_A, PRICES, slowEnv, WALLETS } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const ENGINE = path.join(env.root, "services", "bettafish", "engine");
@@ -45,7 +45,7 @@ export const suite: Suite = {
     const worker = spawn(PY, ["asimog_worker.py", "--port", String(port)], {
       cwd: ENGINE,
       env: {
-        ...process.env, ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: "insight", SEARCH_TOOL_TYPE: "AsimogMedia", QUERY_SEARCH: "tavily,x", BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1",
+        ...process.env, ...PRICES, ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: "insight", SEARCH_TOOL_TYPE: "AsimogMedia", QUERY_SEARCH: "tavily,x", BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1",
         INSIGHT_ENGINE_API_KEY: "stub", INSIGHT_ENGINE_BASE_URL: llm.url, INSIGHT_ENGINE_MODEL_NAME: "stub",
         KEYWORD_OPTIMIZER_API_KEY: "stub", KEYWORD_OPTIMIZER_BASE_URL: llm.url, KEYWORD_OPTIMIZER_MODEL_NAME: "stub", PYTHONIOENCODING: "utf-8", HF_HUB_OFFLINE: "1", PYTHONUTF8: "1", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost",
       },
@@ -66,7 +66,7 @@ export const suite: Suite = {
       for (let i = 0; i < 120 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the worker starts with every provider value from our env", await eng.healthy(), log.slice(-300));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => asOfMs, newId: () => "sj_bf1", cfg: { feedEveryMin: 1, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 120, pollMs: 300, deferMaxMin: 90 } });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => asOfMs, newId: () => "sj_bf1", cfg: { feedEveryMin: 1, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 120, pollMs: 300, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100 } });
       await bridge.schedule();
       await bridge.drain();
       const [job] = await w.sql`select state, error, result from slow.jobs where id = 'sj_bf1'`;

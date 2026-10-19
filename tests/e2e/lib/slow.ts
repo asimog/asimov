@@ -14,6 +14,8 @@ import { freshDb } from "./freshdb.ts";
 
 export const MINT_A = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 export const MINT_B = "9wFFyRfZBsuAha4YcuxcXLKwMxJR43S7fPfQLusDBzvT";
+/** The model prices every worker needs at boot (D2): from .env.example, like any setting, never from a suite. */
+export const PRICES = { LLM_PRICE_IN_PER_M: env.str("LLM_PRICE_IN_PER_M"), LLM_PRICE_OUT_PER_M: env.str("LLM_PRICE_OUT_PER_M") };
 export const WALLETS = ["4Nd1mYQq9jN5vYw3fR8kZ2sT6uXbLpH7cGaE1dKoV9Mq", "5Qe2nZRr8kO6wZx4gS9lA3tU7vYcMqI8dHbF2eLpW0Nr", "6Rf3oASs9lP7xAy5hT0mB4uV8wZdNrJ9eIcG3fMqX1Os"];
 
 export const TEXTS: Record<string, string> = {

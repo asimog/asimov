@@ -2,9 +2,10 @@
 // reports it. BettaFish's asimog_worker.py and MiroShark's asimog blueprint both implement it.
 export type Engine = "bettafish" | "miroshark";
 export type Kind = "feed" | "coin" | "swarm";
-export type Job = { id: string; engine: Engine; kind: Kind; subject: string; preset: string; slot: string };
+/** `usd_cap`: the run's spend cap (its stage's SLOW_STAGE<n>_USD_PER_RUN); `stage`: null for feed runs. */
+export type Job = { id: string; engine: Engine; kind: Kind; subject: string; preset: string; slot: string; stage: number | null; usd_cap: number };
 
-export type RunRequest = { job_id: string; kind: Kind; subject: string; preset: string; window_min: number; started_at: string; as_of: string; parent_reports: string[]; dossier?: unknown; parent_texts?: { report_id: string; producer: string; summary: string; markdown: string | null }[] };
+export type RunRequest = { job_id: string; kind: Kind; subject: string; preset: string; usd_cap: number; window_min: number; started_at: string; as_of: string; parent_reports: string[]; dossier?: unknown; parent_texts?: { report_id: string; producer: string; summary: string; markdown: string | null }[] };
 export type ReportOut = { producer: string; kind: Kind; subject: string; summary: string; cites: string[]; ir?: Record<string, unknown> | null; markdown?: string | null; simulated?: boolean };
 export type RunOutput = {
   reports?: ReportOut[];
@@ -15,8 +16,10 @@ export type RunOutput = {
   swarm?: Record<string, unknown>; // emit_swarm_result arguments
   beliefs?: Record<string, unknown>; // emit_swarm_beliefs arguments (topic, branches)
   cost_usd?: number;
+  truncated?: boolean; // the run stopped at its usd_cap and returned what it had
 };
-export type RunStatus = { state: "running" | "done" | "failed"; output?: RunOutput; error?: string };
+/** `cost_usd`: the run's real spend so far, on every poll. */
+export type RunStatus = { state: "running" | "done" | "failed"; output?: RunOutput; error?: string; cost_usd?: number };
 
 /** The core MCP client the Bridge uses, one per capability (synth, swarm, exchange). */
 export interface Core {

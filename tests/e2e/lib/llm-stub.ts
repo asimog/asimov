@@ -4,7 +4,8 @@
 import http from "node:http";
 
 export type StubReq = { model: string; system: string; user: string; json: boolean; tools: string[]; afterTool: boolean };
-export async function llmStub(respond: (r: StubReq) => string = () => "{}"): Promise<{ url: string; calls: StubReq[]; close(): void }> {
+/** `usage`: a fixed token count on every answer (a provider that bills the same per call); by default one from the text length. */
+export async function llmStub(respond: (r: StubReq) => string = () => "{}", o: { usage?: { prompt_tokens: number; completion_tokens: number } } = {}): Promise<{ url: string; calls: StubReq[]; close(): void }> {
   const calls: StubReq[] = [];
   const srv = http.createServer((req, res) => {
     let b = "";
@@ -27,14 +28,16 @@ export async function llmStub(respond: (r: StubReq) => string = () => "{}"): Pro
         const tc = content.match(/^TOOL:(\w+)\s*(\{.*\})?$/s);
         if (tc && tools.includes(tc[1]!)) {
           const call = { id: `call_${calls.length}`, type: "function", function: { name: tc[1]!, arguments: tc[2] ?? "{}" } };
-          return send({ id: `stub-${calls.length}`, object: "chat.completion", model: j.model, choices: [{ index: 0, finish_reason: "tool_calls", message: { role: "assistant", content: null, tool_calls: [call] } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } });
+          return send({ id: `stub-${calls.length}`, object: "chat.completion", model: j.model, choices: [{ index: 0, finish_reason: "tool_calls", message: { role: "assistant", content: null, tool_calls: [call] } }], usage: o.usage ?? { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } });
         }
-        if (j.stream) { // OpenAI server-sent events: one content chunk, then the stop chunk and [DONE]
+        const usage = o.usage ?? { prompt_tokens: Math.ceil((r.system.length + r.user.length) / 4), completion_tokens: Math.ceil(content.length / 4), total_tokens: 0 };
+        if (j.stream) { // OpenAI server-sent events: one content chunk, the stop chunk, the usage chunk when asked for, then [DONE]
           res.writeHead(200, { "content-type": "text/event-stream" });
-          const chunk = (delta: Record<string, unknown>, finish: string | null) => `data: ${JSON.stringify({ id: `stub-${calls.length}`, object: "chat.completion.chunk", model: j.model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`;
-          return res.end(`${chunk({ role: "assistant", content }, null) + chunk({}, "stop")}data: [DONE]\n\n`);
+          const chunk = (body: Record<string, unknown>) => `data: ${JSON.stringify({ id: `stub-${calls.length}`, object: "chat.completion.chunk", model: j.model, ...body })}\n\n`;
+          const choice = (delta: Record<string, unknown>, finish: string | null) => chunk({ choices: [{ index: 0, delta, finish_reason: finish }] });
+          return res.end(`${choice({ role: "assistant", content }, null) + choice({}, "stop") + (j.stream_options?.include_usage ? chunk({ choices: [], usage }) : "")}data: [DONE]\n\n`);
         }
-        return send({ id: `stub-${calls.length}`, object: "chat.completion", model: j.model, choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content } }], usage: { prompt_tokens: Math.ceil((r.system.length + r.user.length) / 4), completion_tokens: Math.ceil(content.length / 4), total_tokens: 0 } });
+        return send({ id: `stub-${calls.length}`, object: "chat.completion", model: j.model, choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content } }], usage });
       }
       res.writeHead(404).end();
     });

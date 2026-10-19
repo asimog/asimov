@@ -41,6 +41,8 @@ Engines take seconds to minutes; a Pump.fun trade often lasts minutes. So they s
 
 Every stage also stops at `SLOW_USD_PER_DAY`. A run over its cap stops and returns a partial result marked `truncated`.
 
+How spend is counted and stopped: each worker meters every chat call it makes through the OpenAI client (token usage times `LLM_PRICE_IN_PER_M` and `LLM_PRICE_OUT_PER_M`, both required at boot) and reports the sum as `cost_usd` on every status poll. The Bridge sends each job's `usd_cap` (its stage's `SLOW_STAGE<n>_USD_PER_RUN`; a feed run takes the cap of its preset's size: `nano` 1, `lite` 2, `full` 3). Before each call the worker checks the cap: once spend is past it, BettaFish stops the engine and keeps the paragraphs it finished, MiroShark stops at the next round and writes the numbers-only report. The job records the engine's last reported spend, even when the run fails. Before a run, the Bridge sums that engine's `cost_usd` for the UTC day of the job's slot; at or past `SLOW_USD_PER_DAY` the job is `deferred` with the reason `day_cap` and never runs. `ctl slow` prints today's spend per engine and stage. The lane keys' own provider limits stay the hard stop.
+
 **The escalation gate** (numbers from code) escalates a coin one stage when all hold:
 
 1. The coin is in play by `precall`, `smart_buy` or a callout in the last minute.

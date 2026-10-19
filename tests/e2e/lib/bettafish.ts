@@ -8,7 +8,7 @@ import { Bridge } from "../../../services/slow-bridge/src/bridge.ts";
 import { EngineClient } from "../../../services/slow-bridge/src/engine.ts";
 import { bettafishAnswer } from "./bettafish-stub.ts";
 import { llmStub, type StubReq } from "./llm-stub.ts";
-import { CAP, slowEnv } from "./slow.ts";
+import { CAP, PRICES, slowEnv } from "./slow.ts";
 
 export const ENGINE = path.join(env.root, "services", "bettafish", "engine");
 export const PY = path.join(ENGINE, ".venv-asimog", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
@@ -23,7 +23,7 @@ export async function runBettafish(tag: string, engines: string, extraEnv: Recor
   const keys = ["INSIGHT_ENGINE", "QUERY_ENGINE", "MEDIA_ENGINE", "REPORT_ENGINE", "FORUM_HOST", "KEYWORD_OPTIMIZER"].flatMap((k) => [[`${k}_API_KEY`, "stub"], [`${k}_BASE_URL`, llm.url], [`${k}_MODEL_NAME`, "stub"]]);
   const worker = spawn(PY, ["asimog_worker.py", "--port", String(port)], {
     cwd: ENGINE,
-    env: { ...process.env, ...Object.fromEntries(keys), ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: engines, SEARCH_TOOL_TYPE: "AsimogMedia", QUERY_SEARCH: "tavily,x", BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1", PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1", HF_HUB_OFFLINE: "1", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost", TAVILY_API_KEY: "", X_BEARER_TOKEN: "", ...extraEnv },
+    env: { ...process.env, ...PRICES, ...Object.fromEntries(keys), ASIMOG_FORK: "1", BETTAFISH_DB_URL: ro.toString(), BETTAFISH_ENGINES: engines, SEARCH_TOOL_TYPE: "AsimogMedia", QUERY_SEARCH: "tavily,x", BETTAFISH_SENTIMENT: "off", MAX_PARAGRAPHS: "2", MAX_REFLECTIONS: "1", PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1", HF_HUB_OFFLINE: "1", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost", TAVILY_API_KEY: "", X_BEARER_TOKEN: "", ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let log = "";
@@ -35,7 +35,7 @@ export async function runBettafish(tag: string, engines: string, extraEnv: Recor
   for (let i = 0; i < 120 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
   const healthy = await eng.healthy();
   const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-  const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => Date.now(), newId: () => `sj_${tag}`, cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 240, pollMs: 300, deferMaxMin: 90 } });
+  const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: eng, miroshark: null }, now: () => Date.now(), newId: () => `sj_${tag}`, cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 240, pollMs: 300, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100 } });
   if (healthy) {
     await bridge.schedule();
     await bridge.drain();

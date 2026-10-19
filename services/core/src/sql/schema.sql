@@ -598,7 +598,7 @@ create table if not exists slow.reports (
 create index if not exists reports_subject on slow.reports (subject, published_at desc);
 create table if not exists slow.jobs (
   id text primary key, engine text not null, kind text not null, subject text not null, preset text not null,
-  slot text not null, state text not null default 'queued', cost_usd double precision not null default 0,
+  slot text not null, state text not null default 'queued', cost_usd double precision not null default 0, stage int, usd_cap double precision,
   started_at timestamptz, finished_at timestamptz, error text, result jsonb, unique (engine, kind, subject, slot)
 );
 create table if not exists slow.cursors (name text primary key, seen_time timestamptz, event_id text);

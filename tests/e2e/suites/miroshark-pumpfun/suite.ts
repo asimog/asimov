@@ -11,7 +11,7 @@ import { Bridge } from "../../../../services/slow-bridge/src/bridge.ts";
 import { EngineClient } from "../../../../services/slow-bridge/src/engine.ts";
 import type { Check } from "../../lib/checks.ts";
 import { llmStub, type StubReq } from "../../lib/llm-stub.ts";
-import { CAP, MINT_A, slowEnv } from "../../lib/slow.ts";
+import { CAP, MINT_A, PRICES, slowEnv } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const BACKEND = path.join(env.root, "services", "miroshark", "engine", "backend");
@@ -67,7 +67,7 @@ export const suite: Suite = {
     const port = 7900 + Math.floor(Math.random() * 90);
     const worker = spawn(PY, ["asimog_worker.py", "--port", String(port)], {
       cwd: BACKEND,
-      env: { ...process.env, ASIMOG_FORK: "1", PYTHONUTF8: "1", LLM_API_KEY: "stub", LLM_BASE_URL: llm.url, LLM_MODEL_NAME: "gpt-4o-mini", WONDERWALL_MODEL_NAME: "gpt-4o-mini", SWARM_CALLER_AGENTS: "3", SWARM_FOLLOWER_AGENTS: "4", SWARM_ROUNDS: "3", SWARM_SAMPLES: "1", SWARM_BRANCHES: "A,B", SWARM_WAVE_CALLERS: "2", SWARM_TIMEOUT_S: "300", SWARM_PLATFORMS: "pumpfun,twitter", SWARM_GRAPH_FEATURES: "minimal", NEO4J_URI: env.opt("NEO4J_URI") ?? "bolt://127.0.0.1:7687", NEO4J_USER: env.opt("NEO4J_USER") ?? "neo4j", NEO4J_PASSWORD: env.opt("NEO4J_PASSWORD") ?? "", SWARM_REPORT: "agent", SMART_MODEL_NAME: "gpt-4o-mini", CORE_MCP_URL: mcp.url, SWARM_CORE_TOKEN: w.tok(CAP.swarmRead), MCP_AGENT_TOOLS_ENABLED: "true", SWARM_PERSONA_TOOLS: "coin_dossier,reports_for", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" },
+      env: { ...process.env, ...PRICES, ASIMOG_FORK: "1", PYTHONUTF8: "1", LLM_API_KEY: "stub", LLM_BASE_URL: llm.url, LLM_MODEL_NAME: "gpt-4o-mini", WONDERWALL_MODEL_NAME: "gpt-4o-mini", SWARM_CALLER_AGENTS: "3", SWARM_FOLLOWER_AGENTS: "4", SWARM_ROUNDS: "3", SWARM_SAMPLES: "1", SWARM_BRANCHES: "A,B", SWARM_WAVE_CALLERS: "2", SWARM_TIMEOUT_S: "300", SWARM_PLATFORMS: "pumpfun,twitter", SWARM_GRAPH_FEATURES: "minimal", NEO4J_URI: env.opt("NEO4J_URI") ?? "bolt://127.0.0.1:7687", NEO4J_USER: env.opt("NEO4J_USER") ?? "neo4j", NEO4J_PASSWORD: env.opt("NEO4J_PASSWORD") ?? "", SWARM_REPORT: "agent", SMART_MODEL_NAME: "gpt-4o-mini", CORE_MCP_URL: mcp.url, SWARM_CORE_TOKEN: w.tok(CAP.swarmRead), MCP_AGENT_TOOLS_ENABLED: "true", SWARM_PERSONA_TOOLS: "coin_dossier,reports_for", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let log = "";
@@ -81,13 +81,14 @@ export const suite: Suite = {
       for (let i = 0; i < 180 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the MiroShark worker starts with its model from our env", await eng.healthy(), log.slice(-300));
       const cores = { synth: w.inProc(CAP.synth), swarm: w.inProc(CAP.swarm), exchange: w.inProc(CAP.exchange) };
-      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: null, miroshark: eng }, now: () => Date.now(), newId: () => "sj_ms1", cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 400, pollMs: 500, deferMaxMin: 90 } });
+      const bridge = new Bridge({ sql: w.sql, cores, engines: { bettafish: null, miroshark: eng }, now: () => Date.now(), newId: () => "sj_ms1", cfg: { feedEveryMin: 30, feedWindowMin: 60, coinRunsPerHour: 6, swarmRunsPerHour: 6, presets: { bettafish: "lite", miroshark: "lite" }, chain: "parallel", chainWaitS: 1, runTimeoutS: 400, pollMs: 500, deferMaxMin: 90, stageUsd: { 1: 1, 2: 1, 3: 1 }, dayUsd: 100 } });
       w.tape.emit("jev.escalated", { subject: MINT_A, gate_reasons: ["voi"], job: "swarm_run", voi: 0.5, stage: 2, arm: "run", deferred: false }, { source: "attention", subject: MINT_A });
       await w.tape.flush();
       await bridge.schedule();
       await bridge.drain();
-      const [job] = await w.sql`select state, error from slow.jobs where id = 'sj_ms1'`;
+      const [job] = await w.sql`select state, error, cost_usd from slow.jobs where id = 'sj_ms1'`;
       add("the swarm job finishes", job?.state === "done", `${job?.state} ${job?.error ?? ""} ${job?.state !== "done" ? log.slice(-600) : ""}`);
+      add("the swarm reports its real spend (token usage times the env prices)", Number(job?.cost_usd) > 0, `cost_usd ${Number(job?.cost_usd).toFixed(6)} over ${llm.calls.length} model calls`);
       add("camel agents acted through the pumpfun tools", llm.calls.some((c) => c.tools.includes("post_callout") && c.tools.includes("buy")), `${llm.calls.length} model calls`);
       const toolResults = llm.calls.filter((c) => c.afterTool).map((c) => c.user).join("\n");
       add("a callout without a position is refused, like pump.fun", toolResults.includes("you must hold the coin"), "holding rule");
