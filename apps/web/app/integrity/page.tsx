@@ -15,7 +15,7 @@ type Integrity = {
 export default function IntegrityPage() {
   const { data, error } = useRoom<Integrity>("/v1/integrity", 10_000);
   const house = data?.callers.find((c) => c.wallet === "house");
-  const crowd = data?.callers.filter((c) => !c.wallet.startsWith("house")) ?? [];
+  const crowd = data?.callers.filter((c) => c.wallet !== "house") ?? [];
   const cOk = crowd.reduce((a, c) => a + c.ok, 0);
   const cWin = crowd.reduce((a, c) => a + c.wins, 0);
   return (
@@ -41,13 +41,11 @@ export default function IntegrityPage() {
               </thead>
               <tbody>
                 {data.callers.map((c) => (
-                  <tr key={c.wallet} data-house={c.wallet.startsWith("house") ? "yes" : undefined}>
+                  <tr key={c.wallet} data-house={c.wallet === "house" ? "yes" : undefined}>
                     <th scope="row" className="mono">{c.who}</th>
                     <td className="num">{c.calls}</td>
                     <td className="num">{c.ok}</td>
-                    <td className="num" title={c.wallet === "house:reply" ? "A data reply is right when the coin then fell: measured minus won" : undefined}>
-                      {c.wallet === "house:reply" ? `${c.ok - c.wins} right` : c.wins}
-                    </td>
+                    <td className="num">{c.wins}</td>
                     <td className="num" data-sign={c.med_net != null && c.med_net < 1 ? "down" : undefined}>{c.med_net == null ? "·" : `${c.med_net.toFixed(2)}x`}</td>
                   </tr>
                 ))}

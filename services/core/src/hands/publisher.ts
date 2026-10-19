@@ -1,6 +1,7 @@
 // Publisher on paper (docs/EXECUTION.md, S6.0). The first fill of a calling strategy on a coin becomes the house position:
 // thesis formed and committed, then the callout queued. Its exits become updates, its close the final update and
-// the reveal. Nothing is posted: every post is `paper: true` and starts with "PAPER." Reads only the desk's topics.
+// the reveal. Another caller's callout on a coin we hold gets one reply; a coin we do not hold gets none. Nothing is
+// posted: every post is `paper: true` and starts with "PAPER." Reads only the desk's topics and the Feed Reader's callouts.
 import crypto from "node:crypto";
 import { type BodyOf, canonical, type Envelope } from "@asimog/contracts";
 import { liveFor } from "../board/board.ts";
@@ -17,10 +18,19 @@ const PRECALL_H = env.num("PRECALL_HORIZON_MIN");
 const sha = (x: unknown) => crypto.createHash("sha256").update(canonical(x)).digest("hex");
 const iso = (ms: number) => new Date(ms).toISOString();
 
+const pct = (x: number) => `${Math.round(x * 100)}%`;
+
 type House = { house_id: string; mint: string; position_id: string; strategy_id: string; thesis_id: string; opened_ms: number; tokens: number; left: number; entry: number; size: number; kind: Thesis["kind"]; horizon: number; commit_id: string };
 
+/** One reply under another caller's callout, only while we hold the coin (docs/EXECUTION.md). Pure. */
+export function replyFor(h: Pick<House, "size" | "tokens" | "left"> | undefined, c: Pick<BodyOf<"callout.created">, "via">): { ok: true; text: string } | { ok: false; reason: string } {
+  if (c.via === "history") return { ok: false, reason: "history" }; // seen long after it was made: nobody is reading it
+  if (!h || h.left <= h.tokens * 1e-9) return { ok: false, reason: "not_held" };
+  return { ok: true, text: `PAPER. We hold this coin. Bought ${h.size} SOL, ${pct(h.left / h.tokens)} still held.` };
+}
+
 export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<string, number> } {
-  const stats = { callouts: 0, updates: 0, closes: 0, refused: 0 };
+  const stats = { callouts: 0, updates: 0, closes: 0, replies: 0, refused: 0, not_held: 0 };
   const open = new Map<string, House>(); // mint -> the open house callout
   let loaded = false;
 
@@ -40,7 +50,11 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
   }
 
   /** Queue a post if its text passes every check (docs/EXECUTION.md). Returns the event, or null when refused. */
-  async function queue(tx: Tx, h: Pick<House, "house_id" | "mint">, kind: PostKind, text: string, thesis_id: string | null, because: string[], after: string) {
+  async function queue(tx: Tx, h: Pick<House, "house_id" | "mint">, kind: PostKind, text: string, thesis_id: string | null, because: string[], after: string, subject = h.house_id) {
+    if (kind === "reply" && open.get(h.mint)?.house_id !== h.house_id) { // we speak only under coins we hold
+      stats.not_held++;
+      return null;
+    }
     const c = checkText(text, { kind, paper: true });
     if (!c.ok) {
       stats.refused++;
@@ -48,7 +62,7 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
       return null;
     }
     return tape.emitIn(tx, "post.queued", { post_id: clock.id("post"), kind, mint: h.mint, house_id: h.house_id, thesis_id, text, checks: c.passed, because, paper: true },
-      { source: "publisher", subject: h.house_id, causes: because, after });
+      { source: "publisher", subject, causes: because, after });
   }
 
   async function board(tx: Tx, mint: string, at: string, snap: Record<string, unknown>): Promise<BoardValues> {
@@ -123,10 +137,22 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
     stats.closes++;
   }
 
+  async function onCallout(tx: Tx, e: Envelope<BodyOf<"callout.created">>) {
+    const h = open.get(e.body.mint);
+    const r = replyFor(h, e.body);
+    if (!r.ok) {
+      if (r.reason === "not_held") stats.not_held++;
+      return;
+    }
+    const [dup] = await tx`select 1 from tape.events where topic = 'post.queued' and subject = ${e.body.callout_id} limit 1`;
+    if (dup) return; // one reply per callout, across restarts
+    if (await queue(tx, h!, "reply", r.text, null, [e.id], e.seen_time, e.body.callout_id)) stats.replies++;
+  }
+
   return {
     name: "publisher",
     startAtHead: true,
-    topics: ["intent.ghost_filled", "position.closed"],
+    topics: ["intent.ghost_filled", "position.closed", "callout.created"],
     batch: 500,
     stats,
     async handle(events, tx) {
@@ -135,6 +161,7 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
         for (const e of events) {
           clock.advance?.(Date.parse(e.seen_time));
           if (e.topic === "position.closed") await onClose(tx, e as never);
+          else if (e.topic === "callout.created") await onCallout(tx, e as never);
           else if ((e.body as BodyOf<"intent.ghost_filled">).side === "buy") await onBuy(tx, e as never);
           else await onSell(tx, e as never);
         }

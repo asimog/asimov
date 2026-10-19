@@ -85,7 +85,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 
 | # | Work | Check |
 |---|---|---|
-| E1 | Publisher speaks only under held coins: callouts are bull posts after our buy, replies under other callouts only while we hold the coin, data replies removed | A reply on an unheld coin is refused |
+| E1 | Done 2026-10-19 (`docs/tasks/E1.md`). Publisher speaks only under held coins: callouts are bull posts after our buy, replies under other callouts only while we hold the coin, data replies removed | `publisher-held` passed: a reply on an unheld coin is refused |
 | E2 | Rug feed room from scraped comments and `risk.state`, evidence classes kept apart | `verify-asimog` screenshots and page text |
 | E3 | Wiki: pages from the Index and ledger, Wiki writer agent for prose, versioned rows, `/wiki` room, export to a pluggable wiki target (bucket or GitHub docs) | A page rebuilds byte-identical from the same data |
 | E5 | Embeddings in the agent runtime: OpenRouter embedding model, pgvector table with model and `seen_at`, as-of search; used for callout copies and narratives, reply rug reports, wiki and report retrieval | A replay search returns nothing seen after its time; spend metered |

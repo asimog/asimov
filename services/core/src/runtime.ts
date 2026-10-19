@@ -5,7 +5,6 @@ import { indexSignals } from "./analyzers/index-signals.ts";
 import { precallAnalyzers } from "./analyzers/precall.ts";
 import { slowSignals } from "./analyzers/slow-signals.ts";
 import { publisher } from "./hands/publisher.ts";
-import { replies } from "./hands/replies.ts";
 import { buildLeaderboards, compact } from "./index/compact.ts";
 import { linkFunders } from "./index/funders.ts";
 import { snapshotHolders } from "./index/holders.ts";
@@ -47,12 +46,12 @@ export interface Runtime {
 /** Consumers in dependency order. Each gets its own clock stream (Clock.fork), named after it. */
 export function buildConsumers(tape: Tape): Consumer[] {
   const own = (name: string) => tape.for(tape.clock.fork(name));
-  const t = Object.fromEntries(["analyzers.cheap", "analyzers.precall", "analyzers.index", "analyzers.slow", "reflex.trigger", "reflex.signals", "desk", "attention", "publisher", "replies", "scorekeeper"].map((n) => [n, own(n)]));
+  const t = Object.fromEntries(["analyzers.cheap", "analyzers.precall", "analyzers.index", "analyzers.slow", "reflex.trigger", "reflex.signals", "desk", "attention", "publisher", "scorekeeper"].map((n) => [n, own(n)]));
   const at = (n: string) => [t[n]!, t[n]!.clock] as const;
   return [
     memory, cheapAnalyzers(t["analyzers.cheap"]!.clock), precallAnalyzers(...at("analyzers.precall")), indexSignals(t["analyzers.index"]!.clock), slowSignals(t["analyzers.slow"]!.clock),
     reflexTrigger(...at("reflex.trigger")), reflexSignals(t["reflex.signals"]!.clock),
-    desk(...at("desk")), escalationGate(...at("attention")), publisher(...at("publisher")), replies(...at("replies")), scorekeeper(...at("scorekeeper")),
+    desk(...at("desk")), escalationGate(...at("attention")), publisher(...at("publisher")), scorekeeper(...at("scorekeeper")),
   ];
 }
 

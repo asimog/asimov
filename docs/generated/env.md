@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-302 keys. Secrets live only in `.env.local` and are not listed here.
+300 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -207,8 +207,6 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `PRECALL_PEAK_MULT` | `1.2` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `PRECALL_PRIOR_N` | `4` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `TX_RPC_TIMEOUT_MS` | `10000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
-| `REPLY_COOLDOWN_MIN` | `30` | defaults that lived in code until fix plan 2.1; each key has one default, here |
-| `REPLY_MIN_FACTS` | `2` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `TRADER_CONFIRM_MS` | `30000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `TRADER_GIVE_UP_MS` | `120000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `TRADER_HEADROOM_LAMPORTS` | `100000` | defaults that lived in code until fix plan 2.1; each key has one default, here |

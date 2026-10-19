@@ -36,7 +36,7 @@ export default function LedgerPage() {
                   // biome-ignore lint/suspicious/noArrayIndexKey: posts have no id and the list is rendered whole each time
                   <tr key={i}>
                     <td className="mono">{fmt.ago(now - p.t)}</td>
-                    <td><span className="chip" data-tone={p.kind === "callout" ? "accent" : p.kind === "reply" ? "stress" : undefined}>{p.kind === "reply" ? "data reply" : p.kind}</span></td>
+                    <td><span className="chip" data-tone={p.kind === "callout" ? "accent" : p.kind === "reply" ? "stress" : undefined}>{p.kind}</span></td>
                     <td className="mono">{p.sym}</td>
                     <td>{p.text}</td>
                   </tr>

@@ -13,7 +13,7 @@ const NAMES: Record<Lane, { name: string; does: string }> = {
   decide: { name: "Decide", does: "Strategy pool, kernel, evolution" },
   risk: { name: "Risk", does: "Risk Gate refusals" },
   execute: { name: "Execute", does: "Paper fills and closes" },
-  publish: { name: "Publish", does: "Theses, callouts, data replies" },
+  publish: { name: "Publish", does: "Theses, callouts, replies under held coins" },
   memory: { name: "Memory", does: "Commits and reveals" },
   treasury: { name: "Treasury", does: "Sweeps and proofs (from S6)" },
   counsel: { name: "Counsel", does: "Waits for the human counsel" },

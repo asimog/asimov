@@ -14,7 +14,7 @@ const RULES: Rule[] = [
   { name: "length", ok: (t) => t.length > 0 && t.length <= 280 },
   { name: "no_emoji", ok: (t) => !/\p{Extended_Pictographic}/u.test(t) },
   { name: "no_dash", ok: (t) => !/[‒-―]/.test(t) },
-  { name: "position_disclosed", applies: (k) => k === "callout", ok: (t) => /\bBought \d+(\.\d+)? SOL\b/.test(t) },
+  { name: "position_disclosed", applies: (k) => k !== "update", ok: (t) => /\bBought \d+(\.\d+)? SOL\b/.test(t) },
   { name: "no_promise", ok: (t) => !PROMISES.test(t) },
   { name: "no_person", ok: (t) => noPerson(t) },
 ];

@@ -69,7 +69,7 @@ function line(r: Row): Line | null {
     case "thesis.formed":
       return { ...base, mint: b.mint, text: `thesis ${sym(b.mint)} (${String(b.kind).replace("_", " ")}): ${b.prediction.what} at ${b.prediction.p.toFixed(2)}`, family: familyOf(b.strategy_id) };
     case "post.queued":
-      return { ...base, mint: b.mint, text: `${b.kind === "reply" ? "data reply" : b.kind} ${sym(b.mint)}: ${String(b.text).replace(/^PAPER\. /, "")}` };
+      return { ...base, mint: b.mint, text: `${b.kind} ${sym(b.mint)}: ${String(b.text).replace(/^PAPER\. /, "")}` };
     case "index.refreshed":
       return { ...base, mint: null, text: `index v${b.version}: ${b.wallets} wallets scored, ${b.smart.length} copyable` };
     case "outcome.measured":
@@ -207,7 +207,7 @@ const integrity = () => cached("integrity", 8000, async () => {
   const refused = await sql`select body->>'reason_code' reason, count(*)::int n from tape.events where topic = 'order.rejected' and seen_time > now() - interval '24 hours' group by 1 order by 2 desc`;
   const watched = await sql`select body->>'reason' reason, count(*)::int n from tape.events where topic = 'coin.watched' and seen_time > now() - interval '24 hours' group by 1 order by 2 desc`;
   return {
-    callers: callers.map((c) => ({ ...c, who: c.wallet === "house" ? "house" : c.wallet === "house:reply" ? "house replies" : handles.get(c.wallet as string) ?? `${String(c.wallet).slice(0, 4)}…${String(c.wallet).slice(-4)}` })),
+    callers: callers.map((c) => ({ ...c, who: c.wallet === "house" ? "house" : handles.get(c.wallet as string) ?? `${String(c.wallet).slice(0, 4)}…${String(c.wallet).slice(-4)}` })),
     smart: smart.map((w) => ({ ...w, wallet: `${String(w.wallet).slice(0, 4)}…${String(w.wallet).slice(-4)}` })), archetypes: arche, refused, watched,
   };
 });

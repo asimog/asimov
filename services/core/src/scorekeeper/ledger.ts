@@ -69,9 +69,8 @@ export async function ledger(sql: Sql, o: { horizon?: number; at?: string } = {}
         row_number() over (partition by e.body->>'author_wallet', e.body->>'mint', coalesce(e.body->>'via', '') = 'history' order by e.seen_time, e.id) nth -- a history row never makes a live call a repeat
       from tape.events e where e.topic = 'callout.created' and e.seen_time <= ${upto}
       union all -- our own paper callouts (docs/EXECUTION.md): the house is one more caller
-      select e.body->>'house_id', w, w, e.body->>'mint', null, 'house', e.seen_time, e.id, 1
-      from tape.events e, lateral (select case e.body->>'kind' when 'callout' then 'house' else 'house:reply' end w) k
-      where e.topic = 'post.queued' and e.body->>'kind' in ('callout', 'reply') and e.seen_time <= ${upto}
+      select e.body->>'house_id', 'house', 'house', e.body->>'mint', null, 'house', e.seen_time, e.id, 1
+      from tape.events e where e.topic = 'post.queued' and e.body->>'kind' = 'callout' and e.seen_time <= ${upto}
     ), outs as (
       select distinct on (body->>'callout_id') body->>'callout_id' id, body from tape.events
       where topic = 'outcome.measured' and (body->>'horizon_min')::int = ${horizon} and seen_time <= ${upto}

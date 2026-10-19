@@ -251,9 +251,8 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
           if (e.topic === "post.queued") {
             // a house callout (docs/EXECUTION.md) is scored like any caller's, as the author `house`
             const b = e.body as BodyOf<"post.queued">;
-            if (b.kind === "update") continue;
-            // our callouts as `house`; our data replies as `house:reply` (a reply was right when the coin fell)
-            const w: Watch = { callout_id: b.house_id, event_id: e.id, mint: b.mint, author: b.kind === "callout" ? "house" : "house:reply", created_ms: now, t0_ms: now, probs: [], done: [] };
+            if (b.kind !== "callout") continue; // updates and replies ride on the callout's record
+            const w: Watch = { callout_id: b.house_id, event_id: e.id, mint: b.mint, author: "house", created_ms: now, t0_ms: now, probs: [], done: [] };
             const ins = await tx`insert into mind.outcome_watch (callout_id, event_id, mint, author, created_at, at, probs)
               values (${w.callout_id}, ${w.event_id}, ${w.mint}, ${w.author}, ${e.seen_time}, ${e.seen_time}, '[]') on conflict do nothing returning 1`;
             if (ins.length) {
