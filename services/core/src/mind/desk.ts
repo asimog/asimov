@@ -14,7 +14,7 @@ import { type BoardValues, evaluateEntry, type Spec, validate, whenHolds } from 
 import { evolve, type Member } from "./evolve.ts";
 import { F, fillBuy, fillSell, type Market, quoteFor, sampleLatencyMs } from "./fill.ts";
 import { allocate, lcb, type Stats } from "./kernel.ts";
-import { type Book, bookFrom, DEFAULT_LIMITS, type GateRisk, type Limits, loadLimits, riskGate } from "./risk.ts";
+import { type Book, bookFrom, defaultLimits, type GateRisk, type Limits, loadLimits, riskGate } from "./risk.ts";
 import { seedSpecs } from "./seeds.ts";
 
 const D = {
@@ -50,7 +50,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   const bump = (k: keyof typeof counts, n = 1) => ((stats[k] as number) += n);
 
   let loaded = false;
-  let limits: Limits = DEFAULT_LIMITS;
+  let limits: Limits = defaultLimits();
   const strategies = new Map<string, { spec: Spec; born_ms: number }>();
   const st = new Map<string, StatRow>();
   const open = new Map<string, Position[]>(); // mint -> open positions

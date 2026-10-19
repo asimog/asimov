@@ -6,10 +6,10 @@ import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import type { Tape } from "../tape/tape.ts";
 import { requireAdmin } from "../treasury/kill.ts";
-import { DEFAULT_LIMITS, type Limits, loadLimits } from "./risk.ts";
+import { defaultLimits, type Limits, loadLimits } from "./risk.ts";
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-const LIMIT_KEYS = Object.keys(DEFAULT_LIMITS).filter((k) => typeof DEFAULT_LIMITS[k as keyof Limits] === "number");
+const LIMIT_KEYS = Object.entries(defaultLimits()).filter(([, v]) => typeof v === "number").map(([k]) => k);
 
 export async function setLimit(sql: Sql, tape: Tape, token: string | undefined, key: string, raw: string, want = env.opt("ADMIN_TOKEN")) {
   requireAdmin(token, want, "limits set");
@@ -45,6 +45,7 @@ export async function showLimits(sql: Sql) {
   const [cur] = await sql`select version, set_at from mind.limits order by version desc limit 1`;
   const lists = await sql`select distinct on (kind) kind, version, cardinality(items)::int count, set_at from mind.lists order by kind, version desc`;
   const L = await loadLimits(sql);
+  const D = defaultLimits();
   const numbers = Object.fromEntries(LIMIT_KEYS.map((k) => [k, L[k as keyof Limits]]));
-  return { version: cur?.version ?? 0, set_at: cur?.set_at ?? null, limits: numbers, defaults_in_force: LIMIT_KEYS.filter((k) => L[k as keyof Limits] === DEFAULT_LIMITS[k as keyof Limits]), lists };
+  return { version: cur?.version ?? 0, set_at: cur?.set_at ?? null, limits: numbers, defaults_in_force: LIMIT_KEYS.filter((k) => L[k as keyof Limits] === D[k as keyof Limits]), lists };
 }

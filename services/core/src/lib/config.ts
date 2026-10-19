@@ -35,6 +35,22 @@ const SCHEMAS = {
       on_unknown: z.strictObject({ caller_buy: unknownRule, smart_buy: unknownRule, follow: unknownRule, heat: unknownRule, metrics: unknownRule }),
     }),
   }),
+  /** The owner's limit defaults (C12, docs/STRATEGY.md section 7): every key the owner has not set with `ctl limits set`. */
+  "limits.default": z.strictObject({
+    max_order_sol: z.number().positive(),
+    probe_order_sol: z.number().positive(),
+    max_position_sol: z.number().positive(),
+    max_open_coins: posInt,
+    min_free_sol: z.number().min(0),
+    daily_loss_stop_frac: share,
+    max_impact_bps: z.number().min(0),
+    min_real_sol: z.number().min(0),
+    max_quote_age_ms: posInt,
+    max_slippage_bps: z.number().min(0),
+    max_bundle_share: share,
+    max_top10_share: share,
+    max_creator_sold: share,
+  }),
   retention: z.strictObject({
     /** hours an `inputs_hot` partition stays before the archiver exports and drops it (B6) */
     hot_window_hours: posInt,

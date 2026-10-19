@@ -1,7 +1,8 @@
 // Every bad intent in docs/STRATEGY.md's reason-code list must be refused with its own code; good intents pass.
-import { type Book, DEFAULT_LIMITS, type GateFlags, type GateIntent, type GateQuote, riskGate } from "../../../../services/core/src/mind/risk.ts";
+import { type Book, defaultLimits, type GateFlags, type GateIntent, type GateQuote, riskGate } from "../../../../services/core/src/mind/risk.ts";
 import type { Suite } from "../../lib/suite.ts";
 
+const DEFAULT_LIMITS = defaultLimits();
 const NOW = 1_800_000_000_000;
 const book = (o: Partial<Book> = {}): Book => ({ equity_sol: 0.2, open_cost_sol: 0, open_coins: new Set(), position_sol: new Map(), realized_today_sol: 0, ...o });
 const quote = (o: Partial<GateQuote> = {}): GateQuote => ({ at_ms: NOW - 500, impact_bps: 40, real_sol: 8, graduated: false, ...o });

@@ -5,7 +5,7 @@ import type { BodyOf } from "@asimog/contracts";
 import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { quoteFor } from "../mind/fill.ts";
-import { DEFAULT_LIMITS } from "../mind/risk.ts";
+import { defaultLimits } from "../mind/risk.ts";
 import { REF_SOL } from "../scorekeeper/scorekeeper.ts";
 
 export const CASE_METHOD = "case1";
@@ -158,8 +158,8 @@ export async function buildCase(sql: Sql, calloutId: string): Promise<CaseFile |
     },
     {
       name: "thin_curve",
-      fired: impact != null && impact > DEFAULT_LIMITS.max_impact_bps,
-      value: { impact_bps_at_ref: impact == null ? null : Math.round(impact), ref_sol: REF_SOL, max_impact_bps: DEFAULT_LIMITS.max_impact_bps },
+      fired: impact != null && impact > defaultLimits().max_impact_bps,
+      value: { impact_bps_at_ref: impact == null ? null : Math.round(impact), ref_sol: REF_SOL, max_impact_bps: defaultLimits().max_impact_bps },
       evidence: entry ? [entry.event] : [],
       alternatives: ["A new coin is thin by design; this is how the bonding curve works"],
       limits: "Computed from the entry price through the curve model, not from a live quote.",

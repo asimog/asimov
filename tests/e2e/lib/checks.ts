@@ -2,7 +2,7 @@
 import crypto from "node:crypto";
 import type { Sql } from "../../../services/core/src/lib/db.ts";
 import { F } from "../../../services/core/src/mind/fill.ts";
-import { DEFAULT_LIMITS } from "../../../services/core/src/mind/risk.ts";
+import { defaultLimits } from "../../../services/core/src/mind/risk.ts";
 import { DERIVED } from "./replay.ts";
 
 export type Check = { name: string; pass: boolean; detail: string };
@@ -42,8 +42,8 @@ export async function everyReplayChecks(sql: Sql, netCalls: string[]): Promise<C
   // 5. risk gate: no ghost buy over the order cap (plus the priority fee it pays)
   const [cap] = await sql`
     select count(*)::int n, coalesce(max((body->>'sol')::float), 0) max from tape.events
-    where topic = 'intent.ghost_filled' and body->>'side' = 'buy' and (body->>'sol')::float > ${DEFAULT_LIMITS.max_order_sol + F.priorityFeeSol + 1e-9}`;
-  checks.push({ name: "orders_within_limits", pass: cap!.n === 0, detail: `${cap!.n} buys over ${DEFAULT_LIMITS.max_order_sol} SOL` });
+    where topic = 'intent.ghost_filled' and body->>'side' = 'buy' and (body->>'sol')::float > ${defaultLimits().max_order_sol + F.priorityFeeSol + 1e-9}`;
+  checks.push({ name: "orders_within_limits", pass: cap!.n === 0, detail: `${cap!.n} buys over ${defaultLimits().max_order_sol} SOL` });
 
   // 6. no live model or network calls
   checks.push({ name: "no_network_calls", pass: netCalls.length === 0, detail: netCalls.length ? netCalls.slice(0, 3).join(", ") : "0 calls" });

@@ -1,9 +1,10 @@
 // Risk Gate (docs/STRATEGY.md): a pure function. Same inputs, same answer, in ghost, paper and live.
 import type { KillState } from "@asimog/contracts";
+import { configValues } from "../lib/config.ts";
 import type { Sql } from "../lib/db.ts";
 import type { Tx } from "../tape/consumer.ts";
 // Limits come from mind.limits and the lists from mind.lists, both set by the owner with the admin token (ctl limits,
-// ctl lists). DEFAULT_LIMITS is the documented default for the 0.2 SOL start, used for every key the owner has not set.
+// ctl lists). Every key the owner has not set takes its default from config/limits.default.json.
 
 export type Limits = {
   max_order_sol: number;
@@ -27,25 +28,10 @@ export type Limits = {
   max_creator_sold: number;
 };
 
-export const DEFAULT_LIMITS: Limits = {
-  max_order_sol: 0.02,
-  probe_order_sol: 0.01,
-  max_position_sol: 0.04,
-  max_open_coins: 5,
-  min_free_sol: 0.1,
-  daily_loss_stop_frac: 0.25,
-  max_impact_bps: 300,
-  min_real_sol: 3,
-  max_quote_age_ms: 3000,
-  max_slippage_bps: 300,
-  blocked_mints: [],
-  own_mints: [],
-  blocked_creators: [],
-  blocked_wallets: [],
-  max_bundle_share: 0.2,
-  max_top10_share: 0.3,
-  max_creator_sold: 0.5,
-};
+/** The defaults in `config/limits.default.json` (checked at boot), with empty lists; the lists come only from mind.lists. */
+export function defaultLimits(): Limits {
+  return { ...configValues()["limits.default"], blocked_mints: [], own_mints: [], blocked_creators: [], blocked_wallets: [] };
+}
 
 export type Book = {
   equity_sol: number; // starting capital + realized net
@@ -71,7 +57,7 @@ export async function loadLimits(sql: Sql | Tx, asOf?: string): Promise<Limits> 
   const known = asOf ? sql`where set_at <= ${asOf}` : sql``;
   const [lim] = await sql`select body from mind.limits ${known} order by version desc limit 1`;
   const lists = await sql`select distinct on (kind) kind, items from mind.lists ${known} order by kind, version desc`;
-  const L: Limits = { ...DEFAULT_LIMITS, ...((lim?.body as Partial<Limits> | undefined) ?? {}) };
+  const L: Limits = { ...defaultLimits(), ...((lim?.body as Partial<Limits> | undefined) ?? {}) };
   for (const r of lists) if (r.kind in L) (L as Record<string, unknown>)[r.kind as string] = r.items;
   return L;
 }

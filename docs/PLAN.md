@@ -69,7 +69,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 | C9 | Index features: creator launches and rug rate, funder links, bundler and copier archetypes | Mass deployer refused with its reason |
 | C10 | Rebuilt `pre_call` score and caller record fields | Hand-checked records for three callers |
 | C11 | Jev guard pack, fenced symbols, `budget.exhausted` | Guard refuses a test injection |
-| C12 | `config/limits.default.json` replaces limit defaults in code | `ctl limits show` reads the file defaults |
+| C12 | Done 2026-10-19. `config/limits.default.json` replaces limit defaults in code (`docs/tasks/C12.md`) | `owner-config` passed: limits show reads the file defaults |
 
 ### D. Slow mind behind a real gate (fix plan Phase 5)
 

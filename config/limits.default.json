@@ -1,0 +1,15 @@
+{
+  "max_order_sol": 0.02,
+  "probe_order_sol": 0.005,
+  "max_position_sol": 0.04,
+  "max_open_coins": 5,
+  "min_free_sol": 0.1,
+  "daily_loss_stop_frac": 0.25,
+  "max_impact_bps": 300,
+  "min_real_sol": 3,
+  "max_quote_age_ms": 3000,
+  "max_slippage_bps": 300,
+  "max_bundle_share": 0.2,
+  "max_top10_share": 0.3,
+  "max_creator_sold": 0.5
+}

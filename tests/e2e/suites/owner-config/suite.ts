@@ -2,9 +2,10 @@
 // load blocks what it names and is on the Tape with its count, a bad token changes nothing, a malformed env value
 // stops boot with the key's name. Mocked chain.
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { env } from "../../../../services/core/src/lib/env.ts";
-import { loadList, setLimit } from "../../../../services/core/src/mind/owner.ts";
+import { loadList, setLimit, showLimits } from "../../../../services/core/src/mind/owner.ts";
 import type { Check } from "../../lib/checks.ts";
 import type { Suite } from "../../lib/suite.ts";
 import { world } from "../../lib/world.ts";
@@ -14,7 +15,7 @@ const ADMIN = "admin-secret";
 export const suite: Suite = {
   name: "owner-config",
   tier: "fast",
-  covers: ["services/core/src/mind/owner.ts", "services/core/src/cli/ctl.ts", "config/"],
+  covers: ["services/core/src/mind/owner.ts", "services/core/src/mind/risk.ts", "services/core/src/cli/ctl.ts", "config/"],
   proves: "ctl limits and ctl lists change the next live gate decision, need the admin token and are on the Tape; a malformed env value stops boot with a named error.",
   async run() {
     const checks: Check[] = [];
@@ -23,6 +24,10 @@ export const suite: Suite = {
     const rejected = async (code: string) => (await w.topic("order.rejected")).filter((e) => e.body.reason_code === code).length;
     const orders = async () => (await w.topic("order.created")).length;
     try {
+      const file = JSON.parse(fs.readFileSync(path.join(env.root, "config", "limits.default.json"), "utf8")) as Record<string, number>;
+      const shown = await showLimits(w.sql);
+      const same = Object.keys(file).every((k) => shown.limits[k] === file[k]) && shown.defaults_in_force.length === Object.keys(file).length;
+      check("limits show reads the defaults from config/limits.default.json", same, `${shown.defaults_in_force.length} defaults in force`);
       await w.fund(w.wallets.trade, 0.2);
       await w.intent("buy", { size_sol: 0.015 });
       await w.settle();
