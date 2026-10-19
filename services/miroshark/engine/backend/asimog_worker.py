@@ -75,6 +75,7 @@ def ticker(text) -> str:
 
 def fence(text, n: int = 800) -> str:
     """Core's `fence`: strangers' text inside <<< >>>, which it cannot close: fence marks inside it are removed."""
+    # keep identical to services/core/src/reflex/guard.ts and the other engine's copy: e2e fence-parity compares all three
     return OPEN + clean(text).replace(OPEN, "").replace(CLOSE, "")[:n] + CLOSE
 
 

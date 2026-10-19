@@ -21,10 +21,10 @@ export function clean(text: string | null | undefined): string {
 
 /** Wrap untrusted text in a fence it cannot break: fence marks and hidden characters inside it are removed. */
 export function fence(text: string | null | undefined, max = 800): string {
-  const body = clean(text)
-    .replaceAll(OPEN, "")
-    .replaceAll(CLOSE, "")
-    .slice(0, max);
+  // `max` counts characters (code points), as the engines' Python copies do: never half an emoji (e2e fence-parity)
+  const body = Array.from(clean(text).replaceAll(OPEN, "").replaceAll(CLOSE, ""))
+    .slice(0, max)
+    .join("");
   return `${OPEN}${body}${CLOSE}`;
 }
 
