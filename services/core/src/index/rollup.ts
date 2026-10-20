@@ -152,6 +152,7 @@ export class Rollup {
   private settle(mint: string, c: Coin, now: number, price: number) {
     for (const m of c.marks) if (now >= m.due) this.row(m.wallet, mint, m.at).mark_price = price;
     c.marks = c.marks.filter((m) => now < m.due);
+    for (const [wallet, a] of c.after) if (now >= a.at + P.horizonMs) c.after.delete(wallet); // the peak counts only inside the mark window
   }
 
   curveAccount(mint: string) {
@@ -246,7 +247,12 @@ export class Rollup {
       const c = this.coins.get(k.mint)!;
       c.flushed = { trades: (c.flushed?.trades ?? 0) + k.trades, bundle_buys: (c.flushed?.bundle_buys ?? 0) + k.bundle_buys, bundle_sol: (c.flushed?.bundle_sol ?? 0) + k.bundle_sol };
     }
-    for (const [mint, c] of this.coins) if (c.last_at < now - P.idleMs && !this.held.has(mint)) this.coins.delete(mint);
+    for (const [mint, c] of this.coins) {
+      if (c.last_at >= now - P.idleMs || this.held.has(mint)) continue;
+      if (c.last_price !== null) this.settle(mint, c, now, c.last_price); // an idle coin's horizons pass at the price in force
+      c.pending = c.pending.filter((x) => now < x.due); // no trade came after the latency, so there is no copy price to owe
+      if (!c.pending.length && !c.marks.length && !c.after.size) this.coins.delete(mint);
+    }
     this.evict();
     let coinWallets = 0;
     for (const c of this.coins.values()) coinWallets += c.bal.size + c.bought.size;

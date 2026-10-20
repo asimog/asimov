@@ -50,7 +50,7 @@ export function fillSell(m: Market, tokens: number): SellFill {
   const gross = tokens * m.price_sol;
   if (m.graduated) {
     const p = pool(m);
-    const out = p ? (p.x * tokens) / (p.y + tokens) : gross; // an exit with no known reserve still runs, at the last price
+    const out = p ? (p.x * tokens) / (p.y + tokens) : gross; // no reserve: the last price, for the scorekeeper's reference measure only; the desk waits for a pool
     const sol = out * (1 - F.ammFee) - F.priorityFeeSol;
     return { sol, price_sol: (sol + F.priorityFeeSol) / tokens, fee_sol: out * F.ammFee, priority_sol: F.priorityFeeSol, slippage_bps: (1 - (sol + F.priorityFeeSol) / gross) * 10_000 };
   }

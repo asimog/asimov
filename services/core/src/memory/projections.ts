@@ -85,20 +85,22 @@ async function onCounts(tx: Tx, e: Envelope<BodyOf<"callout.counts">>) {
 async function onTrades(tx: Tx, trades: Envelope<BodyOf<"trade.curve">>[]) {
   if (!trades.length) return;
   // aggregate per (mint, minute) in memory, then one upsert per bar
-  type Agg = { o: number; h: number; l: number; c: number; v: number; buys: number; sells: number; flow: number; firstTs: number; lastTs: number; buyers: Set<string> };
+  type Agg = { o: number | null; h: number | null; l: number | null; c: number | null; v: number; buys: number; sells: number; flow: number; firstTs: number; lastTs: number; buyers: Set<string> };
   const bars = new Map<string, Agg>();
   const last = new Map<string, { ts: string; mcap: number | null; price: number | null }>();
   for (const e of trades) {
     const t = e.body;
-    const px = t.price_sol ?? 0;
+    const px = t.price_sol; // a trade with no price counts toward volume and flow, never toward the candle
     const k = `${t.mint}|${minute(t.ts)}`;
     const ts = Date.parse(t.ts);
     let a = bars.get(k);
-    if (!a) bars.set(k, (a = { o: px, h: px, l: px, c: px, v: 0, buys: 0, sells: 0, flow: 0, firstTs: ts, lastTs: ts, buyers: new Set() }));
-    if (ts < a.firstTs) ((a.firstTs = ts), (a.o = px));
-    if (ts >= a.lastTs) ((a.lastTs = ts), (a.c = px));
-    a.h = Math.max(a.h, px);
-    a.l = Math.min(a.l, px);
+    if (!a) bars.set(k, (a = { o: null, h: null, l: null, c: null, v: 0, buys: 0, sells: 0, flow: 0, firstTs: Number.POSITIVE_INFINITY, lastTs: Number.NEGATIVE_INFINITY, buyers: new Set() }));
+    if (px != null) {
+      if (ts < a.firstTs) ((a.firstTs = ts), (a.o = px));
+      if (ts >= a.lastTs) ((a.lastTs = ts), (a.c = px));
+      a.h = Math.max(a.h ?? px, px);
+      a.l = Math.min(a.l ?? px, px);
+    }
     a.v += t.sol;
     if (t.side === "buy") (a.buys++, (a.flow += t.sol), a.buyers.add(t.wallet));
     else (a.sells++, (a.flow -= t.sol));
@@ -117,7 +119,7 @@ async function onTrades(tx: Tx, trades: Envelope<BodyOf<"trade.curve">>[]) {
         o = coalesce(mem.bars_1m.o, excluded.o),
         h = greatest(coalesce(mem.bars_1m.h, excluded.h), excluded.h),
         l = least(coalesce(mem.bars_1m.l, excluded.l), excluded.l),
-        c = excluded.c,
+        c = coalesce(excluded.c, mem.bars_1m.c),
         volume_sol = mem.bars_1m.volume_sol + excluded.volume_sol,
         buys = mem.bars_1m.buys + excluded.buys,
         sells = mem.bars_1m.sells + excluded.sells,

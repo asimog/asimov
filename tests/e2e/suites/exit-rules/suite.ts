@@ -24,7 +24,7 @@ export const suite: Suite = {
   name: "exit-rules",
   tier: "fast",
   covers: ["services/core/src/mind/desk.ts", "services/core/src/mind/dsl.ts", "services/core/src/mind/seeds.ts"],
-  proves: "C6: a caller-sold exit fires when the pre-call caller sells past its share and not before; a trailing stop fires on the fall from the peak and positions keep their peak.",
+  proves: "C6: a caller-sold exit fires when the pre-call caller sells past its share and not before; a trailing stop fires on the fall from the peak and positions keep their peak; an exit on a pool of unknown depth waits for the pool.",
   async run() {
     const checks: Check[] = [];
     const add = (name: string, pass: boolean, detail = "") => checks.push({ name, pass, detail });
@@ -58,6 +58,14 @@ export const suite: Suite = {
       for (let s = 24; s <= 40; s += 2) await tick(s, P0);
       for (let s = 42; s <= 60; s += 2) await tick(s, P0 * (1 + 0.5 * (s - 40) / 20)); // to 1.5x: the loose style sells half at its 1.3x take-profit
       for (let s = 62; s <= 80; s += 2) await tick(s, P0 * (1.5 - 0.5 * (s - 60) / 20)); // back to 1.0x
+      // the coin graduates to a pool of unknown depth at 3x: an exit waits for the pool, then fills on it
+      const amm = async (s: number, price: number, pool: number | null) => {
+        at(s);
+        tape.emit("trade.amm", trade(++n, price, { on_curve: false, pool_sol: pool }), { source: "nats", subject: MINT });
+        await tape.flush();
+      };
+      for (let s = 82; s <= 110; s += 2) await amm(s, P0 * 3, null);
+      for (let s = 112; s <= 130; s += 2) await amm(s, P0 * 3, 80);
       const d = desk(tape, clock);
       while (await step(db.sql, d)) { /* drain */ }
       await tape.flush();
@@ -69,6 +77,10 @@ export const suite: Suite = {
       add("the loose style (0.25) does not", looseSold.length === 0, `${looseSold.length} loose caller_sold exits`);
       const trail = by("_loose", "stop:trail_from_peak");
       add("the trailing stop fires on the fall from the peak", trail.length > 0, `${trail.length} loose trailing stops; ${sells.map((b) => b.reason[0]).join(", ")}`);
+      const poolAt = new Date(t0 + 112_000).toISOString();
+      const [g] = await db.sql`select count(*) filter (where f.seen_time < ${poolAt})::int early, count(*) filter (where f.seen_time >= ${poolAt})::int late, (select count(*)::int from tape.events where topic = 'intent.created' and body->>'side' = 'sell' and seen_time >= ${new Date(t0 + 82_000).toISOString()}) asked
+        from tape.events f where f.topic = 'intent.ghost_filled' and f.body->>'side' = 'sell' and f.seen_time >= ${new Date(t0 + 82_000).toISOString()}`;
+      add("a graduated exit with no known pool waits instead of filling at the last price", g!.asked > 0 && g!.early === 0 && g!.late > 0, `${g!.asked} exits asked; filled ${g!.early} before the pool was known, ${g!.late} after`);
       const [pk] = await db.sql`select max(peak_mult)::float m from mind.positions`;
       add("positions keep their peak multiple", (pk?.m as number) > 1.4, `peak ${(pk?.m as number)?.toFixed(3)}`);
     } finally {

@@ -310,12 +310,17 @@ export function desk(tape: Tape, clock: Clock): Desk {
   }
 
   async function fillIntent(tx: Tx, i: Intent, m: Market | null, now: number, e: Envelope) {
+    // a sell with no market, or on a pool of unknown depth, waits: its exit band already fired, so dropping it would leave the
+    // position open with no exit, and the last price with no impact would overstate what the exit gets (fill.ts)
+    if (i.side === "sell" && (!m || (m.graduated && m.pool_sol == null))) {
+      i.fill_after_ms = now + sampleLatencyMs(clock.rand);
+      await tx`update mind.intents set fill_after = ${iso(i.fill_after_ms)} where id = ${i.id}`;
+      return;
+    }
     if (!m) {
       await dropIntent(tx, i);
-      if (i.side === "buy") {
-        rejected.stale_quote = (rejected.stale_quote ?? 0) + 1;
-        await tape.emitIn(tx, "order.rejected", { intent_id: i.id, reason_code: "stale_quote", detail: "no trade on the coin before the fill deadline" }, { source: "riskgate.paper", subject: i.id, causes: [i.event_id], after: e.seen_time });
-      }
+      rejected.stale_quote = (rejected.stale_quote ?? 0) + 1;
+      await tape.emitIn(tx, "order.rejected", { intent_id: i.id, reason_code: "stale_quote", detail: "no trade on the coin before the fill deadline" }, { source: "riskgate.paper", subject: i.id, causes: [i.event_id], after: e.seen_time });
       return;
     }
     if (clock.rand() < F.failP) {

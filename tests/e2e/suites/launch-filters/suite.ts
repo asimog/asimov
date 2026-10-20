@@ -67,8 +67,12 @@ function logLine(mint: string, wallet: string, lamports: number, isBuy: boolean,
 
 function fakeRpc(): RpcPool {
   return {
-    call: async (method: string) => {
-      if (method === "getSignaturesForAddress") return [{ signature: "creation", slot: 100, err: null, blockTime: 1_792_400_000 }];
+    call: async (method: string, params: unknown[]) => {
+      // a busy curve: a full page of later trades first, the creation transaction only on the page before them
+      if (method === "getSignaturesForAddress")
+        return (params[1] as { before?: string }).before ? [{ signature: "creation", slot: 100, err: null, blockTime: 1_792_400_000 }]
+          : Array.from({ length: 1000 }, (_, i) => ({ signature: `later${i}`, slot: 2000 - i, err: null, blockTime: 1_792_400_900 }));
+      if (params[0] !== "creation") return { meta: { feePayer: "LaterTrader1111111111111111111111111111111", logMessages: [] }, transaction: { message: { accountKeys: [] } } };
       return {
         meta: { feePayer: CREATOR, logMessages: [logLine(MINTS[0]!, CREATOR, 500_000_000, true, 1_792_400_000)] },
         transaction: { message: { accountKeys: [CREATOR] } },

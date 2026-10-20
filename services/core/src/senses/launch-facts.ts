@@ -4,6 +4,7 @@
 // coin that already passed the free checks and is about to be watched.
 import type { Trade } from "@asimog/contracts";
 import { slotOf } from "../index/rollup.ts";
+import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import type { RpcPool } from "../lib/rpc.ts";
 import { bondingCurvePda, tradesFromLogs } from "./backfill.ts";
@@ -32,6 +33,7 @@ export type ResolvedLaunch = {
 };
 
 type Sig = { signature: string; slot: number; err: unknown; blockTime: number | null };
+const SIG_PAGE = 1000; // the RPC maximum
 type Tx = { meta?: { logMessages?: string[] | null; feePayer?: string } | null; transaction?: { message?: { accountKeys?: ({ pubkey: string } | string)[] } } };
 
 export class LaunchFacts {
@@ -80,7 +82,7 @@ export class LaunchFacts {
     }
     if (!out.sources.creator) this.stats.none++;
     else this.stats[out.sources.creator]++;
-    this.cache.set(mint, out);
+    if (out.sources.creator) this.cache.set(mint, out); // a failed resolve is asked again next time
     if (this.cache.size > 5_000) this.cache.delete(this.cache.keys().next().value!);
     return out;
   }
@@ -93,8 +95,16 @@ export class LaunchFacts {
     try {
       // the curve account is a pump program PDA of the mint, so it is known even when newCoinCreated was missed
       const curveAccount = curve ?? bondingCurvePda(mint).toBase58();
-      const sigs = await this.rpc.call<Sig[]>("getSignaturesForAddress", [curveAccount, { limit: 100, commitment: "confirmed" }]);
-      const oldest = sigs.filter((s) => !s.err).at(-1);
+      // newest first: page back with `before` to the true oldest; a curve busier than the page budget stays unknown, never a wrong tx
+      let oldest: Sig | undefined;
+      let before: string | undefined;
+      for (let page = 0; ; page++) {
+        if (page === env.int("LAUNCH_SIG_PAGES")) return null;
+        const sigs = await this.rpc.call<Sig[]>("getSignaturesForAddress", [curveAccount, { limit: SIG_PAGE, commitment: "confirmed", ...(before ? { before } : {}) }]);
+        oldest = sigs.filter((s) => !s.err).at(-1) ?? oldest;
+        if (sigs.length < SIG_PAGE) break;
+        before = sigs.at(-1)!.signature;
+      }
       if (!oldest) return null;
       const tx = await this.rpc.call<Tx | null>("getTransaction", [oldest.signature, { commitment: "confirmed", maxSupportedTransactionVersion: 1 }]);
       if (!tx?.meta?.logMessages) return null;
