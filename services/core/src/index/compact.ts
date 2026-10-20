@@ -84,7 +84,7 @@ export async function buildLeaderboards(sql: Sql, now: string, opts: { newVersio
 
   // callouts: the callout rollup (engagement, then the multiple)
   for (const [i, r] of (await sql`select callout_id, mint, wallet, likes + replies + reposts + quotes + views engagement, multiple
-      from mem.callouts order by engagement desc nulls last, multiple desc nulls last, callout_id limit 100`).entries())
+      from mem.callouts where created_at >= ${since} order by engagement desc nulls last, multiple desc nulls last, callout_id limit 100`).entries())
     rows.push({ kind: "callouts", subject: r.callout_id as string, score: r.engagement as number, body: { mint: r.mint, wallet: r.wallet, multiple: r.multiple, rank: i + 1 } });
 
   // creators: coins and graduations, never pump.fun's own order

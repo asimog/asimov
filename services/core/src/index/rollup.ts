@@ -231,7 +231,7 @@ export class Rollup {
           on conflict (wallet, mint) do update set buys = idx.wallet_coin.buys + excluded.buys, sells = idx.wallet_coin.sells + excluded.sells,
             sol_in = idx.wallet_coin.sol_in + excluded.sol_in, sol_out = idx.wallet_coin.sol_out + excluded.sol_out,
             tok_in = idx.wallet_coin.tok_in + excluded.tok_in, tok_out = idx.wallet_coin.tok_out + excluded.tok_out,
-            first_buy_at = coalesce(idx.wallet_coin.first_buy_at, excluded.first_buy_at), first_buy_price = coalesce(idx.wallet_coin.first_buy_price, excluded.first_buy_price),
+            first_buy_at = least(idx.wallet_coin.first_buy_at, excluded.first_buy_at), first_buy_price = coalesce(idx.wallet_coin.first_buy_price, excluded.first_buy_price),
             copy_price = coalesce(idx.wallet_coin.copy_price, excluded.copy_price), peak_after = greatest(idx.wallet_coin.peak_after, excluded.peak_after),
             mark_price = coalesce(idx.wallet_coin.mark_price, excluded.mark_price), first_sell_at = coalesce(idx.wallet_coin.first_sell_at, excluded.first_sell_at),
             early_slot = idx.wallet_coin.early_slot or excluded.early_slot, last_at = greatest(idx.wallet_coin.last_at, excluded.last_at)`;
@@ -264,8 +264,12 @@ export class Rollup {
     const full = [...this.coins].filter(([mint, c]) => !c.slim && !this.held.has(mint));
     if (full.length <= this.maxCoins) return;
     full.sort((a, b) => a[1].last_at - b[1].last_at);
-    for (const [mint, c] of full.slice(0, full.length - this.maxCoins)) {
+    // oldest first, until the cap holds: a coin with unwritten trades is skipped, and the next oldest leaves in its place
+    let over = full.length - this.maxCoins;
+    for (const [mint, c] of full) {
+      if (over <= 0) break;
       if (c.flushed?.trades !== c.trades) continue;
+      over--;
       this.stats.evicted++;
       if (!c.pending.length && !c.marks.length && !c.after.size) { this.coins.delete(mint); continue; }
       c.bal = new Map(); c.bought = new Map(); c.bundle_wallets = new Set(); c.smart = new Set();

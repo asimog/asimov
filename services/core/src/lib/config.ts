@@ -75,6 +75,8 @@ const SCHEMAS = {
     hot_window_hours: posInt,
     /** hours hourly rollups stay before compaction to wallet x coin and wallet x day (B7) */
     rollup_hourly_hours: posInt,
+    /** hours a Board signal row stays after it stopped being valid (the Tape still holds its inputs) */
+    board_hours: posInt,
     /** where archive files go (B6); B6b adds the bucket and git kinds */
     archive_targets: z.array(Target).min(1),
     /** where the wiki's markdown export goes (E3): the same kinds, so the owner moves it between a bucket and a git repository */

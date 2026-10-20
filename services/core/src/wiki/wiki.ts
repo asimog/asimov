@@ -26,10 +26,13 @@ const f4 = (x: unknown) => (typeof x === "number" ? x.toFixed(4) : "·");
 const pct = (x: unknown) => (typeof x === "number" ? `${Math.round(x * 100)}%` : "·");
 const sha = (s: string) => crypto.createHash("sha256").update(s).digest("hex");
 
+/** Text from outside (a coin's symbol, a model's prose) as literal markdown: no links, tags, tables or emphasis of its own. */
+const md = (s: string) => s.replace(/[\\`*_[\]<>|#!]/g, (c) => `\\${c}`);
+
 /** The page's markdown. Pure: same data, same bytes. */
 export function renderPage(d: PageData): string {
   // the build time is not in the body (it lives on the version row), so unchanged numbers give unchanged bytes
-  const L = [`# ${d.title}`, "", "Numbers written by code from the caller ledger and our paper books. PAPER.", ""];
+  const L = [`# ${md(d.title)}`, "", "Numbers written by code from the caller ledger and our paper books. PAPER.", ""];
   if (d.kind === "caller") {
     L.push("| Measure | Value |", "|---|---|");
     L.push(`| Callouts seen | ${d.calls} |`, `| Measured at ${d.horizon_min} min | ${d.ok} |`, `| Median net multiple | ${f2(d.net_med)}x |`, `| Share that made money | ${pct(d.net_win)} |`);
@@ -39,7 +42,7 @@ export function renderPage(d: PageData): string {
     L.push("", `Not measured: ${ex.length ? ex.map(([k, v]) => `${k} ${v}`).join(", ") : "none"}.`);
   } else {
     const r = d.risk as Record<string, unknown> | null;
-    L.push(`Symbol: ${d.symbol ?? "·"}`, "", "| Measure | Value |", "|---|---|");
+    L.push(`Symbol: ${d.symbol == null ? "·" : md(d.symbol as string)}`, "", "| Measure | Value |", "|---|---|");
     L.push(`| Bought in the first 3 slots | ${pct(r?.bundle_share)} |`, `| Top 10 holders, curve excluded | ${pct(r?.top10_share)} |`, `| Creator sold | ${pct(r?.creator_sold)} |`);
     L.push("", "Our paper positions:", "", "| Opened | Strategy | Cost SOL | Net SOL | Exit |", "|---|---|---|---|---|");
     for (const p of d.positions as { opened_at: string; strategy_id: string; cost_sol: number; net_sol: number | null; exit_reason: string | null }[]) {
@@ -64,7 +67,8 @@ export async function gatherPages(sql: Q, at: string): Promise<PageData[]> {
   for (const mint of mints.map((r) => r.mint as string)) {
     const ps = await sql`select strategy_id, opened_at, cost_sol, case when closed_at <= ${at} then net_sol end net_sol, case when closed_at <= ${at} then exit_reason end exit_reason
       from mind.positions where mint = ${mint} and opened_at <= ${at} order by opened_at, id`;
-    const [coin] = await sql`select symbol from mem.coins where mint = ${mint}`;
+    // the symbol as seen by `at`, from the Tape: a later rename never changes an old page's bytes
+    const [coin] = await sql`select body->>'symbol' symbol from tape.events where topic in ('coin.seen', 'callout.created') and body->>'mint' = ${mint} and seen_time <= ${at} and body->>'symbol' is not null order by seen_time desc, id desc limit 1`;
     const risk = (await liveFor(sql, mint, at))["risk.state"]?.value as Record<string, unknown> | undefined;
     pages.push({
       kind: "coin", slug: `coin-${mint}`, title: `Coin ${(coin?.symbol as string | undefined) ?? short(mint)}`, as_of: at, mint, symbol: (coin?.symbol as string | undefined) ?? null,
@@ -132,7 +136,7 @@ export async function exportWiki(sql: Sql, targets: ArchiveTarget[]): Promise<{ 
   const index = ["# Asimog wiki", "", ...pages.map((p) => `- [${p.slug}](${p.slug}.md) v${p.version}`), ""].join("\n");
   for (const t of targets) {
     for (const p of pages) {
-      const prose = p.prose ? `\n## AI judgment\n\nWritten by the Wiki writer agent, not by code. It may be wrong.\n\n${p.prose as string}\n` : "";
+      const prose = p.prose ? `\n## AI judgment\n\nWritten by the Wiki writer agent, not by code. It may be wrong.\n\n${md(p.prose as string)}\n` : "";
       await t.put(`${p.slug as string}.md`, Buffer.from(`${p.body as string}${prose}`));
     }
     await t.put("index.md", Buffer.from(index));

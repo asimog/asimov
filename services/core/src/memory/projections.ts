@@ -44,6 +44,9 @@ async function onCallout(tx: Tx, e: Envelope<BodyOf<"callout.created">>) {
     values (${b.callout_id}, ${b.mint}, ${b.author_wallet}, ${b.text}, ${b.media_url}, ${b.mcap_at_call_usd}, ${b.price_at_call_usd},
       ${b.created_at}, ${e.seen_time}, ${firstOn}, ${ageMin}, ${pre}, ${b.quoted_callout_id}, ${b.via})
     on conflict (callout_id) do nothing`;
+  // counts read before the callout was projected were dropped by onCounts: the newest one seen by now applies here
+  const [c] = await tx`select body from tape.events where topic = 'callout.counts' and subject = ${b.callout_id} and seen_time <= ${e.seen_time} order by seen_time desc, id desc limit 1`;
+  if (c) await onCounts(tx, { ...e, body: c.body } as unknown as Envelope<BodyOf<"callout.counts">>);
   await tx`
     insert into mem.callers (wallet, user_id, handle, x_handle, followers, total_callouts, first_seen, calls_seen, last_call_at)
     values (${b.author_wallet}, ${b.author_user_id}, ${b.author_handle}, ${b.author_x}, ${b.author_followers},

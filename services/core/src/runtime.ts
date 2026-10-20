@@ -5,6 +5,7 @@ import { cheapAnalyzers } from "./analyzers/cheap.ts";
 import { indexSignals } from "./analyzers/index-signals.ts";
 import { precallAnalyzers } from "./analyzers/precall.ts";
 import { slowSignals } from "./analyzers/slow-signals.ts";
+import { pruneBoard } from "./board/board.ts";
 import { publisher } from "./hands/publisher.ts";
 import { buildLeaderboards, compact } from "./index/compact.ts";
 import { linkFunders } from "./index/funders.ts";
@@ -159,10 +160,11 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
         };
         const maintain = () => {
           serial("compact", () => compact(sql, clock.iso(), config.retention.rollup_hourly_hours));
+          serial("board prune", () => pruneBoard(sql, clock.iso(), config.retention.board_hours));
           serial("leaderboards", () => buildLeaderboards(sql, clock.iso()));
         };
         maintain();
-        timers.push(setInterval(() => serial("compact", () => compact(sql, clock.iso(), config.retention.rollup_hourly_hours)), s.rollup_compact_every_min * 60_000));
+        timers.push(setInterval(() => (serial("compact", () => compact(sql, clock.iso(), config.retention.rollup_hourly_hours)), serial("board prune", () => pruneBoard(sql, clock.iso(), config.retention.board_hours))), s.rollup_compact_every_min * 60_000));
         timers.push(setInterval(() => serial("leaderboards", () => buildLeaderboards(sql, clock.iso())), s.leaderboards_every_min * 60_000));
         timers.push(setInterval(() => serial("leaderboards", () => buildLeaderboards(sql, clock.iso())), s.index_light_every_min * 60_000));
         const full = () =>

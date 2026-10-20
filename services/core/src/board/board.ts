@@ -39,6 +39,11 @@ export async function liveFor(sql: Sql | Tx, subject: string, at: string): Promi
 }
 
 /** The whole Board at time `at`: the latest signal per (kind, subject) live at `at` (docs/SYSTEM.md time travel, Rewind). */
+/** Rows that stopped being valid more than `hours` ago leave the Board (docs/OPS.md section 2); a rebuild from the Tape restores them. */
+export async function pruneBoard(sql: Sql, now: string, hours: number) {
+  return (await sql`delete from board.signals where valid_until < ${now}::timestamptz - make_interval(hours => ${hours}) returning 1`).length;
+}
+
 export async function boardAt(sql: Sql | Tx, at: string): Promise<SignalRow[]> {
   return (await sql`
     select distinct on (kind, subject) id, kind, subject, value, confidence, produced_at, valid_until, analyzer

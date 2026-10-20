@@ -73,6 +73,7 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
     select wallet, count(*)::int n,
       exp(sum(wt * ln(greatest(mult, 1e-6))) / sum(wt)) copy_net,
       sum(wt * (mult > 1)::int) / sum(wt) win,
+      sum(wt) ^ 2 / nullif(sum(wt * wt), 0) n_eff,
       avg(early_right::int) early_right,
       percentile_cont(0.5) within group (order by lead_s) lead_s,
       avg(early_slot::int) early_share,
@@ -83,7 +84,7 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
       exists (select 1 from idx.seed s where s.wallet = t.wallet) seeded
     from t group by wallet having count(*) >= 2`;
   const pop = rows.length ? rows.reduce((a, r) => a + (r.win as number), 0) / rows.length : 0.5;
-  // Wilson lower bound of the weighted win share, with n as the evidence count
+  // Wilson lower bound of the weighted win share; the evidence count is the weights' effective sample size, not the raw count
   const lcb = (p: number, n: number) => {
     const z = 1.959964;
     return (p + (z * z) / (2 * n) - z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / (1 + (z * z) / n);
@@ -91,7 +92,7 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
   const smart: Smart[] = [];
   const out = rows.map((r) => {
     const n = r.n as number;
-    const winLcb = lcb(r.win as number, n);
+    const winLcb = lcb(r.win as number, Math.max(1, Number(r.n_eff ?? n)));
     // snipers, bundlers and devs are never smart; a copier that earns on its own is smart (docs/PIPELINE.md section 3)
     const archetype = r.dev ? "dev" : (r.bundled as number) >= P.bundlerCoins ? "bundler" : (r.early_share as number) >= P.sniperShare ? "sniper"
       : (r.copy_net as number) > 1 && winLcb > pop && n >= (r.seeded ? P.minCoinsSeed : P.minCoins) ? "smart"
@@ -106,7 +107,7 @@ export async function refresh(sql: Sql, tape: Tape): Promise<{ version: number; 
       on conflict (wallet) do update set version = excluded.version, n = excluded.n, copy_net = excluded.copy_net, copy_win_lcb = excluded.copy_win_lcb,
         early_right = excluded.early_right, lead_s = excluded.lead_s, archetype = excluded.archetype, seed = excluded.seed, refreshed_at = excluded.refreshed_at`;
   // a wallet this version did not score keeps an older version's label: demote it so "smart" means smart now (fix plan 3.10)
-  await sql`update idx.wallet set archetype = 'stale' where version < ${v} and archetype in ('smart', 'sniper')`;
+  await sql`update idx.wallet set archetype = 'stale' where version < ${v} and archetype <> 'stale'`;
   smart.sort((a, b) => b.copy_win_lcb - a.copy_win_lcb || (a.wallet < b.wallet ? -1 : 1));
   const [coins] = await sql`select count(*)::int n from idx.coin where last_at > ${now}::timestamptz - make_interval(days => ${P.windowDays})`;
   tape.emit("index.refreshed", { version: v, window_days: P.windowDays, wallets: out.length, coins: coins!.n as number, smart: smart.slice(0, P.smartMax) }, { source: "analyzer", subject: `index:${v}` });
