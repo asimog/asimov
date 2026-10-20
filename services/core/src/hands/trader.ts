@@ -113,14 +113,12 @@ export function trader(d: TraderDeps): Trader {
     return Math.floor((h!.t as number) * fraction * 1e6);
   }
 
-  /** One attempt: build, sign, simulate, send, commit the signature, confirm. */
+  /** One attempt: build, sign, simulate, commit the signature, send. The retry pass confirms it. */
   async function attempt(tx: Tx, e: Envelope, o: Order, n: number) {
     const k = await killState(tx);
     if (o.side === "buy" && k !== "running") return fail(tx, e, o, "killed", false, null, n);
-    if (k === "halted") return failOrRetry(tx, e, o, "killed", null, n);
+    if (k === "halted") return setState(tx, o, "retry", null, n, new Date(d.clock.now() + RETRY_BASE_MS()).toISOString()); // a halt waits; it spends no attempt
     const memo = memoOf(o, n);
-    const found = await chain.findByMemo(wallet, memo); // sent before a crash that lost our commit
-    if (found) return confirm(tx, e, o, found, n, d.clock.now());
     const L = await limitsOf(tx);
     if (o.side === "buy") { // docs/EXECUTION.md Executor step 1: re-read the quote; the Risk Gate checked it once already
       const [q] = await tx`select seen_time from tape.events where subject = ${o.mint} and topic in ('trade.curve', 'trade.amm') and body->>'price_sol' is not null order by seen_time desc, id desc limit 1`;
@@ -143,23 +141,31 @@ export function trader(d: TraderDeps): Trader {
     }
     const withMemo = appendMemo(built.tx, memo);
     const cap = o.side === "buy" ? Math.ceil(lam(o.size_sol ?? 0) * (1 + o.max_slippage_bps / 10_000)) + HEADROOM() : HEADROOM();
-    const signed = await d.swapSigner.sign("/sign/swap", withMemo, { max_lamports: cap, order_id: o.order_id, mint: o.mint, side: o.side, ...(o.side === "sell" ? { max_tokens: Number(amount) } : {}) });
+    let signed: Awaited<ReturnType<SignerClient["sign"]>>;
+    try {
+      signed = await d.swapSigner.sign("/sign/swap", withMemo, { max_lamports: cap, order_id: o.order_id, mint: o.mint, side: o.side, ...(o.side === "sell" ? { max_tokens: Number(amount) } : {}) });
+    } catch (err) {
+      return failOrRetry(tx, e, o, `signer_unreachable:${String(err).slice(0, 80)}`, null, n);
+    }
     if (!signed.ok) return fail(tx, e, o, `signer_refused:${signed.reason}`, false, null, n);
-    const sim = await chain.simulate(signed.signed, wallet);
+    let sim: Awaited<ReturnType<Chain["simulate"]>>;
+    try {
+      sim = await chain.simulate(signed.signed, wallet);
+    } catch (err) {
+      return failOrRetry(tx, e, o, `simulation_failed:${String(err).slice(0, 80)}`, null, n);
+    }
     if (sim.err) return failOrRetry(tx, e, o, `simulation_failed:${sim.err.slice(0, 80)}`, null, n);
     if (o.side === "buy") {
       const want = lam(o.size_sol ?? 0);
       if (-sim.sol_delta > want * (1 + o.max_slippage_bps / 10_000) + HEADROOM() + RENT_ALLOWANCE()) return fail(tx, e, o, `simulation_deviates:${-sim.sol_delta} vs ${want}`, false, null, n);
     } else if (sim.sol_delta < -HEADROOM()) return fail(tx, e, o, "simulation_deviates:sell costs SOL", false, null, n);
-    let sig: string;
-    try {
-      sig = await chain.send(signed.signed);
-    } catch (err) {
-      return failOrRetry(tx, e, o, `send_failed:${String(err).slice(0, 80)}`, null, n);
-    }
-    await setState(d.sql, o, "submitted", sig, n); // its own commit: a rollback of this batch must never forget a sent transaction
+    // the signature is fixed once signed: commit it before the send (its own commit, so no rollback forgets it). A crash or a send
+    // whose outcome is unknown is then settled by confirming this signature, never by a second send; past TRADER_GIVE_UP_MS its
+    // blockhash has expired and it can no longer land, so only then does a new attempt start
+    const sig = signed.signature;
+    await setState(d.sql, o, "submitted", sig, n);
     await tape.emitIn(tx, "order.submitted", { order_id: o.order_id, tx_sig: sig, route: built.route, submitted_at: at() }, { source: "trader", subject: o.order_id, causes: [e.id], after: e.seen_time });
-    return confirm(tx, e, o, sig, n, d.clock.now());
+    await chain.send(signed.signed).catch((err) => log.warn("trader send", { order: o.order_id, sig, outcome: "unknown", err: String(err).slice(0, 120) }));
   }
 
   async function run(tx: Tx, e: Envelope) {

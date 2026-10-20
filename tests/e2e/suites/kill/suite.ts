@@ -132,6 +132,20 @@ export const suite: Suite = {
       await w.settle();
       w.chain.simulate = realSim;
       check("the retried sell fills and the position closes", (await fills()).split(",").length === 8 && (await fills()).endsWith("buy,sell") && w.chain.tokensOf(w.wallets.trade, w.mint) === undefined, await fills());
+      await w.intent("buy");
+      await w.settle();
+      const realSend = w.chain.send.bind(w.chain);
+      let lost = 1;
+      w.chain.send = async (b64: string) => {
+        const sig = await realSend(b64);
+        if (lost-- > 0) throw new Error("socket hang up"); // landed, but the caller never hears it
+        return sig;
+      };
+      const sends1 = w.chain.sends;
+      await w.intent("sell");
+      await w.settle();
+      w.chain.send = realSend;
+      check("a send that lands but reports an error is confirmed by its signature, never sent twice", (await fills()).split(",").length === 10 && (await fills()).endsWith("buy,sell") && w.chain.sends - sends1 === 2, `${await fills()}, sends +${w.chain.sends - sends1} (sell and close)`);
 
       // 6. the other automatic triggers, each from running
       const fail = (n: number) => w.tape.emit("order.failed", { order_id: `or_f${n}`, tx_sig: null, error: "signer_refused:over_cap", retryable: false }, { source: "trader", subject: `or_f${n}` });

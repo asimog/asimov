@@ -38,7 +38,7 @@ export function orderGate(tape: Tape, clock: Clock, wallets: { trade: string }, 
     const limits = await loadLimits(tx);
     const [coin] = b.side === "buy" ? await tx`select creator from idx.coin where mint = ${b.mint}` : [];
     const [call] = b.side === "buy" ? await tx`select wallet from mem.callouts where mint = ${b.mint} order by created_at limit 1` : [];
-    const [dup] = await tx`select 1 from tape.events c where c.topic = 'order.created' and c.body->>'mint' = ${b.mint} and c.body->>'strategy_id' = ${b.strategy_id}
+    const [dup] = await tx`select 1 from tape.events c where c.topic = 'order.created' and c.body->>'mint' = ${b.mint} and c.body->>'strategy_id' = ${b.strategy_id} and c.body->>'side' = ${b.side}
       and c.seen_time > ${new Date(now - 600_000).toISOString()} and not exists (select 1 from hands.orders h where h.order_id = c.subject and h.state in ('filled', 'failed'))`;
     let quote = null;
     if (b.side === "buy") {

@@ -22,7 +22,7 @@ Input: `order.created` from the live gate. Output: `order.submitted`, `order.fil
 1. Re-read limits; clamp size and slippage.
 2. Build the swap with the fun-block API (an adapter, so tests use a fake), append the memo `asimog:<order>`.
 3. Ask the Signer to sign; simulate the signed transaction; refuse if the simulated SOL change differs from the quote by more than the slippage.
-4. Commit `submitted` with the signature, then send through the one send endpoint `TX_SEND_URL` (never the RPC pool).
+4. Commit `submitted` with the signature (known once signed), then send through the one send endpoint `TX_SEND_URL` (never the RPC pool). A send that throws has an unknown outcome: the retry pass confirms the stored signature and starts a new attempt only after `TRADER_GIVE_UP_MS`, when that blockhash can no longer land. A sign, simulate or build error is retried like a send failure. While halted a sell waits without spending an attempt.
 5. Confirm at `confirmed`; parse real SOL and tokens from the transaction.
 6. A full exit sells the on-chain balance, then closes the token account so rent returns; a failed close stays `close_pending` for the retry pass.
 7. The retry pass confirms submitted orders, retries failed sells with backoff, and gives up after `TRADER_GIVE_UP_MS`.
