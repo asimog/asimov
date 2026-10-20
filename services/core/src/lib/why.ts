@@ -2,7 +2,8 @@
 import type { Sql } from "./db.ts";
 
 export async function why(sql: Sql, id: string, depth = 0, seen = new Set<string>()): Promise<unknown> {
-  if (seen.has(id) || depth > 12) return { id, cycle: true };
+  if (seen.has(id)) return { id, cycle: true };
+  if (depth > 12) return { id, truncated: true }; // deeper than the walk goes, not a cycle
   seen.add(id);
   const [e] = await sql`select id, topic, source, subject, seen_time, causes, body from tape.events where id = ${id} limit 1`;
   if (!e) {

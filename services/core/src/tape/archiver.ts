@@ -21,7 +21,8 @@ export class Archiver {
 
   private readonly targets: ArchiveTarget[];
   /** `consumers`: every consumer the runtime runs; one with no bookmark yet counts as behind, so its hours stay. */
-  constructor(private tape: Tape, private sql: Sql, private config: Config, targets?: ArchiveTarget[], private consumers: string[] = []) {
+  constructor(private tape: Tape, private sql: Sql, private config: Config, targets: ArchiveTarget[] | undefined, private consumers: string[]) {
+    if (!consumers.length) throw new Error("the Archiver needs every consumer's name: with none, any hour looks read and is dropped");
     this.targets = targets ?? targetsFromConfig(config);
   }
 
@@ -85,6 +86,8 @@ export class Archiver {
         this.tape.emit("ops.alert", { severity: "warn", text: `Archive kept ${p.table}: ${String(err)}`, finding: "archive.failed" }, { source: "system", subject: p.table });
       }
     }
+    // dedupe keys guard re-reads of recent sources; a key older than twice the hot window guards nothing a sense still re-reads
+    await this.sql`delete from tape.dedupe where at < ${new Date(now - 2 * this.config.retention.hot_window_hours * HOUR).toISOString()}`.catch((err) => log.warn("dedupe prune", { err: String(err) }));
     return out;
   }
 

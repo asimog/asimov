@@ -264,8 +264,12 @@ export async function ensureHourPartition(sql: Sql | Tx, ms: number, seen = new 
   if (seen.has(name)) return name;
   const from = new Date(h).toISOString();
   const to = new Date(h + 3_600_000).toISOString();
-  await sql.unsafe(`create table if not exists ${name} partition of tape.events for values from ('${from}') to ('${to}') partition by list (class)`);
-  for (const c of TAPE_CLASSES) await sql.unsafe(`create table if not exists ${name}_${c} partition of ${name} for values in ('${c}')`);
+  // two writers can race on the same hour: Postgres then raises a duplicate (42P07, or 23505 on its catalog) for what now exists
+  const make = (ddl: string) => sql.unsafe(ddl).catch((err: { code?: string }) => {
+    if (err.code !== "42P07" && err.code !== "23505") throw err;
+  });
+  await make(`create table if not exists ${name} partition of tape.events for values from ('${from}') to ('${to}') partition by list (class)`);
+  for (const c of TAPE_CLASSES) await make(`create table if not exists ${name}_${c} partition of ${name} for values in ('${c}')`);
   seen.add(name);
   return name;
 }

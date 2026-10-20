@@ -752,12 +752,23 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "jev.escalated": "derived", "soul.updated": "derived", "job.queued": "derived", "job.started": "derived", "job.done": "derived",
 };
 
+/** Every topic named, no default: a new topic forces a version, and a body change bumps its number here (consumers refuse a row whose `v` differs). */
 export const SCHEMA_VERSION: Record<Topic, number> = {
-  ...(Object.fromEntries(Object.keys(TOPICS).map((t) => [t, 1])) as Record<Topic, number>),
-  "outcome.measured": 2,
-  "system.gap": 2,
-  "coin.watched": 4,
-  "tape.archived": 1,
+  "observation.raw": 1, "coin.seen": 1, "callout.created": 1, "callout.updated": 1, "callout.reply": 1, "callout.copy": 1,
+  "reply.rug_score": 1, "narrative.clusters": 1, "media.cached": 1, "callout.counts": 1, "filter.sampled": 1, "caller.position": 1,
+  "trade.curve": 1, "trade.amm": 1, "session.task": 1, "session.read": 1, "session.health": 1, "jev.answer": 1,
+  "intent.created": 1, "intent.ghost_filled": 1, "order.rejected": 1, "order.created": 1, "order.submitted": 1, "order.filled": 1,
+  "order.failed": 1, "signer.refused": 1, "position.changed": 1, "ledger.entry": 1, "fees.swept": 1, "books.reconciled": 1,
+  "kill.changed": 1, "limits.changed": 1, "lists.loaded": 1, "config.loaded": 1, "proof.published": 1, "markout.measured": 1,
+  "commit.made": 1, "commit.revealed": 1, "position.closed": 1, "strategy.born": 1, "strategy.retired": 1, "kernel.allocation": 1,
+  "calibration.map": 1, "outcome.measured": 2, "score.updated": 1, "precall.detected": 1, "coin.watched": 4, "coin.unwatched": 1,
+  "coin.graduated": 1, "holders.snapshot": 1, "index.refreshed": 1, "budget.spent": 1, "guard.refused": 1, "budget.exhausted": 1,
+  "thesis.formed": 1, "post.queued": 1, "synthesis.feed": 1, "mood.feed": 1, "synthesis.coin": 1, "synthesis.forum_line": 1,
+  "swarm.wave_p": 1, "swarm.impact": 1, "swarm.post": 1, "proposal.strategy": 1, "jevq.proposed": 1, "report.drafted": 1,
+  "integrity.text": 1, "ops.alert": 1, "ops.stop_requested": 1, "ops.restart_requested": 1, "report.published": 1, "wiki.page": 1,
+  "wiki.prose": 1, "swarm.beliefs": 1, "jev.escalated": 1, "soul.updated": 1, "job.queued": 1, "job.started": 1,
+  "job.done": 1, "system.note": 1, "system.gap": 2, "system.schema_drift": 1, "system.source_disagree": 1, "tape.archived": 1,
+  "clock.tick": 1,
 };
 
 /** Canonical JSON (sorted keys, recursively): the only form commit hashes are computed over. */

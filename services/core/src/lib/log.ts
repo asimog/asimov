@@ -1,7 +1,9 @@
 // Structured JSON logs to stderr. Never log secrets (env.ts redact()).
 type Level = "debug" | "info" | "warn" | "error";
 const MIN: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
-const threshold = MIN[(process.env.LOG_LEVEL as Level) ?? "info"] ?? 20;
+const level = process.env.LOG_LEVEL ?? "info";
+if (!(level in MIN)) throw new Error(`LOG_LEVEL must be one of ${Object.keys(MIN).join(", ")}, got ${level}`); // a typo must not quietly log at info
+const threshold = MIN[level as Level];
 
 function out(level: Level, msg: string, data?: Record<string, unknown>) {
   if (MIN[level] < threshold) return;

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import postgres from "postgres";
 import { env } from "./env.ts";
+import { log } from "./log.ts";
 
 export type Sql = postgres.Sql<Record<string, unknown>>;
 
@@ -9,7 +10,7 @@ export function connect(url = env.str("DATABASE_URL"), max = env.int("DB_POOL"))
   return postgres(url, {
     max,
     idle_timeout: 30,
-    onnotice: () => {},
+    onnotice: (n) => (n.severity === "NOTICE" || n.severity === "DEBUG" ? undefined : log.warn("postgres", { severity: n.severity, message: n.message })), // our DDL's "already exists" notices stay quiet
     types: { bigint: postgres.BigInt },
   }) as unknown as Sql;
 }

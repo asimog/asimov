@@ -23,6 +23,7 @@ function load(): Record<string, string> {
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined && v !== "") merged[k] = v;
   for (let pass = 0; pass < 3; pass++) // references may chain (RPC_URLS -> RPCFAST_URL -> RPCFAST_API_KEY)
     for (const k of Object.keys(merged)) merged[k] = merged[k]!.replace(/\$\{(\w+)\}/g, (_, n) => merged[n] ?? "");
+  for (const [k, v] of Object.entries(merged)) if (/\$\{\w+\}/.test(v)) throw new Error(`env ${k}: a \${...} reference is still unresolved after three passes (a cycle, or a chain deeper than three)`);
   return merged;
 }
 

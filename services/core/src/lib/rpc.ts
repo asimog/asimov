@@ -30,7 +30,9 @@ export function specsFromEnv(): EndpointSpec[] {
     ? raw.split(",").map((s) => s.trim()).filter(Boolean).map((s) => {
         const [name, rps, ...rest] = s.split("|");
         const N = name!.toUpperCase();
-        return { name: name!, rps: Number(rps), url: rest.join("|"), deny: list(env.opt(`RPC_DENY_${N}`)), budget: env.numOpt(`RPC_BUDGET_${N}`) ?? Number.POSITIVE_INFINITY, cost: env.numOpt(`RPC_COST_${N}`) ?? 1 };
+        const r = Number(rps);
+        if (!(Number.isFinite(r) && r > 0)) throw new Error(`RPC_URLS: ${name} has rps "${rps}"; it must be a number above 0`);
+        return { name: name!, rps: r, url: rest.join("|"), deny: list(env.opt(`RPC_DENY_${N}`)), budget: env.numOpt(`RPC_BUDGET_${N}`) ?? Number.POSITIVE_INFINITY, cost: env.numOpt(`RPC_COST_${N}`) ?? 1 };
       })
     : env.opt("RPC_URL") ? [{ name: "rpc", rps: env.num("RPC_RPS"), url: env.str("RPC_URL") }] : [];
   return specs.filter((s) => s.url); // a provider whose URL is not in .env.local is dropped
@@ -210,6 +212,12 @@ export class RpcPool {
         if (j.error && (j.error.code === -32601 || (j.error.code === -32099 && /not available/i.test(j.error.message)))) {
           e.deny.add(method); // a plan refusal (-32099 "not available", -32601 "dedicated nodes only"), not an outage: never send this method there again
           last = `${e.name}: ${method} refused by plan`;
+          continue;
+        }
+        // the provider is busy or broke on its side (-32005 limit, -32603 internal, -32000..-32099 server): the next one may answer
+        if (j.error && (j.error.code === -32005 || j.error.code === -32603 || (j.error.code <= -32000 && j.error.code >= -32099))) {
+          last = `${e.name}: ${method} error ${j.error.code}`;
+          this.rest(e);
           continue;
         }
         e.restMs = 0;

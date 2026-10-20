@@ -1,6 +1,6 @@
 // Consumers read the Tape in (seen_time, id) order from their own offset. The handler and the offset
 // update share one transaction, so a crash never applies a batch twice (docs/SYSTEM.md).
-import type { Envelope } from "@asimog/contracts";
+import { type Envelope, SCHEMA_VERSION, type Topic } from "@asimog/contracts";
 import type postgres from "postgres";
 import type { Sql } from "../lib/db.ts";
 import { log } from "../lib/log.ts";
@@ -50,6 +50,9 @@ export async function step(sql: Sql, c: Consumer, untilIso?: string): Promise<nu
       limit ${c.batch ?? 500}`) as unknown as Row[];
     if (!rows.length) return 0;
     const events = rows.map(normalize);
+    // a row written under another body version would be read with the wrong shape: stop loudly instead (tapes are disposable)
+    const old = events.find((e) => e.v !== SCHEMA_VERSION[e.topic as Topic]);
+    if (old) throw new Error(`${c.name}: ${old.topic} ${old.id} has schema v${old.v}, this code reads v${SCHEMA_VERSION[old.topic as Topic]}`);
     await apply(tx, c, events);
     return events.length;
   }).finally(() => held && release(held));

@@ -77,11 +77,12 @@ export const suite: Suite = {
         await tape.flush();
         clock.advance!(Date.UTC(2026, 9, 19, 12, 10));
         const config = configValues();
+        await db.sql`insert into tape.consumer_offsets (consumer, last_seen_time, last_id) values ('reader', '2026-10-19T12:00:00Z', 'z') on conflict do nothing`; // one consumer, past the hour
         const archiver = new Archiver(tape, db.sql, config, [
           new LocalTarget(localDir),
           new S3Target({ endpoint: s3.url, accessKey: "AKIAEXAMPLE", secretKey: "secret", region: "us-east-1", bucket: "asimog", prefix: "tape" }),
           new GitTarget(gitDir),
-        ]);
+        ], ["reader"]);
         const out = await archiver.runOnce();
         const [row] = await db.sql`select file, sha256, target from tape.archived where partition = 'tape.events_p_2026101907_inputs_hot'`;
         const lines = String(row?.target ?? "").split("\n");
@@ -115,7 +116,7 @@ export const suite: Suite = {
         await tape.flush();
         clock.advance!(Date.UTC(2026, 9, 19, 12, 10));
         const bad = { name: "broken", put: async () => { throw new Error("bucket down"); }, get: async () => Buffer.alloc(0) };
-        const archiver = new Archiver(tape, db.sql, configValues(), [new LocalTarget(path.join(root, "local")), bad]);
+        const archiver = new Archiver(tape, db.sql, configValues(), [new LocalTarget(path.join(root, "local")), bad], ["reader"]);
         const out = await archiver.runOnce();
         const [still] = await db.sql`select count(*)::int n from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'tape' and c.relname = 'events_p_2026101907_inputs_hot'`;
         const [arch] = await db.sql`select count(*)::int n from tape.archived where partition = 'tape.events_p_2026101907_inputs_hot'`;

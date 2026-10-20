@@ -37,7 +37,7 @@ How Asimog is configured, where its data lives, how big it gets, where it runs, 
 | 5 Archive | Every dropped partition | gzipped NDJSON files with a checksum, sent to one or more archive targets: a local folder, an S3-compatible bucket, or a git repository updated on a schedule | Kept |
 | 6 Knowledge | Wiki pages | Postgres, versioned; markdown export to a wiki target (a bucket or a GitHub docs repository) | Kept |
 
-Every window and target is a setting in `config/retention.json`. Budget for hot storage (tiers 1 to 4 and 6): 5 to 10 GB; everything older goes to the archive targets. The archive and wiki targets stay pluggable, so the owner can switch between a bucket and a git repository without code changes.
+The archiver drops only `inputs_hot` partitions; `inputs_kept` and `derived` partitions (tier 4) are kept whole, so their growth is not yet bounded by any setting: a yearly disk budget is the owner's to set. It also prunes `tape.dedupe` keys older than twice the hot window, since no sense re-reads that far back. Every window and target is a setting in `config/retention.json`. Budget for hot storage (tiers 1 to 4 and 6): 5 to 10 GB; everything older goes to the archive targets. The archive and wiki targets stay pluggable, so the owner can switch between a bucket and a git repository without code changes.
 
 `ctl stats` prints one line per tier with exact rows and total relation bytes (`pg_total_relation_size`), plus the archive lag: how long the oldest hot partition has sat past its window. `doctor` adds an `archive_lag` finding when that lag passes one hour. Both are read-only.
 
