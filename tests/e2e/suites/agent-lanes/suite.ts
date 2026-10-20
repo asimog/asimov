@@ -12,6 +12,7 @@ import { LaneViolation, loadBelt } from "../../../../services/agents/src/tools.t
 import { env } from "../../../../services/core/src/lib/env.ts";
 import { ALL_CAPS, CAP, TOOLS } from "../../../../services/core/src/mcp/toolbox.ts";
 import { seedSpecs } from "../../../../services/core/src/mind/seeds.ts";
+import { ensureHourPartition } from "../../../../services/core/src/tape/tape.ts";
 import type { Check } from "../../lib/checks.ts";
 import { MINT_B, slowEnv } from "../../lib/slow.ts";
 import type { Suite } from "../../lib/suite.ts";
@@ -168,6 +169,8 @@ export const suite: Suite = {
         await w2.seed();
         await agentsMigrate(asql2);
         const mcp2 = await w2.mcpUp();
+        // a raw write skips the Tape, so it makes the hour partition itself; a row in the default partition blocks that hour for good
+        await ensureHourPartition(w2.sql, Date.now() - 600_000);
         await w2.sql`insert into tape.events (id, topic, v, class, event_time, seen_time, source, subject, causes, mode, body)
           values ('ev_old1', 'trade.curve', 1, 'inputs_hot', now() - interval '10 minutes', now() - interval '10 minutes', 'nats', null, '{}', 'paper', '{}'::jsonb)`;
         const opsLanes = lanesWith(new PgSpend(asql2), { OPS: () => "{}" });

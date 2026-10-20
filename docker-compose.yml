@@ -1,5 +1,6 @@
 # Asimog local stack (docs/SLOW-MIND.md): data (Postgres + Neo4j) and the slow workers (BettaFish, MiroShark), one project.
 # `npm run stack:up` starts everything; `npm run stack:data` starts only the databases. All ports bind to 127.0.0.1.
+# Secrets interpolate to empty when unset, so `npm run pg:start` needs none; each worker (REQUIRED in its asimog_worker.py) and Neo4j refuse to boot without theirs.
 name: asimog
 services:
   pg:
@@ -15,7 +16,7 @@ services:
     container_name: asimog-neo4j
     restart: unless-stopped
     environment:
-      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env.local}"
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:-}"
       NEO4J_server_memory_heap_max__size: "${NEO4J_HEAP:-512m}"
       NEO4J_server_memory_pagecache_size: "256m"
     ports: ["127.0.0.1:7687:7687", "127.0.0.1:7474:7474"]
@@ -34,9 +35,9 @@ services:
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       SWARM_CORE_TOKEN: ${SWARM_CORE_TOKEN:-}
-      BETTAFISH_WORKER_TOKEN: ${BETTAFISH_WORKER_TOKEN:?set BETTAFISH_WORKER_TOKEN in .env.local}
-      SWARM_WORKER_TOKEN: ${SWARM_WORKER_TOKEN:?set SWARM_WORKER_TOKEN in .env.local}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env.local}
+      BETTAFISH_WORKER_TOKEN: ${BETTAFISH_WORKER_TOKEN:-}
+      SWARM_WORKER_TOKEN: ${SWARM_WORKER_TOKEN:-}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
       NEO4J_URI: bolt://neo4j:7687
       BETTAFISH_DB_URL: postgresql://slow_reader@pg:5432/asimog
       CORE_MCP_URL: http://host.docker.internal:${MCP_PORT:-7403}/mcp

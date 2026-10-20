@@ -1,8 +1,8 @@
 // The slow-mind read surface (docs/SLOW-MIND.md section 4): BettaFish-shaped views exist with upstream's column names, the
 // slow_reader role can read them and nothing else, and slow.as_of hides everything seen after it.
-import { connect, migrate } from "../../../../services/core/src/lib/db.ts";
-import { env } from "../../../../services/core/src/lib/env.ts";
+import { connect } from "../../../../services/core/src/lib/db.ts";
 import type { Check } from "../../lib/checks.ts";
+import { freshDb } from "../../lib/freshdb.ts";
 import type { Suite } from "../../lib/suite.ts";
 
 const SHAPE: Record<string, string[]> = {
@@ -22,17 +22,20 @@ export const suite: Suite = {
   covers: ["services/core/src/sql/schema.sql"],
   proves: "Slow views carry the column shapes the upstream engines expect, slow_reader reads only them, and slow.as_of hides later rows.",
   async run() {
-    const sql = connect(undefined, 2);
+    // a fresh database, so the check never depends on the working database's age or contents
+    const db = await freshDb("slow_views");
+    const sql = db.sql;
     const checks: Check[] = [];
     const add = (name: string, pass: boolean, detail = "") => checks.push({ name, pass, detail });
     try {
-      await migrate(sql);
+      await sql`insert into mem.callouts (callout_id, mint, wallet, text, created_at, seen_at, first_on_coin)
+                values ('co_1', 'MintSlowViews111', 'WalletSlowViews1', 'gm', now() - interval '5 minutes', now() - interval '5 minutes', true)`;
       for (const [view, cols] of Object.entries(SHAPE)) {
         const have = new Set((await sql`select column_name from information_schema.columns where table_schema = 'slow' and table_name = ${view}`).map((r) => r.column_name as string));
         const miss = cols.filter((c) => !have.has(c));
         add(`slow.${view} has the expected columns`, miss.length === 0, miss.join(", ") || `${have.size} columns`);
       }
-      const url = new URL(env.str("DATABASE_URL"));
+      const url = new URL(db.url);
       url.username = "slow_reader";
       const ro = connect(url.toString(), 1);
       try {
@@ -43,18 +46,17 @@ export const suite: Suite = {
         add("slow_reader cannot write slow.reports", await denied(ro`insert into slow.reports (report_id, producer, kind, subject, sha256, summary, published_at) values ('x','x','x','x','x','x', now())`));
         add("slow_reader cannot read the Tape", await denied(ro`select 1 from tape.events limit 1`));
         const [all] = await ro`select count(*)::int n, min(created_at) first from slow.pumpfun_callout`;
-        if ((all!.n as number) > 0) {
-          const pinned = await ro.begin(async (tx) => {
-            await tx`select set_config('slow.as_of', ${new Date((all!.first as Date).getTime() - 1).toISOString()}, true)`;
-            return (await tx`select count(*)::int n from slow.pumpfun_callout`)[0]!.n as number;
-          });
-          add("slow.as_of before the first callout hides every callout", pinned === 0, `${pinned} visible of ${all!.n}`);
-        } else add("slow.as_of check skipped: no callouts", true, "empty database");
+        add("slow_reader sees the seeded callout", all!.n === 1, `${all!.n} rows`);
+        const pinned = await ro.begin(async (tx) => {
+          await tx`select set_config('slow.as_of', ${new Date((all!.first as Date).getTime() - 1).toISOString()}, true)`;
+          return (await tx`select count(*)::int n from slow.pumpfun_callout`)[0]!.n as number;
+        });
+        add("slow.as_of before the first callout hides every callout", pinned === 0, `${pinned} visible of ${all!.n}`);
       } finally {
         await ro.end({ timeout: 2 });
       }
     } finally {
-      await sql.end({ timeout: 2 });
+      await db.done();
     }
     return { checks, metrics: { views: Object.keys(SHAPE).length } };
   },

@@ -92,6 +92,9 @@ export class Tape {
     const after = Date.parse(o.after) + 1;
     const now = new Date(this.clock.mode === "replay" ? after : Math.max(this.clock.now(), after)).toISOString();
     const e = this.envelope(topic, body, o, now);
+    // a decision's hour partition exists before its row, or the row lands in the default partition and that hour can never be made
+    // made inside the transaction and not remembered, since a rollback undoes it; the next flush remembers it
+    if (!(this.root ?? this).ensured.has(hourPartition(Date.parse(now)))) await ensureHourPartition(tx, Date.parse(now));
     if (o.dedupe && !(await tx`insert into tape.dedupe (key, event_id) values (${o.dedupe}, ${e.id}) on conflict do nothing returning 1`).length) return e;
     await tx`insert into tape.events ${tx({ ...e, class: TOPIC_CLASS[e.topic as Topic], body: tx.json(e.body as never) } as never, "id", "topic", "v", "class", "event_time", "seen_time", "source", "subject", "causes", "mode", "body")}`;
     await tx`select pg_notify('tape', ${e.seen_time})`;
@@ -186,10 +189,12 @@ export class Tape {
   }
 }
 
+const hourPartition = (ms: number) => `tape.events_p_${new Date(ms).toISOString().slice(0, 13).replace(/[-T]/g, "")}`;
+
 /** Create one hour partition and its class list partitions. Idempotent; the name is built from the hour only. */
-export async function ensureHourPartition(sql: Sql, ms: number, seen = new Set<string>()) {
+export async function ensureHourPartition(sql: Sql | Tx, ms: number, seen = new Set<string>()) {
   const h = Math.floor(ms / 3_600_000) * 3_600_000;
-  const name = `tape.events_p_${new Date(h).toISOString().slice(0, 13).replace(/[-T]/g, "")}`;
+  const name = hourPartition(h);
   if (seen.has(name)) return name;
   const from = new Date(h).toISOString();
   const to = new Date(h + 3_600_000).toISOString();
