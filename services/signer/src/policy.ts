@@ -19,7 +19,7 @@ export const NATIVE_MINT = "So11111111111111111111111111111111111111112";
 const disc = (name: string) => crypto.createHash("sha256").update(`global:${name}`).digest().subarray(0, 8).toString("hex");
 /** instruction name -> byte offset of the u64 that caps the SOL it may spend (null: spends nothing) */
 type Spec = Record<string, number | null>;
-const PUMP: Spec = { buy: 16, buy_v2: 16, buy_v3: 16, buy_exact_sol_in: 8, buy_exact_quote_in_v2: 8, buy_exact_quote_in_v3: 8, sell: null, sell_v2: null, sell_v3: null, extend_account: null, init_user_volume_accumulator: null, sync_user_volume_accumulator: null };
+export const PUMP: Spec = { buy: 16, buy_v2: 16, buy_v3: 16, buy_exact_sol_in: 8, buy_exact_quote_in_v2: 8, buy_exact_quote_in_v3: 8, sell: null, sell_v2: null, sell_v3: null, extend_account: null, init_user_volume_accumulator: null, sync_user_volume_accumulator: null };
 const AMM: Spec = { buy: 16, buy_v2: 16, buy_exact_quote_in_v2: 8, sell: null, sell_v2: null, extend_account: null, init_user_volume_accumulator: null, sync_user_volume_accumulator: null };
 const FEES: Spec = { get_fees: null };
 const COLLECT_PUMP: Spec = { collect_creator_fee: null, collect_creator_fee_v2: null, distribute_creator_fees: null, distribute_creator_fees_v2: null, extend_account: null };

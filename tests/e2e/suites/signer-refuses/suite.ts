@@ -2,8 +2,11 @@
 // Real serialized transactions, test keypairs made in memory, no network (docs/EXECUTION.md, docs/OPS.md).
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
+import { env } from "../../../../services/core/src/lib/env.ts";
+import { PUMP } from "../../../../services/signer/src/policy.ts";
 import { isPrivateHost } from "../../../../services/signer/src/server.ts";
 import { Signer, verifyAudit } from "../../../../services/signer/src/signer.ts";
 import { PublicKey } from "../../../../services/signer/src/web3.ts";
@@ -85,7 +88,7 @@ export const suite: Suite = {
       { name: "swap token on the treasury endpoint", endpoint: "/sign/memo", token: SWAP, tx: build(A, [memo(`asimog:proof:${"a".repeat(64)}`)]).b64, expect: "bad_capability" },
       { name: "unknown endpoint", endpoint: "/sign/anything", token: SWAP, tx: build(T, goodBuy).b64, expect: "unknown_endpoint" },
       { name: "login is not enabled yet", endpoint: "/sign/login", token: "login-secret", tx: build(T, goodBuy).b64, expect: "endpoint_not_enabled" },
-      { name: "bounty is not enabled yet", endpoint: "/sign/bounty", token: TREAS, tx: build(A, [transfer(A, S, 1)]).b64, expect: "bad_capability" },
+      { name: "there is no bounty endpoint", endpoint: "/sign/bounty", token: TREAS, tx: build(A, [transfer(A, S, 1)]).b64, expect: "unknown_endpoint" },
       // close-account
       { name: "close account to the trade wallet signs", endpoint: "/sign/close-account", token: SWAP, tx: build(T, [closeAccount(k.mint, T, T)]).b64, expect: "ok" },
       { name: "close account sends rent elsewhere", endpoint: "/sign/close-account", token: SWAP, tx: build(T, [closeAccount(k.mint, S, T)]).b64, expect: "close_destination" },
@@ -119,6 +122,16 @@ export const suite: Suite = {
     }
 
     const signedOk = rows.filter((r) => r.expect === "ok").length;
+    // the hand-written pump table against the program's own IDL (shipped in @pump-fun/pump-sdk): names, discriminators, the spend field's offset
+    const { pumpIdl } = createRequire(path.join(env.root, "services/core/package.json"))("@pump-fun/pump-sdk") as { pumpIdl: { instructions: { name: string; discriminator: number[]; args: { name: string; type: unknown }[] }[] } };
+    const idlBad = Object.entries(PUMP).flatMap(([name, off]) => {
+      const i = pumpIdl.instructions.find((x) => x.name === name);
+      if (!i) return [`${name}: not in the IDL`];
+      if (Buffer.from(i.discriminator).toString("hex") !== disc(name).toString("hex")) return [`${name}: discriminator differs`];
+      const spend = i.args.findIndex((a) => /^(max_sol_cost|spendable_sol_in|spendable_quote_in)$/.test(a.name));
+      const at = spend < 0 ? null : 8 + 8 * spend; // every arg before it is a u64
+      return at === off || (off === null && name.startsWith("sell")) || (off === null && spend < 0) ? [] : [`${name}: spend offset ${off}, the IDL says ${at}`];
+    });
     // a signed swap is really signed by the trade key
     const good = await signer.handle("/sign/swap", SWAP, { tx: build(T, goodBuy).b64, ctx });
     const { VersionedTransaction } = await import("../../../../services/signer/src/web3.ts");
@@ -162,6 +175,7 @@ export const suite: Suite = {
         { name: "allowed shapes signed with the right key", pass: signedByTrade && good.body.ok === true, detail: `${signedOk} allowed cases; swap signature present: ${signedByTrade}` },
         { name: "exit_only kill file stops buys, not close-account", pass: killed.body.reason === "kill_switch" && closeWhileKilled.body.ok === true, detail: `swap ${killed.body.reason}, close ${closeWhileKilled.body.ok}` },
         { name: "any other kill file content halts every endpoint", pass: closeWhileHalted.body.reason === "kill_switch", detail: `close ${closeWhileHalted.body.reason ?? "signed"}` },
+        { name: "the Signer's pump instruction table matches the program IDL", pass: idlBad.length === 0, detail: idlBad.join("; ") || `${Object.keys(PUMP).length} instructions` },
         { name: "rate limit per endpoint, counted only after the capability check", pass: rl.slice(0, 3).every((x) => x === "bad_transaction") && rl.slice(3).every((x) => x === "rate_limited"), detail: rl.join(",") },
         { name: "every request has an audit line", pass: lines.length >= cases.length, detail: `${lines.length} lines for ${cases.length} cases` },
         { name: "audit chain verifies", pass: audit.ok, detail: `${audit.lines} lines` },

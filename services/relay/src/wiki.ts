@@ -18,7 +18,8 @@ export function wikiRoom({ sql, cached }: Deps) {
     const [p] = await sql`select p.slug, p.kind, p.version, p.as_of, p.sha256, p.body, w.text prose from wiki.pages p
       left join wiki.prose w on w.slug = p.slug and w.version = p.version where p.slug = ${slug} and p.version = ${v}`;
     if (!p) return null;
-    return { ...p, as_of: (p.as_of as Date).toISOString(), versions: versions.map((x) => ({ version: x.version, as_of: (x.as_of as Date).toISOString(), sha256: x.sha256 })) };
+    // model prose is shown as written, but no @handle leaves the relay (the rule every room follows)
+    return { ...p, prose: p.prose == null ? null : String(p.prose).replace(/@\w+/g, "@…"), as_of: (p.as_of as Date).toISOString(), versions: versions.map((x) => ({ version: x.version, as_of: (x.as_of as Date).toISOString(), sha256: x.sha256 })) };
   };
   return { list, page };
 }

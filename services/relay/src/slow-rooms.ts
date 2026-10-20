@@ -16,7 +16,7 @@ export function slowRooms({ sql, cached, sym }: Deps) {
       const reports = await sql`select report_id, producer, kind, subject, summary, cites, parent_reports, published_at, left(markdown, 6000) markdown from slow.reports
         where producer like 'bettafish.%' order by published_at desc limit 8`;
       return {
-        forum: forum.reverse().map((f) => ({ id: f.id, t: (f.seen_time as Date).getTime(), agent: f.body.agent, text: f.body.text, cites: f.body.cites ?? [] })),
+        forum: forum.reverse().map((f) => ({ id: f.id, t: (f.seen_time as Date).getTime(), agent: f.body.agent, text: String(f.body.text).replace(/@\w+/g, "@…"), cites: f.body.cites ?? [] })),
         feed: feed ? { t: (feed.seen_time as Date).getTime(), narratives: feed.body.narratives ?? [], claims_total: feed.body.claims_total ?? 0, claims_dropped: feed.body.claims_dropped ?? 0 } : null,
         coins: coins.sort((a, b) => (b.seen_time as Date).getTime() - (a.seen_time as Date).getTime()).slice(0, 12).map((c) => ({ mint: c.subject, sym: sym(c.subject), t: (c.seen_time as Date).getTime(), stance: c.body.stance, narrative: c.body.narrative, claims: c.body.claims ?? [], claims_dropped: c.body.claims_dropped ?? 0 })),
         reports: reports.map((r) => ({ id: r.report_id, producer: r.producer, kind: r.kind, subject: r.subject === "global" ? "feed" : sym(r.subject), summary: r.summary, cites: r.cites, parents: r.parent_reports, t: (r.published_at as Date).getTime(), markdown: r.markdown })),
@@ -40,7 +40,7 @@ export function slowRooms({ sql, cached, sym }: Deps) {
           wave_p: r.wave.wave_p, samples: r.wave.samples, truncated: r.wave.truncated, preset: r.wave.preset,
           d_callers: r.impact?.d_callers ?? null, d_net_sol: r.impact?.d_net_sol ?? null,
           drift: r.beliefs ? Object.fromEntries(Object.entries(r.beliefs.branches as Record<string, { round: number; stance: Record<string, number> }[][]>).map(([k, v]) => [k, v[0] ?? []])) : {},
-          posts: posts.map((p) => ({ branch: p.body.branch, platform: p.body.platform ?? "pumpfun", agent: p.body.agent, archetype: p.body.archetype, text: p.body.text })),
+          posts: posts.map((p) => ({ branch: p.body.branch, platform: p.body.platform ?? "pumpfun", agent: p.body.agent, archetype: p.body.archetype, text: String(p.body.text).replace(/@\w+/g, "@…") })), // simulated, but a persona may name a real handle
           report: rep ? { id: rep.report_id, summary: rep.summary, markdown: rep.markdown, graph: rep.graph } : null,
         });
       }

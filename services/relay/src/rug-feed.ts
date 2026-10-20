@@ -14,14 +14,17 @@ const mask = (t: string) => t.replace(/@\w+/g, "@…").slice(0, 280);
 export function rugFeed({ sql, cached, sym }: Deps) {
   return () =>
     cached("rugfeed", 8000, async () => {
-      const risk = await sql`select distinct on (subject) subject, value, confidence, produced_at, valid_until, analyzer, valid_until < now() stale
-        from board.signals where kind = 'risk.state' and produced_at > now() - interval '24 hours' order by subject, produced_at desc`;
+      const [h] = await sql`select max(seen_time) head from tape.events`;
+      const head = ((h?.head as Date | null) ?? new Date()).toISOString(); // the Tape's time, as every room
+      const risk = await sql`select distinct on (subject) subject, value, confidence, produced_at, valid_until, analyzer, valid_until < ${head}::timestamptz stale
+        from board.signals where kind = 'risk.state' and produced_at > ${head}::timestamptz - interval '24 hours' order by subject, produced_at desc`;
       const replies = await sql`select e.body->>'mint' mint, e.seen_time, e.body->>'text' text, s.similarity from tape.events e
         left join lateral (select max((x.body->>'similarity')::float) similarity from tape.events x
           where x.topic = 'reply.rug_score' and x.subject = e.body->>'reply_id' and (x.body->>'rug_like')::bool) s on true
-        where e.topic = 'callout.reply' and e.seen_time > now() - interval '24 hours' order by e.seen_time desc, e.id desc limit 5000`;
+        where e.topic = 'callout.reply' and e.seen_time > ${head}::timestamptz - interval '24 hours' order by e.seen_time desc, e.id desc limit 5000`;
       const reports = new Map<string, { t: number; text: string; match: "words" | "similar"; similarity?: number }[]>();
       for (const r of replies) {
+        if (!r.mint) continue; // a reply with no coin belongs to no coin's feed
         const words = RUG_WORDS.test(r.text as string);
         if (!words && r.similarity == null) continue;
         const l = reports.get(r.mint as string) ?? [];

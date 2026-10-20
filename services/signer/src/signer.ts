@@ -6,7 +6,7 @@ import path from "node:path";
 import type { Keypair } from "@solana/web3.js";
 import { type Ctx, checkCloseAccount, checkCollectFees, checkMemo, checkSwap, checkSweepSplit, parse, type Rules, type Verdict, type Wallets } from "./policy.ts";
 
-export const ENDPOINTS = ["/sign/swap", "/sign/close-account", "/sign/collect-fees", "/sign/sweep-split", "/sign/memo", "/sign/login", "/sign/bounty", "/sign/x402"] as const;
+export const ENDPOINTS = ["/sign/swap", "/sign/close-account", "/sign/collect-fees", "/sign/sweep-split", "/sign/memo", "/sign/login"] as const;
 export type Endpoint = (typeof ENDPOINTS)[number];
 /** which capability opens which endpoint (docs/SYSTEM.md) */
 export const CAPS: Record<string, Endpoint[]> = {
@@ -90,7 +90,7 @@ export class Signer {
     const cap = this.capOf(endpoint, token);
     if (!cap) return refuse(401, "bad_capability"); // before the limiter, so an unauthenticated caller cannot spend the real caller's rate
     if (this.limited(endpoint)) return refuse(429, "rate_limited", undefined, cap);
-    if (endpoint === "/sign/login" || endpoint === "/sign/bounty" || endpoint === "/sign/x402") return refuse(501, "endpoint_not_enabled", "arrives with S8 and S9", cap);
+    if (endpoint === "/sign/login") return refuse(501, "endpoint_not_enabled", "arrives with the Publisher's login (EXECUTION.md section 5)", cap);
     const kill = this.killState();
     if (kill === "halted") return refuse(403, "kill_switch", "halted", cap);
     if (!body || typeof body.tx !== "string") return refuse(400, "bad_request", "tx missing", cap);
