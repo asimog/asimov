@@ -21,7 +21,7 @@ export async function mapOutput(c: Cores, job: Job, out: RunOutput, parents: str
   for (const [i, r] of (out.reports ?? []).entries()) {
     const report_id = `${job.id}_${i}`;
     try {
-      await c.exchange.call("report_publish", { report_id, producer: r.producer, kind: r.kind, subject: job.subject, window_from: window.from, window_to: window.to, preset: job.preset, summary: r.summary, cites: r.cites, parent_reports: parents, ir: r.ir ?? null, markdown: r.markdown ?? null, simulated: r.simulated ?? job.engine === "miroshark" });
+      await (job.engine === "bettafish" ? c.synth : c.swarm).call("report_publish", { report_id, producer: r.producer, kind: r.kind, subject: job.subject, window_from: window.from, window_to: window.to, preset: job.preset, summary: r.summary, cites: r.cites, parent_reports: parents, ir: r.ir ?? null, markdown: r.markdown ?? null, simulated: r.simulated ?? job.engine === "miroshark" });
       m.reports.push(report_id);
     } catch (err) {
       m.refused.push({ tool: "report_publish", reason: String((err as Error).message ?? err).slice(0, 200) });

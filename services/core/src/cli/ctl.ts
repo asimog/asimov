@@ -171,6 +171,14 @@ const commands: Record<string, () => Promise<unknown>> = {
   why: () => why(sql, args[0]!),
   tail: () => tail(args.filter((a) => !a.startsWith("--"))),
   doctor,
+  // what the agents asked of the owner: Jev questions to try and restart requests; nothing here acts on them
+  inbox: async () => ({
+    jev_questions: await sql`select seen_time, subject id, body->>'pack' pack, body->>'text' text, body->>'by' by from tape.events where topic = 'jevq.proposed' order by seen_time desc limit 20`,
+    restart_requests: await sql`select seen_time, body->>'scope' scope, body->>'reason' reason from tape.events where topic = 'ops.restart_requested' order by seen_time desc limit 20`,
+    // the agents' job.* events: what failed in the last day and what each agent spent
+    failed_jobs: await sql`select seen_time, subject job_id, body->>'agent' agent, body->>'error' error from tape.events where topic = 'job.done' and body->>'error' is not null and seen_time > now() - interval '24 hours' order by seen_time desc limit 20`,
+    spend_24h: await sql`select body->>'agent' agent, count(*)::int jobs, coalesce(sum((body->>'cost_usd')::float), 0)::float usd from tape.events where topic = 'job.done' and seen_time > now() - interval '24 hours' group by 1 order by 3 desc`,
+  }),
   migrate: async () => (await migrate(sql), { ok: true }),
   rebuild: async () => (await resetProjections(sql, buildConsumers(new Tape(sql, liveClock("live")))), { ok: true, note: "projections cleared; restart core to rebuild from the tape" }),
   export: () => exportTape(opt("out") ?? `data/tapes/tape-${Date.now()}.ndjson.gz`, opt("from"), opt("to")),

@@ -537,7 +537,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
   return {
     name: "desk",
     startAtHead: true,
-    topics: ["callout.created", "precall.detected", "coin.watched", "jev.answer", "trade.curve", "trade.amm", "limits.changed", "lists.loaded", "clock.tick"],
+    topics: ["callout.created", "precall.detected", "coin.watched", "jev.answer", "trade.curve", "trade.amm", "limits.changed", "lists.loaded", "clock.tick", "proposal.strategy"],
     batch: 500,
     stats,
     async handle(events, tx) {
@@ -552,6 +552,12 @@ export function desk(tape: Tape, clock: Clock): Desk {
           }
           await rounds(tx, e, now);
           if (e.topic === "clock.tick") continue; // time only: rounds() ran the sweeps and rounds due by now
+          if (e.topic === "proposal.strategy") { // an agent proposes; code decides: a spec that validates joins the pool as a ghost
+            const b = e.body as BodyOf<"proposal.strategy">;
+            const v = validate({ ...b.spec, id: b.proposal_id } as Spec);
+            if (v.ok && !strategies.has(v.spec.id)) await birth(tx, v.spec, "proposal", [], e);
+            continue;
+          }
           if (e.topic === "callout.created") {
             const b = e.body as BodyOf<"callout.created">;
             if (b.via === "history") continue; // the Index's backfill: known callers, never an entry

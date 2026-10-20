@@ -80,7 +80,7 @@ Every slow number is core's own arithmetic. MiroShark sends raw counts per sampl
 | engines | Clients for the BettaFish worker and the MiroShark REST API; each worker requires a bearer token, caps concurrency, refuses duplicate ids and supports cancel |
 | fan-out | One escalation can start both engines; in the `full` preset the swarm may wait for the BettaFish coin report |
 | mapper | Engine output to core write tools; a zero-action swarm finishes `failed: empty_swarm` and writes nothing; core leaves truncated samples out of every mean (MiroShark's `summarize` does the same for its report text only); forum lines carry the engine's own round |
-| exchange | Reports both ways |
+| exchange | Reads only: escalations, narratives, reports for parents. Each engine publishes its own reports with its own token (`synth` for BettaFish, `swarm` for MiroShark), and core refuses a report whose producer is not that engine's |
 | memory | Coin and swarm runs carry `memory_hits`: the top 3 wiki pages and reports for the coin's symbol and name, as of the run's slot, from the agents' embedded memory through the same as-of query the agents and the relay use (`packages/lane/src/recall.ts`), each text fenced `<untrusted>`. Embedding is metered on the `EMBED` lane; over its limit the run goes ahead with none. Feed runs get none. The Bridge reads memory only when its process is given an embedder (`BridgeDeps.memory`) |
 | health | Queue depth, real cost per lane and engine health for `ctl slow` and `ctl doctor` |
 

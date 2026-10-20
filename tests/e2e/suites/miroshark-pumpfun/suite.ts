@@ -76,7 +76,7 @@ export const suite: Suite = {
     try {
       await w.seed();
       // the report exchange, BettaFish -> MiroShark: a coin report the swarm must seed from and its report agent must read
-      await w.inProc(CAP.exchange).call("report_publish", { report_id: "sj_bf0_0", producer: "bettafish.report", kind: "coin", subject: MINT_A, preset: "lite", summary: "PEPE has two early callers and real buyers.", cites: ["co_a1"], markdown: "# Coin synthesis\n\nBF-MARKER two early callers [cid:co_a1]." });
+      await w.inProc(CAP.synth).call("report_publish", { report_id: "sj_bf0_0", producer: "bettafish.report", kind: "coin", subject: MINT_A, preset: "lite", summary: "PEPE has two early callers and real buyers.", cites: ["co_a1"], markdown: "# Coin synthesis\n\nBF-MARKER two early callers [cid:co_a1]." });
       const eng = new EngineClient("miroshark", `http://127.0.0.1:${port}`, WORKER_TOKEN);
       for (let i = 0; i < 180 && !(await eng.healthy()); i++) await new Promise((r) => setTimeout(r, 500));
       add("the MiroShark worker starts with its model from our env", await eng.healthy(), log.slice(-300));

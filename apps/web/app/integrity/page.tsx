@@ -62,6 +62,7 @@ type Integrity = {
   archetypes: { archetype: string; n: number }[];
   refused: { reason: string; n: number }[];
   watched: { reason: string; n: number }[];
+  findings: { finding_id: string; text: string; t: number }[];
 };
 
 export default function IntegrityPage() {
@@ -150,6 +151,19 @@ export default function IntegrityPage() {
                   <span className="mono">{r.reason.replaceAll("_", " ")}</span>
                   <span className="bar" style={{ inlineSize: `${(r.n / Math.max(1, data.watched[0]!.n)) * 100}%` }} />
                   <span className="num">{r.n}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <h2 className="micro">Integrity findings written up · AI judgment</h2>
+          {!data ? null : !data.findings.length ? (
+            <p className="empty">No finding at confidence 0.85 or more has been written up.</p>
+          ) : (
+            <ul>
+              {data.findings.map((f) => (
+                <li key={f.finding_id}>
+                  <p>{f.text}</p>
+                  <p className="micro">Written by the Integrity agent, not by code; it may be wrong. Finding {f.finding_id}.</p>
                 </li>
               ))}
             </ul>

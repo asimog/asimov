@@ -109,7 +109,7 @@ All time comes from the Clock. The owner sets `ASIMOG_MODE` at start; code never
 
 ### The command surface
 
-`ctl` and the core MCP server expose the same commands to humans and agents: `state`, `tail`, `why`, `case`, `callers`, `coverage`, `index`, `house`, `slow`, `books`, `limits`, `lists`, `kill`, `resume`, `doctor`, `rebuild`, `export`. Each takes `--json`. Thinking agents get only the tools their capability token allows.
+`ctl` and the core MCP server expose the same commands to humans and agents: `state`, `tail`, `why`, `case`, `callers`, `coverage`, `index`, `house`, `slow`, `books`, `limits`, `lists`, `kill`, `resume`, `doctor`, `inbox`, `rebuild`, `export`. Each takes `--json`. Thinking agents get only the tools their capability token allows. Every write tool has a reader: a strategy proposal goes to the Desk, which validates it and starts it as a ghost; integrity write-ups appear in the integrity room; Jev questions, restart requests, failed agent jobs and agent spend wait in `ctl inbox` for the owner, and nothing acts on them by itself. Each slow engine publishes its reports with its own token.
 
 ## 4. Contexts
 

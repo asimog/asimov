@@ -5,6 +5,7 @@ import type { BodyOf, Trade } from "../../../../packages/contracts/src/index.ts"
 import { putSignal } from "../../../../services/core/src/board/board.ts";
 import { replayClock } from "../../../../services/core/src/lib/clock.ts";
 import { desk } from "../../../../services/core/src/mind/desk.ts";
+import { seedSpecs } from "../../../../services/core/src/mind/seeds.ts";
 import { step, type Tx } from "../../../../services/core/src/tape/consumer.ts";
 import { Tape } from "../../../../services/core/src/tape/tape.ts";
 import type { Check } from "../../lib/checks.ts";
@@ -48,9 +49,16 @@ export const suite: Suite = {
         for (const mint of [SCOUTED, FOLLOWED]) tape.emit("trade.curve", trade(mint, n, 3e-8 * (1 + n / 100)), { source: "nats", subject: mint });
         await tape.flush();
       }
+      // an agent's proposals: code decides. A valid spec joins the pool as a ghost; an invalid one does not
+      const good = { ...seedSpecs()[0]!, id: "ignored" } as unknown as Record<string, unknown>;
+      tape.emit("proposal.strategy", { proposal_id: "sr_proposed_ok", by: "agents", spec: good, why: ["test"], because: [] }, { source: "agents", subject: "sr_proposed_ok" });
+      tape.emit("proposal.strategy", { proposal_id: "sr_proposed_bad", by: "agents", spec: { family: "nonsense" }, why: ["test"], because: [] }, { source: "agents", subject: "sr_proposed_bad" });
+      await tape.flush();
       const d = desk(tape, clock);
       while (await step(db.sql, d)) { /* drain */ }
       await tape.flush();
+      const born = (await db.sql`select subject, body->>'origin' origin from tape.events where topic = 'strategy.born' and body->>'origin' = 'proposal'`).map((r) => r.subject as string);
+      add("a valid proposal joins the pool; an invalid one does not", born.join() === "sr_proposed_ok", born.join() || "none");
 
       const intents = await db.sql`select subject, body from tape.events where topic = 'intent.created' order by seen_time, id`;
       const buys = intents.map((r) => r.body as BodyOf<"intent.created">).filter((b) => b.side === "buy");

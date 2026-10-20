@@ -111,8 +111,8 @@ function passClaim<T extends Record<string, unknown>>(x: T, fields: (keyof T & s
   return out as T;
 }
 /** A field whose refusal refuses the whole call. */
-function requireText(what: string, text: string): string {
-  const r = publicText(text);
+function requireText(what: string, text: string, maxLen?: number): string {
+  const r = publicText(text, maxLen);
   if (r.failed.length) throw new Refusal("guard", `${what} refused: ${r.failed.join(", ")}`);
   return r.text;
 }
@@ -482,14 +482,16 @@ export const TOOLS: Tool[] = [
   }),
 
   // ----- report exchange (docs/SLOW-MIND.md section 6): one envelope on the Tape, the body in slow.reports -----
-  tool("report_publish", [CAP.exchange], "Publish a finished BettaFish or MiroShark report. Cites must be callouts or events seen already; the summary passes the prose Guard.", {
+  tool("report_publish", [CAP.synth, CAP.swarm], "Publish a finished BettaFish or MiroShark report. Cites must be callouts or events seen already; the summary passes the prose Guard.", {
     report_id: z.string().min(4).max(80), producer: z.enum(["bettafish.insight", "bettafish.query", "bettafish.media", "bettafish.report", "miroshark.report", "miroshark.signal"]),
     kind: z.enum(["feed", "coin", "swarm"]), subject: z.string().min(1).max(64), window_from: iso.nullable().default(null), window_to: iso.nullable().default(null), preset: z.string().max(20),
     summary: z.string().min(10).max(600), cites: z.array(z.string()).max(200).default([]), parent_reports: z.array(z.string()).max(20).default([]),
     ir: z.record(z.string(), z.unknown()).nullable().default(null), markdown: z.string().max(400_000).nullable().default(null), simulated: z.boolean().default(false),
   }, async (a, c) => {
+    // one token per engine: BettaFish's token publishes only BettaFish reports, MiroShark's only MiroShark's
+    if (!a.producer.startsWith(c.cap === CAP.synth ? "bettafish." : "miroshark.")) throw new Refusal("out_of_lane", `${a.producer} is not this engine's report`);
     const summary = requireText("summary", a.summary);
-    const markdown = a.markdown === null ? null : requireText("markdown", a.markdown);
+    const markdown = a.markdown === null ? null : requireText("markdown", a.markdown, 400_000); // a report body, bounded by its schema, not a post
     const now = c.clock.iso();
     const callouts = a.cites.length ? new Set((await c.sql`select callout_id from mem.callouts where callout_id = any(${a.cites}) and seen_at <= ${now}
       and (${a.window_from}::timestamptz is null or seen_at >= ${a.window_from}) and (${a.window_to}::timestamptz is null or seen_at <= ${a.window_to})`).map((r) => r.callout_id as string)) : new Set<string>();

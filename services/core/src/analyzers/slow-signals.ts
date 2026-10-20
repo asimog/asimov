@@ -22,7 +22,7 @@ const KINDS: Record<string, { kind?: string; subject: (b: Record<string, unknown
   "swarm.wave_p": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: (b) => (b.truncated ? 0.3 : Math.min(0.8, 0.4 + 0.1 * Number(b.samples))) },
   "swarm.beliefs": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: () => 0.3 },
   "swarm.impact": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: (b) => (b.truncated ? 0.3 : 0.5) },
-  "report.published": { kind: "report.latest", subject: (b) => `${b.subject}|${b.producer}`, validMin: 30, analyzer: "slow-bridge@1", conf: (b) => (b.simulated ? 0.3 : 0.6) },
+  "report.published": { kind: "report.latest", subject: (b) => `${b.subject}|${b.producer}`, validMin: 30, analyzer: "report@1", conf: (b) => (b.simulated ? 0.3 : 0.6) },
 };
 
 export function slowSignals(clock: Clock): Consumer {
@@ -33,8 +33,9 @@ export function slowSignals(clock: Clock): Consumer {
     async handle(events: Envelope[], tx: Tx) {
       for (const e of events) {
         const k = KINDS[e.topic]!;
-        if (e.source !== k.analyzer.split("@")[0]) continue; // only the lane that owns the topic writes it (bettafish, miroshark, slow-bridge)
         const b = e.body as Record<string, unknown>;
+        // only the lane that owns the topic writes it; a report is owned by the engine that produced it (one token per engine)
+        if (e.source !== (e.topic === "report.published" ? String(b.producer).split(".")[0] : k.analyzer.split("@")[0])) continue;
         await putSignal(tx, clock, { kind: k.kind ?? e.topic, subject: k.subject(b), value: b, confidence: k.conf(b), validMs: k.validMin * MIN, inputs: [e.id], analyzer: k.analyzer, at: e.seen_time });
       }
     },

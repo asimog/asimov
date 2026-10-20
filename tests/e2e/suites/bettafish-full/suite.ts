@@ -20,7 +20,8 @@ export const suite: Suite = {
     if (!fs.existsSync(PY)) return { checks: [{ name: "BettaFish venv exists", pass: false, detail: PY }], metrics: {} };
     const r = await runBettafish("bffull", "insight,query,media", { BETTAFISH_HOST_EVERY_N: "2", BETTAFISH_FORUM_ROUNDS: "2", SEARCH_TOOL_TYPE: "AsimogMedia", QUERY_SEARCH: "tavily,x", BETTAFISH_REPORT: "full" }, async (w) => {
       await w.sql`update mem.callouts set media_url = 'https://socialimages.pump.fun/community-media/x/1' where callout_id in ('co_a1', 'co_b1')`;
-      await w.inProc(CAP.exchange).call("report_publish", { report_id: "sj_swarm0_0", producer: "miroshark.report", kind: "swarm", subject: "global", preset: "lite", summary: "SIMULATED swarm on the feed: callers follow the first PEPE caller.", markdown: "# Swarm Report (SIMULATED)\n\nSWARM-MARKER callers follow the first PEPE caller.", simulated: true });
+      await w.inProc(CAP.swarm).call("report_publish", { report_id: "sj_swarm0_0", producer: "miroshark.report", kind: "swarm", subject: "global", preset: "lite", summary: "SIMULATED swarm on the feed: callers follow the first PEPE caller.", markdown: "# Swarm Report (SIMULATED)\n\nSWARM-MARKER callers follow the first PEPE caller.", simulated: true });
+      await w.sql`update slow.reports set published_at = now() - interval '2 hours' where report_id = 'sj_swarm0_0'` // a parent from before the run's slot (parents are read as of it)
     });
     try {
       add("the run finishes", r.job?.state === "done", `${r.job?.state} ${r.job?.error ?? ""}`);

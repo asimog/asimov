@@ -220,6 +220,8 @@ const integrity = () => cached("integrity", 8000, async () => {
   return {
     callers: callers.map((c) => ({ ...c, wallet: c.wallet === "house" ? "house" : `${String(c.wallet).slice(0, 4)}…${String(c.wallet).slice(-4)}`, who: c.wallet === "house" ? "house" : handles.get(c.wallet as string) ?? `${String(c.wallet).slice(0, 4)}…${String(c.wallet).slice(-4)}` })),
     smart: smart.map((w) => ({ ...w, wallet: `${String(w.wallet).slice(0, 4)}…${String(w.wallet).slice(-4)}` })), archetypes: arche, refused, watched,
+    findings: (await sql`select subject, seen_time, body->>'text' text from tape.events where topic = 'integrity.text' order by seen_time desc, id desc limit 20`)
+      .map((r) => ({ finding_id: r.subject as string, t: (r.seen_time as Date).getTime(), text: String(r.text).replace(/@\w+/g, "@…") })),
   };
 });
 
