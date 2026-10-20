@@ -1,8 +1,9 @@
 // Which sees a pump.fun trade first: the pump.fun NATS feed or our RPC providers' `logsSubscribe` (processed)? Run for a short while,
 // then compare arrival times of the same signature on this one machine's clock. Prints names and numbers only, never URLs or keys.
 //   npx tsx scripts/latency-nats-vs-rpc.ts [seconds=90]
-import { decodeJson, natsConnect } from "../services/core/src/senses/nats.ts";
+
 import { specsFromEnv } from "../services/core/src/lib/rpc.ts";
+import { decodeJson, natsConnect } from "../services/core/src/senses/nats.ts";
 
 const PUMP = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
 const seconds = Number(process.argv[2] ?? 90);

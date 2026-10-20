@@ -219,6 +219,7 @@ tr[data-house="yes"] td {
 .chain li[data-state="broken"] .chain-hash {
   color: var(--crimson);
 }
+/* biome-ignore lint/style/noDescendingSpecificity: the more specific rule earlier wins by specificity, not by order */
 .chain-hash {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -276,6 +277,7 @@ tr[data-house="yes"] td {
   grid-template-columns: minmax(10ch, 18ch) minmax(0, 1fr);
   gap: calc(var(--gap) * 3);
 }
+/* biome-ignore lint/style/noDescendingSpecificity: the more specific rule earlier wins by specificity, not by order */
 .case-dl dd {
   margin: 0;
   min-inline-size: 0;

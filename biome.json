@@ -1,6 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
-  "files": { "includes": ["**", "!**/node_modules", "!**/.next", "!.upstreamref", "!docs/.archive", "!data", "!artifacts", "!**/*.gen.*", "!services/bettafish/engine", "!services/miroshark/engine"] },
+  "files": { "includes": ["**", "!**/node_modules", "!**/.next", "!.upstreamref", "!docs/.archive", "!data", "!artifacts", "!**/*.gen.*", "!services/bettafish/engine", "!services/miroshark/engine", "!.claude", "!.kilo", "!agent/skills"] },
   "formatter": { "enabled": false, "indentStyle": "space", "indentWidth": 2, "lineWidth": 110 },
   "linter": {
     "rules": {

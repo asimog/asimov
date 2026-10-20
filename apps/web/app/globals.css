@@ -114,7 +114,9 @@ a {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every component's own duration */
     transition-duration: 0ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every component's own duration */
     animation-duration: 0ms !important;
   }
 }

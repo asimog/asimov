@@ -141,7 +141,7 @@ function ops(d: GraphDeps) {
 }
 
 /** Write text, store it through a Guarded tool, and on a guard refusal rewrite once with the reasons. */
-async function guarded(d: GraphDeps, first: string, rewrite: (problem: string) => Promise<string>, store: (text: string) => Promise<unknown>): Promise<{ text: string; rewrites: number }> {
+async function guarded(first: string, rewrite: (problem: string) => Promise<string>, store: (text: string) => Promise<unknown>): Promise<{ text: string; rewrites: number }> {
   let text = first;
   for (let i = 0; i < 2; i++) {
     try {
@@ -170,7 +170,7 @@ function reporter(d: GraphDeps) {
     .addNode("write", async (s) => {
       const ask = (extra: string) => d.lane.ask({ system: `You write the firm's daily report. ${VOICE}`, user: `Facts (numbers are exact, copy them):\n${s.facts}\n${s.past ? `Earlier reports (do not repeat them, say what changed):\n${s.past}\n` : ""}${extra}Write 5 to 8 short lines: what we did, what the scores say, what we hold, what comes next. Paper results are labeled PAPER.`, maxTokens: 600 }).then((r) => r.text);
       const first = await ask("");
-      const out = await guarded(d, first, (problem) => ask(`Your last draft was refused: ${problem}. Fix it.\n`), (text) => d.belt.call("draft_report", { day: day(s), text }));
+      const out = await guarded(first, (problem) => ask(`Your last draft was refused: ${problem}. Fix it.\n`), (text) => d.belt.call("draft_report", { day: day(s), text }));
       return { result: { rewrites: out.rewrites, chars: out.text.length } };
     })
     .addEdge(START, "gather").addEdge("gather", "write").addEdge("write", END);
@@ -187,7 +187,7 @@ function integrity(d: GraphDeps) {
     })
     .addNode("write", async (s) => {
       const ask = (extra: string) => d.lane.ask({ system: `You describe a data finding for a public integrity page. State what the data shows and its limits. ${VOICE}`, user: `Evidence:\n${s.evidence}\n${extra}Write two to four sentences. Describe wallets only as "a wallet" and say what was observed, not what anyone is.`, maxTokens: 300 }).then((r) => r.text);
-      const out = await guarded(d, await ask(""), (problem) => ask(`Your last text was refused: ${problem}. Fix it.\n`), (text) => d.belt.call("write_integrity_text", { finding_id: findingId(s), text }));
+      const out = await guarded(await ask(""), (problem) => ask(`Your last text was refused: ${problem}. Fix it.\n`), (text) => d.belt.call("write_integrity_text", { finding_id: findingId(s), text }));
       return { result: { rewrites: out.rewrites } };
     })
     .addEdge(START, "collect").addEdge("collect", "write").addEdge("write", END);
@@ -213,7 +213,7 @@ function wiki(d: GraphDeps) {
     .addNode("write", async (s) => {
       const p = page(s);
       const ask = (extra: string) => d.lane.ask({ system: `You write the prose for a public wiki page about a ${p.kind}. It is shown labelled AI judgment, under numbers written by code. ${VOICE}`, user: `${s.evidence}\n${extra}Write three to five sentences: what the numbers show, how strong the evidence is, and what is still unknown. Copy numbers exactly; add none. Never name or describe a person; say "this caller" or "a wallet".`, maxTokens: 400 }).then((r) => r.text);
-      const out = await guarded(d, await ask(""), (problem) => ask(`Your last text was refused: ${problem}. Fix it.\n`), (text) => d.belt.call("write_wiki_prose", { slug: p.slug, version: p.version, text }));
+      const out = await guarded(await ask(""), (problem) => ask(`Your last text was refused: ${problem}. Fix it.\n`), (text) => d.belt.call("write_wiki_prose", { slug: p.slug, version: p.version, text }));
       return { result: { rewrites: out.rewrites } };
     })
     .addEdge(START, "collect").addEdge("collect", "write").addEdge("write", END);

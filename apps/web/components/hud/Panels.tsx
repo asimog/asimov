@@ -125,7 +125,7 @@ export function Equity() {
     body = (
       <svg viewBox={`0 0 ${W} ${H}`} className="equity" role="img" aria-label={`Paper equity ${fmt.signed(ys.at(-1)!, 4)} SOL over ${e.length} closes`}>
         <line x1="0" x2={W} y1={y(0)} y2={y(0)} className="zero" />
-        <polygon points={`${dd.join(" ")} ${[...e].map((p, i) => `${x(e.length - 1 - i)},${y(e[e.length - 1 - i]![1])}`).join(" ")}`} className="dd" />
+        <polygon points={`${dd.join(" ")} ${[...e].map((_p, i) => `${x(e.length - 1 - i)},${y(e[e.length - 1 - i]![1])}`).join(" ")}`} className="dd" />
         <polyline points={line} className="eq" />
       </svg>
     );

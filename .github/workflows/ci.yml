@@ -1,0 +1,41 @@
+# CI (docs/OPS.md section 9): typecheck, lint, generated docs current, then the fast e2e tier on a fresh Postgres.
+# No secret is needed: every fast suite uses stub models, a mock chain and fresh databases.
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      pg:
+        image: pgvector/pgvector:0.8.1-pg18-trixie
+        env: { POSTGRES_USER: asimog, POSTGRES_DB: asimog, POSTGRES_HOST_AUTH_METHOD: trust }
+        ports: ["54329:5432"]
+        options: >-
+          --health-cmd "pg_isready -U asimog" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run docs:check
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version: "3.11" }
+      # the engines' own venvs, as the slow-workers image builds them (CPU torch; the lock pins CUDA torch on Linux)
+      - name: Python engines
+        run: |
+          cd services/bettafish/engine
+          uv venv .venv-asimog
+          VIRTUAL_ENV=.venv-asimog uv pip install --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu -r requirements-asimog.txt
+          cd ../../miroshark/engine/backend
+          uv export --frozen --no-hashes --no-emit-project -o /tmp/ms.txt
+          grep -vE '^(torch|nvidia-|triton)' /tmp/ms.txt > /tmp/ms-cpu.txt
+          uv venv .venv-asimog
+          VIRTUAL_ENV=.venv-asimog uv pip install --index-strategy unsafe-best-match --extra-index-url https://download.pytorch.org/whl/cpu -r /tmp/ms-cpu.txt torch
+      - run: npm run e2e

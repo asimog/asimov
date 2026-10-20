@@ -36,7 +36,7 @@ export const suite: Suite = {
       const kpi = await b.eval<Record<string, string>>(`Object.fromEntries([...document.querySelectorAll(".room-kpis > div")].map(k => [k.querySelector("dt").textContent, k.querySelector("dd").textContent]))`);
       checks.push({ name: "PAPER balance equals the API", pass: kpi["Balance, paper"] === `${t.paper.equity_sol.toFixed(4)} SOL`, detail: `screen "${kpi["Balance, paper"]}", api ${t.paper.equity_sol.toFixed(4)}` });
       checks.push({ name: "net equals the API", pass: kpi["Net, paper"] === `${signed(t.paper.net_sol)} SOL`, detail: `screen "${kpi["Net, paper"]}", api ${signed(t.paper.net_sol)}` });
-      checks.push({ name: "closed count equals the API", pass: kpi["Closed"] === `${t.paper.closed}`, detail: `screen "${kpi["Closed"]}", api ${t.paper.closed}` });
+      checks.push({ name: "closed count equals the API", pass: kpi.Closed === `${t.paper.closed}`, detail: `screen "${kpi.Closed}", api ${t.paper.closed}` });
       checks.push({ name: "balance is mandate plus net", pass: Math.abs(t.paper.equity_sol - (t.mandate_sol + t.paper.net_sol)) < 1e-9, detail: `${t.mandate_sol} + ${t.paper.net_sol}` });
       const recon = await b.eval<string>(`document.querySelector("[data-recon]")?.getAttribute("data-recon") ?? ""`);
       checks.push({ name: "reconciliation result is shown and equals the API", pass: recon === (t.reconciliation.ok ? "ok" : "mismatch"), detail: `screen ${recon}, api diff ${t.reconciliation.diff}` });
