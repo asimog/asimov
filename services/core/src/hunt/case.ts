@@ -8,7 +8,7 @@ import { quoteFor } from "../mind/fill.ts";
 import { defaultLimits } from "../mind/risk.ts";
 import { REF_SOL } from "../scorekeeper/scorekeeper.ts";
 
-export const CASE_METHOD = "case1";
+export const CASE_METHOD = "case2"; // case2: the copied_text indicator (E7a)
 const MAX_H = Math.max(...(env.opt("OUTCOME_HORIZONS_MIN") ?? "1,3,5").split(",").map(Number));
 
 export type Indicator = { name: string; fired: boolean; value: unknown; evidence: string[]; alternatives: string[]; limits: string };
@@ -114,6 +114,9 @@ export async function buildCase(sql: Sql, calloutId: string): Promise<CaseFile |
   const onPump = programs.some((x) => x === "pump" || x === "pump_amm");
   const entry = statistics.find((s) => s.price0_sol != null);
   const impact = entry ? quoteFor({ price_sol: entry.price0_sol!, at_ms: 0, graduated: entry.phase === "amm" })(REF_SOL).impact_bps : null;
+  // copies (E7a): the Librarian's embeddings, checked by core, so they may arrive after the case's end; any on the Tape count
+  const copies = await sql`select id, body from tape.events where topic = 'callout.copy' and subject = ${calloutId} order by seen_time, id`;
+  const copiedBy = await sql`select id, body->>'callout_id' callout_id from tape.events where topic = 'callout.copy' and body->>'copy_of' = ${calloutId} order by seen_time, id`;
   const ids = (rows: Iterable<Record<string, unknown>>) => [...rows].map((r) => r.id as string);
   const indicators: Indicator[] = [
     {
@@ -147,6 +150,14 @@ export async function buildCase(sql: Sql, calloutId: string): Promise<CaseFile |
       evidence: collide.map((c) => c.ev as string),
       alternatives: ["A common word used by unrelated launches", "Independent launches on the same meme"],
       limits: "Only coins in our records before the callout. The earliest we saw is not proven to be the original.",
+    },
+    {
+      name: "copied_text",
+      fired: copies.length > 0,
+      value: { copy_of: (copies[0]?.body as { copy_of?: string } | undefined)?.copy_of ?? null, similarity: (copies[0]?.body as { similarity?: number } | undefined)?.similarity ?? null, copied_by: copiedBy.map((r) => r.callout_id as string) },
+      evidence: [...ids(copies), ...ids(copiedBy)],
+      alternatives: ["A template many callers share for a trending coin", "The same person posting from another account, or a friend reposting"],
+      limits: "Text similarity of 0.97 or more by one embedding model against callouts we saw earlier. Reworded copies are missed, and the earliest we saw is not proven to be the original.",
     },
     {
       name: "no_pump_suffix",

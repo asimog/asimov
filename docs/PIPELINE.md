@@ -166,8 +166,8 @@ Probability signals are scored with Brier and skill against the base rate, in da
 
 ## 8. Caller ledger, case files, coverage
 
-- **Caller ledger** (`ctl callers [--h 5] [--at <iso>]`, method `cl1`): one row per caller plus an all-callers baseline, every number with its denominator, losing calls always in, exclusions counted by reason (`repeat`, `quote`, `history`, coverage). Callers are listed, never ranked.
-- **Case file** (`ctl case <id>`): everything known about one callout in six sections that never mix: observed, statistics, AI judgments, indicators, unresolved, outcomes and corrections. Byte-identical from the same Tape. Never says "scam".
+- **Caller ledger** (`ctl callers [--h 5] [--at <iso>]`, method `cl2`): one row per caller plus an all-callers baseline, every number with its denominator, losing calls always in, exclusions counted by reason (`repeat`, `quote`, `copy`, `history`, coverage). Callers are listed, never ranked. A `copy` is a callout whose text matches an earlier callout's (cosine similarity 0.97 or more under one embedding model): the Librarian finds it in the agents' memory and core checks and writes it as `callout.copy` through the `mark_copy` tool (both callouts on the Tape, the original seen no later). The ledger as of a time counts only copies written by then, so a replay of the Tape gives the same ledger.
+- **Case file** (`ctl case <id>`, method `case2`): everything known about one callout in six sections that never mix: observed, statistics, AI judgments, indicators, unresolved, outcomes and corrections. Byte-identical from the same Tape. Never says "scam". The `copied_text` indicator shows the earlier callout this one copies and the later callouts that copied it, from `callout.copy` events (on `/case/[id]` too).
 - **Coverage** (`ctl coverage`): gaps per source, coins called against coins with trades, outcomes per coverage status, callouts announced by the author's buy.
 
 ## 9. The wiki

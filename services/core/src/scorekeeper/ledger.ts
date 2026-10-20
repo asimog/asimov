@@ -1,12 +1,12 @@
-// Caller ledger, methodology cl1 (docs/PIPELINE.md): every callout counted once, exclusions by reason, never by result.
+// Caller ledger, methodology cl2 (docs/PIPELINE.md): every callout counted once, exclusions by reason, never by result.
 // Coverage report (docs/PIPELINE.md coverage). Both read only the Tape, so any replay gives the same numbers.
 import type { Sql } from "../lib/db.ts";
 import { median as med } from "../lib/stats.ts";
 
-export const LEDGER_METHOD = "cl1";
+export const LEDGER_METHOD = "cl2"; // cl2: copies of earlier callouts are excluded (E7a)
 const FEW = 5;
 
-type Reason = "history" | "repeat" | "quote" | "gap" | "no_entry" | "no_trades" | "unresolved";
+type Reason = "history" | "repeat" | "quote" | "copy" | "gap" | "no_entry" | "no_trades" | "unresolved";
 export type LedgerRow = {
   wallet: string;
   handle: string | null;
@@ -75,12 +75,12 @@ export async function ledger(sql: Sql, o: { horizon?: number; at?: string } = {}
       select distinct on (body->>'callout_id') body->>'callout_id' id, body from tape.events
       where topic = 'outcome.measured' and (body->>'horizon_min')::int = ${horizon} and seen_time <= ${upto}
       order by body->>'callout_id', seen_time desc, id desc
-    )
-    select c.id, c.wallet, c.handle, c.nth, c.quoted, c.via, c.seen_time, o.body
-    from calls c left join outs o on o.id = c.id order by c.seen_time, c.ev`;
+    ), copies as (select distinct subject id from tape.events where topic = 'callout.copy' and seen_time <= ${upto})
+    select c.id, c.wallet, c.handle, c.nth, c.quoted, c.via, c.seen_time, o.body, k.id is not null copied
+    from calls c left join outs o on o.id = c.id left join copies k on k.id = c.id order by c.seen_time, c.ev`;
   const calls: Call[] = rows.map((r) => {
     const b = r.body as Record<string, unknown> | null;
-    const reason: Reason | null = r.via === "history" ? "history" : (r.nth as number) > 1 ? "repeat" : r.quoted ? "quote" : !b ? "unresolved" : b.coverage !== "ok" ? (b.coverage as Reason) : null;
+    const reason: Reason | null = r.via === "history" ? "history" : (r.nth as number) > 1 ? "repeat" : r.quoted ? "quote" : r.copied ? "copy" : !b ? "unresolved" : b.coverage !== "ok" ? (b.coverage as Reason) : null;
     return { id: r.id as string, wallet: r.wallet as string, handle: r.handle as string | null, reason, net: (b?.net_multiple as number) ?? null, peak: (b?.peak_multiple as number) ?? null, trough: (b?.trough_multiple as number) ?? null, phase: (b?.phase as string) ?? null };
   });
   const by = new Map<string, Call[]>();

@@ -41,14 +41,16 @@ export class AgentsRuntime {
     this.enabled = o.enabled ?? AGENT_NAMES.filter((a) => a !== "noop");
   }
 
-  /** Librarian (E5): embed texts seen since its cursor. A budget refusal leaves the cursor, so the batch is retried later. */
+  /** Librarian (E5): embed texts seen since its cursor and put each copied callout on the Tape through `mark_copy` (E7a).
+   * A budget refusal leaves the cursor, so the batch is retried later. */
   async indexMemory(limit = 50): Promise<number> {
     if (!this.o.embedder || !this.enabled.includes("librarian")) return 0;
     const belt = await this.belt("librarian");
     const cur = await getCursor(this.o.sql, "librarian");
     const { events } = await belt.call<{ events: { id: string; topic: string; seen_time: string; subject: string | null; body: Record<string, unknown> }[] }>("events_since", { topics: MEMORY_TOPICS, after_seen_time: cur.seen_time ?? undefined, after_id: cur.id ?? undefined, limit });
     if (!events.length) return 0;
-    const n = await remember(this.o.sql, this.o.embedder, events.flatMap((e) => itemOf(e) ?? []));
+    const { written: n, copies } = await remember(this.o.sql, this.o.embedder, events.flatMap((e) => itemOf(e) ?? []));
+    for (const c of copies) await belt.call("mark_copy", { ...c, model: this.o.embedder.model });
     const last = events.at(-1)!;
     await setCursor(this.o.sql, "librarian", new Date(last.seen_time).toISOString(), last.id);
     return n;

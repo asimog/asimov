@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-81 topics.
+82 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -11,6 +11,7 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `callout.created` | `callout_id`, `mint`, `symbol`, `name`, `author_wallet`, `author_user_id`, `author_handle`, `author_x`, `author_followers`, `author_total_callouts`, `text`, `media_url`, `mcap_at_call_usd`, `price_at_call_usd`, `created_at`, `chain`, `quoted_callout_id`, `author_position`, `via` |
 | `callout.updated` | `callout_id`, `mint`, `update_id`, `text`, `created_at` |
 | `callout.reply` | `callout_id`, `mint`, `reply_id`, `parent_id`, `wallet`, `handle`, `text`, `likes`, `media_url`, `created_at` |
+| `callout.copy` | `callout_id`, `copy_of`, `mint`, `similarity`, `model` |
 | `media.cached` | `media_id`, `kind`, `mint`, `callout_id`, `url`, `sha256`, `bytes`, `mime` |
 | `callout.counts` | `callout_id`, `mint`, `likes`, `replies`, `comments`, `reposts`, `quotes`, `views`, `multiple`, `max_multiple`, `mcap_usd` |
 | `filter.sampled` | `reason`, `source`, `chain`, `callout`, `launch` |

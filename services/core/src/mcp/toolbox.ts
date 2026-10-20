@@ -27,7 +27,7 @@ export const CAP = {
   soul: "cap:soul.update",
   exchange: "cap:report.exchange", // the Slow Bridge (docs/SLOW-MIND.md): escalation triggers in, reports out
   swarmRead: "cap:swarm.read", // the MiroShark worker (docs/SLOW-MIND.md M7, M10): its report agent and caller personas, reads only
-  memory: "cap:memory.read", // the Librarian (E5): reads the texts the agents' memory embeds, writes nothing but job events
+  memory: "cap:memory.read", // the Librarian (E5): reads the texts the agents' memory embeds, writes only job events and `callout.copy` (E7a)
   wiki: "cap:wiki.write", // the Wiki writer (E3): reads new page versions, writes prose under them
 } as const;
 export const ALL_CAPS: string[] = Object.values(CAP);
@@ -189,7 +189,23 @@ export const TOOLS: Tool[] = [
     return { events: rows };
   }),
 
-  tool("board_signals", [CAP.integrity, CAP.report], "Live Board signals of one allowed kind at or above a confidence.", { kind: z.string(), min_confidence: z.number().min(0).max(1).default(0), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
+  tool("mark_copy", [CAP.memory], "Record that a callout copies an earlier callout's text (E7a). Both must be on the Tape, the original seen no later than the copy.", {
+    callout_id: z.string(), copy_of: z.string(), similarity: z.number().min(0.97).max(1), model: z.string().max(120),
+  }, async (a, c) => {
+    if (a.callout_id === a.copy_of) throw new Refusal("invalid", "a callout cannot copy itself");
+    const rows = await c.sql`select subject, seen_time, body->>'mint' mint from tape.events where topic = 'callout.created'
+      and subject = any(${[a.callout_id, a.copy_of]}) and seen_time <= ${c.clock.iso()} order by seen_time, id`;
+    const first = (id: string) => rows.find((r) => r.subject === id);
+    const copy = first(a.callout_id);
+    const orig = first(a.copy_of);
+    if (!copy || !orig) throw new Refusal("not_found", `no callout ${copy ? a.copy_of : a.callout_id} on the Tape`);
+    if ((orig.seen_time as Date) > (copy.seen_time as Date)) throw new Refusal("invalid", `${a.copy_of} was seen after ${a.callout_id}`);
+    c.tape.emit("callout.copy", { callout_id: a.callout_id, copy_of: a.copy_of, mint: (copy.mint as string | null) ?? null, similarity: a.similarity, model: a.model }, { source: source(c), subject: a.callout_id, dedupe: `callout.copy:${a.callout_id}` });
+    await c.tape.flush();
+    return { ok: true };
+  }),
+
+  tool("board_signals",[CAP.integrity, CAP.report], "Live Board signals of one allowed kind at or above a confidence.", { kind: z.string(), min_confidence: z.number().min(0).max(1).default(0), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {
     if (!(READ_KINDS[c.cap] ?? []).some((p) => a.kind.startsWith(p))) throw new Refusal("out_of_lane", `kind ${a.kind} is not readable with ${c.cap}`);
     const at = c.clock.iso();
     const rows = await c.sql`select id, kind, subject, value, confidence, produced_at, inputs from board.signals

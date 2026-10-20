@@ -70,6 +70,8 @@ export const CalloutReply = z.object({
   callout_id: z.string(), mint: z.string(), reply_id: z.string(), parent_id: z.string().nullable(), wallet: z.string().nullable(),
   handle: z.string().nullable(), text: z.string(), likes: z.number(), media_url: z.string().nullable(), created_at: iso,
 });
+/** A callout whose text matches an earlier callout's (E7a): found by the Librarian's embeddings, checked and written by core. */
+export const CalloutCopy = z.object({ callout_id: z.string(), copy_of: z.string(), mint: z.string().nullable(), similarity: z.number().min(0).max(1), model: z.string() });
 export const MediaCached = z.object({
   media_id: z.string(), kind: z.enum(["callout", "coin"]), mint: z.string(), callout_id: z.string().nullable(), url: z.string(),
   sha256: z.string(), bytes: z.number().int(), mime: z.string(),
@@ -603,6 +605,7 @@ export const TOPICS = {
   "callout.created": CalloutCreated,
   "callout.updated": CalloutUpdated,
   "callout.reply": CalloutReply,
+  "callout.copy": CalloutCopy,
   "media.cached": MediaCached,
   "callout.counts": CalloutCounts,
   "filter.sampled": FilterSampled,
@@ -732,7 +735,7 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "post.queued": "derived", "synthesis.feed": "derived", "mood.feed": "derived", "synthesis.coin": "derived",
   "synthesis.forum_line": "derived", "swarm.wave_p": "derived", "swarm.impact": "derived", "swarm.post": "derived",
   "proposal.strategy": "derived", "jevq.proposed": "derived", "report.drafted": "derived", "integrity.text": "derived",
-  "ops.alert": "derived", "report.published": "derived", "wiki.page": "derived", "wiki.prose": "derived", "swarm.beliefs": "derived",
+  "ops.alert": "derived", "report.published": "derived", "wiki.page": "derived", "wiki.prose": "derived", "callout.copy": "derived", "swarm.beliefs": "derived",
   "jev.escalated": "derived", "soul.updated": "derived", "job.queued": "derived", "job.started": "derived", "job.done": "derived",
 };
 

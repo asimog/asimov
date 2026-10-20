@@ -14,5 +14,5 @@ export const AGENTS: Record<AgentName, { cap: string; lane: LaneName; tokenEnv: 
   integrity: { cap: "cap:integrity.write", lane: "OPS", tokenEnv: "MCP_TOKEN_INTEGRITY", tools: ["board_signals", "integrity_evidence", "write_integrity_text", "job_event"] },
   wiki: { cap: "cap:wiki.write", lane: "OPS", tokenEnv: "MCP_TOKEN_WIKI", tools: ["events_since", "write_wiki_prose", "job_event"] },
   // no graph and no chat model: it embeds new texts into agents.memory on every tick (E5), metered on the EMBED lane
-  librarian: { cap: "cap:memory.read", lane: "OPS", tokenEnv: "MCP_TOKEN_LIBRARIAN", tools: ["events_since", "job_event"] },
+  librarian: { cap: "cap:memory.read", lane: "OPS", tokenEnv: "MCP_TOKEN_LIBRARIAN", tools: ["events_since", "mark_copy", "job_event"] },
 };
