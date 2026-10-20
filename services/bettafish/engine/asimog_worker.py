@@ -134,7 +134,12 @@ def query_for(req: dict) -> str:
     w = int(req.get("window_min") or 60)
     if req["kind"] == "feed":
         return f"Pump.fun callout feed, last {w} minutes: which coins and narratives are callers pushing, who is early, what looks suspicious"
-    return f"Pump.fun coin {req['subject']}: what callers say about it, how early they are, their track records, the trade flow, and any swarm reports"
+    q = f"Pump.fun coin {req['subject']}: what callers say about it, how early they are, their track records, the trade flow, and any swarm reports"
+    n = req.get("narrative") or {}
+    if isinstance(n, dict) and isinstance(n.get("size"), int) and n["size"] >= 2 and isinstance(n.get("first_text"), str):
+        from asimog_voice import fence  # E7: the coin's narrative cluster, as of the run; the first callout's text is untrusted
+        q += f". Its story is shared by {n['size']} recent callouts; the first one said: {fence(n['first_text'], 280)}"
+    return q
 
 
 def run_engine(name: str, query: str, forum: "Forum | None" = None):

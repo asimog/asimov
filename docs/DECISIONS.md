@@ -2,6 +2,14 @@
 
 Dated decisions with their reason. The newest are first. Open questions for the owner are at the end. A decision changes only by a new row here.
 
+## 2026-10-20 (E7, E7b)
+
+| Decision | Why |
+|---|---|
+| Narrative clusters are greedy single-link on cosine over rows in `(seen_at, id)` order, cluster id = its first callout | Pure and order-fixed, so a replay over the same rows gives the same clusters and ids; no clustering library needed |
+| Rug and cluster events are written at core's now, not back-dated to the reply or slot; readers count only events seen by their own time | A back-dated write would land behind consumers' offsets and in hours that may be archived, and a replay could read it before it existed |
+| A reply counts as a rug report by its best similarity to a short owner-edited example list | The examples are data the owner can tune, and one cosine per reply is cheap |
+
 ## 2026-10-19 (E5, embeddings)
 
 | Decision | Why |

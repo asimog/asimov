@@ -1,5 +1,6 @@
 // The rug feed (docs/UI.md /integrity, docs/SYSTEM.md section 10): risk evidence about coins, in three classes that never mix.
-// Observed: scraped replies that report a rug or a dev dump (text and time only, never a handle or wallet, @mentions masked).
+// Observed: scraped replies that report a rug or a dev dump (text and time only, never a handle or wallet, @mentions masked),
+// picked by the rug words or, since E7b, by the Librarian's similarity to the owner's rug examples; each says which.
 // Computed: the latest `risk.state` Board signal with its method version. AI judgment: the latest BettaFish stance.
 // Indicators, never accusations: nothing here names a person. Read-only.
 import type postgres from "postgres";
@@ -15,13 +16,16 @@ export function rugFeed({ sql, cached, sym }: Deps) {
     cached("rugfeed", 8000, async () => {
       const risk = await sql`select distinct on (subject) subject, value, confidence, produced_at, valid_until, analyzer, valid_until < now() stale
         from board.signals where kind = 'risk.state' and produced_at > now() - interval '24 hours' order by subject, produced_at desc`;
-      const replies = await sql`select body->>'mint' mint, seen_time, body->>'text' text from tape.events
-        where topic = 'callout.reply' and seen_time > now() - interval '24 hours' order by seen_time desc, id desc limit 5000`;
-      const reports = new Map<string, { t: number; text: string }[]>();
+      const replies = await sql`select e.body->>'mint' mint, e.seen_time, e.body->>'text' text, s.similarity from tape.events e
+        left join lateral (select max((x.body->>'similarity')::float) similarity from tape.events x
+          where x.topic = 'reply.rug_score' and x.subject = e.body->>'reply_id' and (x.body->>'rug_like')::bool) s on true
+        where e.topic = 'callout.reply' and e.seen_time > now() - interval '24 hours' order by e.seen_time desc, e.id desc limit 5000`;
+      const reports = new Map<string, { t: number; text: string; match: "words" | "similar"; similarity?: number }[]>();
       for (const r of replies) {
-        if (!RUG_WORDS.test(r.text as string)) continue;
+        const words = RUG_WORDS.test(r.text as string);
+        if (!words && r.similarity == null) continue;
         const l = reports.get(r.mint as string) ?? [];
-        if (l.length < 6) l.push({ t: (r.seen_time as Date).getTime(), text: mask(r.text as string) });
+        if (l.length < 6) l.push({ t: (r.seen_time as Date).getTime(), text: mask(r.text as string), ...(words ? { match: "words" as const } : { match: "similar" as const, similarity: Math.round((r.similarity as number) * 100) / 100 }) });
         reports.set(r.mint as string, l);
       }
       const flagged = risk.filter((r) => (r.value.breaches as number) > 0);

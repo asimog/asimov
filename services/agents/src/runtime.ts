@@ -1,12 +1,14 @@
 // The agents runtime: deterministic triggers fill the job table, a worker claims jobs and runs each agent's graph with
 // its own belt of core tools, its own model lane and a Postgres checkpoint thread per job (docs/SYSTEM.md).
-import { BudgetExceeded, type Embedder, type Lane, type LaneName } from "@asimog/lane";
+import { BudgetExceeded, type Embedder, type Lane, type LaneName, loadEnv, num } from "@asimog/lane";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import { CLUSTER_METHOD, clusterNarratives } from "./clusters.ts";
 import type { Sql } from "./db.ts";
 import { buildGraph } from "./graphs.ts";
 import { claim, enqueue, finish, getCursor, type Job, setCursor } from "./jobs.ts";
 import { AGENT_NAMES, AGENTS, type AgentName } from "./lanes.ts";
 import { itemOf, MEMORY_TOPICS, recall, remember } from "./memory.ts";
+import { exemplarVectors, RUG_METHOD, rugSimilarity } from "./rugs.ts";
 import { type Belt, loadBelt } from "./tools.ts";
 
 const MIN = 60_000;
@@ -28,6 +30,8 @@ export interface AgentsOpts {
   checkpointer?: BaseCheckpointSaver;
   /** the embedder for agents.memory (E5); without it the Librarian idles and graphs get no recall */
   embedder?: Embedder;
+  /** E7 and E7b settings (RUG_SIMILARITY, NARRATIVE_SIMILARITY, NARRATIVE_WINDOW_H, NARRATIVE_EVERY_MIN); defaults to the process env */
+  env?: NodeJS.ProcessEnv;
   now?: () => number;
   enabled?: AgentName[];
 }
@@ -39,7 +43,10 @@ export class AgentsRuntime {
   constructor(private o: AgentsOpts) {
     this.now = o.now ?? (() => Date.now());
     this.enabled = o.enabled ?? AGENT_NAMES.filter((a) => a !== "noop");
+    const e = o.env ?? loadEnv();
+    this.env = { rug: num(e, "RUG_SIMILARITY", 0.8), narrative: num(e, "NARRATIVE_SIMILARITY", 0.85), windowH: num(e, "NARRATIVE_WINDOW_H", 24), everyMin: num(e, "NARRATIVE_EVERY_MIN", 60) };
   }
+  private env: { rug: number; narrative: number; windowH: number; everyMin: number };
 
   /** Librarian (E5): embed texts seen since its cursor and put each copied callout on the Tape through `mark_copy` (E7a).
    * A budget refusal leaves the cursor, so the batch is retried later. */
@@ -47,13 +54,51 @@ export class AgentsRuntime {
     if (!this.o.embedder || !this.enabled.includes("librarian")) return 0;
     const belt = await this.belt("librarian");
     const cur = await getCursor(this.o.sql, "librarian");
+    const asked = this.now();
     const { events } = await belt.call<{ events: { id: string; topic: string; seen_time: string; subject: string | null; body: Record<string, unknown> }[] }>("events_since", { topics: MEMORY_TOPICS, after_seen_time: cur.seen_time ?? undefined, after_id: cur.id ?? undefined, limit });
-    if (!events.length) return 0;
-    const { written: n, copies } = await remember(this.o.sql, this.o.embedder, events.flatMap((e) => itemOf(e) ?? []));
-    for (const c of copies) await belt.call("mark_copy", { ...c, model: this.o.embedder.model });
+    // a short page means memory holds everything seen before we asked: clusters may be built up to then (clusterSlot)
+    const caughtUp = async () => { if (events.length < limit) await setCursor(this.o.sql, "librarian.caught_up", new Date(asked).toISOString(), ""); };
+    if (!events.length) return (await caughtUp(), 0);
+    const emb = this.o.embedder;
+    const items = events.flatMap((e) => itemOf(e) ?? []);
+    const { written: n, copies } = await remember(this.o.sql, emb, items);
+    for (const c of copies) await belt.call("mark_copy", { ...c, model: emb.model });
+    // E7b: every reply in the batch scored against the rug examples, read back from memory so a retried batch scores too
+    const replyRefs = items.filter((i) => i.kind === "reply").map((i) => i.ref);
+    if (replyRefs.length) {
+      const examples = await exemplarVectors(emb);
+      const rows = await this.o.sql`select ref, embedding::text v from agents.memory where model = ${emb.model} and kind = 'reply' and ref = any(${replyRefs}) order by seen_at, id`;
+      for (const r of rows) {
+        const similarity = Math.round(rugSimilarity(JSON.parse(r.v as string) as number[], examples) * 1e6) / 1e6;
+        await belt.call("mark_rug_score", { reply_id: r.ref, similarity, threshold: this.env.rug, model: emb.model, method: RUG_METHOD });
+      }
+    }
     const last = events.at(-1)!;
     await setCursor(this.o.sql, "librarian", new Date(last.seen_time).toISOString(), last.id);
+    await caughtUp();
     return n;
+  }
+
+  /**
+   * E7: narrative clusters once per slot (`NARRATIVE_EVERY_MIN`, an hour by default), as of the slot's start, over the
+   * callouts seen in the window before it.
+   * A slot is built only once the Librarian has caught up past it, so every callout seen by then is in memory.
+   */
+  async clusterSlot(): Promise<number | null> {
+    if (!this.o.embedder || !this.enabled.includes("librarian")) return null;
+    const HOUR = 3_600_000;
+    const every = this.env.everyMin * 60_000;
+    const slot = new Date(Math.floor(this.now() / every) * every).toISOString();
+    const done = await getCursor(this.o.sql, "librarian.clusters");
+    const read = await getCursor(this.o.sql, "librarian.caught_up");
+    if ((done.seen_time && done.seen_time >= slot) || !read.seen_time || read.seen_time < slot) return null;
+    const emb = this.o.embedder;
+    const from = new Date(Date.parse(slot) - this.env.windowH * HOUR).toISOString();
+    const rows = await this.o.sql`select ref, seen_at, embedding::text v from agents.memory where model = ${emb.model} and kind = 'callout' and seen_at > ${from} and seen_at <= ${slot} order by seen_at, id`;
+    const clusters = clusterNarratives(rows.map((r) => ({ ref: r.ref as string, seen_at: (r.seen_at as Date).toISOString(), v: JSON.parse(r.v as string) as number[] })), slot, this.env.narrative);
+    await (await this.belt("librarian")).call("mark_clusters", { as_of: slot, window_h: this.env.windowH, model: emb.model, method: CLUSTER_METHOD, threshold: this.env.narrative, clusters });
+    await setCursor(this.o.sql, "librarian.clusters", slot, slot);
+    return clusters.length;
   }
 
   belt(agent: AgentName): Promise<Belt> {
@@ -76,6 +121,7 @@ export class AgentsRuntime {
       if (await enqueue(this.o.sql, agent, { type: "schedule", slot: slotStart }, `${agent}:${slotStart}`)) queued.push(agent);
     }
     await this.indexMemory().catch((err) => console.error(JSON.stringify({ librarian: String(err instanceof Error ? err.message : err).slice(0, 200) })));
+    await this.clusterSlot().catch((err) => console.error(JSON.stringify({ clusters: String(err instanceof Error ? err.message : err).slice(0, 200) })));
     // Postmortem: each closed position that lost money
     if (this.enabled.includes("postmortem")) {
       const belt = await this.belt("postmortem");

@@ -6,7 +6,7 @@ import { fmt, useRoom } from "@/lib/live";
 
 type RugCoin = {
   mint: string; sym: string;
-  observed: { t: number; text: string }[];
+  observed: { t: number; text: string; match: "words" | "similar"; similarity?: number }[];
   computed: { score: number; breaches: number; bundle_share: number | null; top10_share: number | null; creator_sold: number | null; creator_rug_rate: number | null; confidence: number; method: string; t: number; stale: boolean } | null;
   ai_judgment: { stance: string; by: string; t: number } | null;
 };
@@ -27,7 +27,7 @@ function RugFeedSection() {
             <div data-class="observed">
               <h4 className="micro">Observed: replies that report a rug</h4>
               {!c.observed.length ? <p className="empty">No reply reports one.</p> : (
-                <ol className="case-list">{c.observed.map((o) => <li key={`${o.t}${o.text}`}><span className="num">{fmt.ago(now - o.t)}</span> <q className="mono">{o.text}</q></li>)}</ol>
+                <ol className="case-list">{c.observed.map((o) => <li key={`${o.t}${o.text}`}><span className="num">{fmt.ago(now - o.t)}</span> <q className="mono">{o.text}</q> <span className="micro">{o.match === "words" ? "rug words" : `similar to a rug report, ${o.similarity}`}</span></li>)}</ol>
               )}
             </div>
             <div data-class="computed">

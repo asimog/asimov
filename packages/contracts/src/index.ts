@@ -71,6 +71,13 @@ export const CalloutReply = z.object({
   handle: z.string().nullable(), text: z.string(), likes: z.number(), media_url: z.string().nullable(), created_at: iso,
 });
 /** A callout whose text matches an earlier callout's (E7a): found by the Librarian's embeddings, checked and written by core. */
+/** One scraped reply scored against the owner's rug examples (E7b). `rug_like` when the best similarity reaches RUG_SIMILARITY. */
+export const ReplyRugScore = z.object({ reply_id: z.string(), mint: z.string(), similarity: z.number().min(-1).max(1), rug_like: z.boolean(), model: z.string(), method: z.string() });
+/** Narrative clusters of the callouts seen in a window ending at `as_of` (E7): greedy single-link on cosine, clusters of 2 or more. */
+export const NarrativeClusters = z.object({
+  as_of: iso, window_h: z.number(), model: z.string(), method: z.string(), threshold: z.number(),
+  clusters: z.array(z.object({ cluster_id: z.string(), size: z.number().int().min(2), mints: z.array(z.string()), first_text: z.string() })),
+});
 export const CalloutCopy = z.object({ callout_id: z.string(), copy_of: z.string(), mint: z.string().nullable(), similarity: z.number().min(0).max(1), model: z.string() });
 export const MediaCached = z.object({
   media_id: z.string(), kind: z.enum(["callout", "coin"]), mint: z.string(), callout_id: z.string().nullable(), url: z.string(),
@@ -606,6 +613,8 @@ export const TOPICS = {
   "callout.updated": CalloutUpdated,
   "callout.reply": CalloutReply,
   "callout.copy": CalloutCopy,
+  "reply.rug_score": ReplyRugScore,
+  "narrative.clusters": NarrativeClusters,
   "media.cached": MediaCached,
   "callout.counts": CalloutCounts,
   "filter.sampled": FilterSampled,
@@ -735,7 +744,7 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "post.queued": "derived", "synthesis.feed": "derived", "mood.feed": "derived", "synthesis.coin": "derived",
   "synthesis.forum_line": "derived", "swarm.wave_p": "derived", "swarm.impact": "derived", "swarm.post": "derived",
   "proposal.strategy": "derived", "jevq.proposed": "derived", "report.drafted": "derived", "integrity.text": "derived",
-  "ops.alert": "derived", "report.published": "derived", "wiki.page": "derived", "wiki.prose": "derived", "callout.copy": "derived", "swarm.beliefs": "derived",
+  "ops.alert": "derived", "report.published": "derived", "wiki.page": "derived", "wiki.prose": "derived", "callout.copy": "derived", "reply.rug_score": "derived", "narrative.clusters": "derived", "swarm.beliefs": "derived",
   "jev.escalated": "derived", "soul.updated": "derived", "job.queued": "derived", "job.started": "derived", "job.done": "derived",
 };
 

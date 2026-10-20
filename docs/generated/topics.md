@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-82 topics.
+84 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -12,6 +12,8 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `callout.updated` | `callout_id`, `mint`, `update_id`, `text`, `created_at` |
 | `callout.reply` | `callout_id`, `mint`, `reply_id`, `parent_id`, `wallet`, `handle`, `text`, `likes`, `media_url`, `created_at` |
 | `callout.copy` | `callout_id`, `copy_of`, `mint`, `similarity`, `model` |
+| `reply.rug_score` | `reply_id`, `mint`, `similarity`, `rug_like`, `model`, `method` |
+| `narrative.clusters` | `as_of`, `window_h`, `model`, `method`, `threshold`, `clusters` |
 | `media.cached` | `media_id`, `kind`, `mint`, `callout_id`, `url`, `sha256`, `bytes`, `mime` |
 | `callout.counts` | `callout_id`, `mint`, `likes`, `replies`, `comments`, `reposts`, `quotes`, `views`, `multiple`, `max_multiple`, `mcap_usd` |
 | `filter.sampled` | `reason`, `source`, `chain`, `callout`, `launch` |

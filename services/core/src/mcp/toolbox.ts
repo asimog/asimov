@@ -11,6 +11,7 @@ import { configValues } from "../lib/config.ts";
 import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { why } from "../lib/why.ts";
+import { narrativeFor } from "../memory/narratives.ts";
 import { validate as validateSpec } from "../mind/dsl.ts";
 import { scoresAsOf } from "../scorekeeper/scorekeeper.ts";
 import { latest as latestSoul, updateSoul } from "../soul/soul.ts";
@@ -203,6 +204,43 @@ export const TOOLS: Tool[] = [
     c.tape.emit("callout.copy", { callout_id: a.callout_id, copy_of: a.copy_of, mint: (copy.mint as string | null) ?? null, similarity: a.similarity, model: a.model }, { source: source(c), subject: a.callout_id, dedupe: `callout.copy:${a.callout_id}` });
     await c.tape.flush();
     return { ok: true };
+  }),
+
+  tool("mark_rug_score", [CAP.memory], "Record how close one scraped reply is to the owner's rug examples (E7b). The reply must be on the Tape.", {
+    reply_id: z.string(), similarity: z.number().min(-1).max(1), threshold: z.number().min(0).max(1), model: z.string().max(120), method: z.string().max(40),
+  }, async (a, c) => {
+    const [r] = await c.sql`select body->>'mint' mint from tape.events where topic = 'callout.reply' and body->>'reply_id' = ${a.reply_id} and seen_time <= ${c.clock.iso()} limit 1`;
+    if (!r) throw new Refusal("not_found", `no reply ${a.reply_id} on the Tape`);
+    c.tape.emit("reply.rug_score", { reply_id: a.reply_id, mint: r.mint as string, similarity: a.similarity, rug_like: a.similarity >= a.threshold, model: a.model, method: a.method },
+      { source: source(c), subject: a.reply_id, dedupe: `reply.rug_score:${a.reply_id}:${a.model}` });
+    await c.tape.flush();
+    return { ok: true };
+  }),
+
+  tool("mark_clusters", [CAP.memory], "Record the narrative clusters of one hour slot (E7). Every callout id must be on the Tape, seen at or before as_of.", {
+    as_of: iso, window_h: z.number().min(1).max(168), model: z.string().max(120), method: z.string().max(40), threshold: z.number().min(0).max(1),
+    clusters: z.array(z.object({ cluster_id: z.string(), callout_ids: z.array(z.string()).min(2).max(500) })).max(200),
+  }, async (a, c) => {
+    if (Date.parse(a.as_of) > c.clock.now()) throw new Refusal("future_as_of", `as_of ${a.as_of} is after now`);
+    const ids = [...new Set(a.clusters.flatMap((k) => k.callout_ids))];
+    const rows = ids.length ? await c.sql`select distinct on (subject) subject, body->>'mint' mint, body->>'text' text from tape.events
+      where topic = 'callout.created' and subject = any(${ids}) and seen_time <= ${a.as_of} order by subject, seen_time, id` : [];
+    const by = new Map(rows.map((r) => [r.subject as string, r]));
+    const missing = ids.filter((id) => !by.has(id));
+    if (missing.length) throw new Refusal("not_found", `${missing.length} callouts not seen by ${a.as_of}, first ${missing[0]}`);
+    const clusters = a.clusters.map((k) => ({
+      cluster_id: k.cluster_id, size: k.callout_ids.length, mints: [...new Set(k.callout_ids.map((id) => by.get(id)!.mint as string))].sort().slice(0, 50),
+      first_text: String(by.get(k.cluster_id)?.text ?? by.get(k.callout_ids[0]!)!.text).slice(0, 280),
+    }));
+    c.tape.emit("narrative.clusters", { as_of: a.as_of, window_h: a.window_h, model: a.model, method: a.method, threshold: a.threshold, clusters },
+      { source: source(c), subject: a.as_of, dedupe: `narrative.clusters:${a.as_of}:${a.model}` });
+    await c.tape.flush();
+    return { ok: true, clusters: clusters.length };
+  }),
+
+  tool("narrative_for", [CAP.exchange], "The coin's narrative cluster from the newest `narrative.clusters` seen by now (E7): size and the cluster's first callout text, or null.", { mint: z.string(), at: iso.optional() }, async (a, c) => {
+    if (a.at && Date.parse(a.at) > c.clock.now()) throw new Refusal("future_as_of", `at ${a.at} is after now`);
+    return narrativeFor(c.sql, a.mint, a.at ?? c.clock.iso());
   }),
 
   tool("board_signals",[CAP.integrity, CAP.report], "Live Board signals of one allowed kind at or above a confidence.", { kind: z.string(), min_confidence: z.number().min(0).max(1).default(0), limit: z.number().int().min(1).max(100).default(50) }, async (a, c) => {

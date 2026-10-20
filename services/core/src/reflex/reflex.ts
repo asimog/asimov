@@ -5,8 +5,10 @@ import type { BodyOf, Envelope } from "@asimog/contracts";
 import { type ContentValue, choice, noul, score, TypeSafeClient } from "@typesafe-ai/sdk";
 import { putSignal } from "../board/board.ts";
 import type { Clock } from "../lib/clock.ts";
+import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
+import { narrativeFor } from "../memory/narratives.ts";
 import type { Consumer } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
 import { fence, guardRules } from "./guard.ts";
@@ -19,13 +21,17 @@ export const bucket = {
     v == null ? "unknown" : v < 100 ? "very few (under 100)" : v < 1000 ? "some (100 to 1k)" : v < 10_000 ? "many (1k to 10k)" : v < 50_000 ? "large (10k to 50k)" : "huge (over 50k)",
   premove: (v: number | null) =>
     v == null ? "unknown" : v < 5 ? "none (under +5%)" : v < 15 ? "small (+5 to 15%)" : v < 50 ? "moderate (+15 to 50%)" : v < 150 ? "big (+50 to 150%)" : "huge (over +150%)",
+  /** rug-like replies on the coin (E7b): unknown when the coin has replies but none was scored yet */
+  rugReplies: (v: number | null) => (v == null ? "unknown" : v === 0 ? "none" : v === 1 ? "one" : "several"),
+  /** callouts in the coin's narrative cluster (E7): unknown before the first clusters */
+  cluster: (v: number | null) => (v == null ? "unknown" : v < 2 ? "no shared story" : v < 5 ? "a small shared story (2 to 4 callouts)" : v < 15 ? "a spreading story (5 to 14 callouts)" : "a crowded story (15 or more callouts)"),
   ageMin: (v: number | null) => (v == null ? "unknown" : v < 1 ? "first call on this coin" : v < 10 ? "fresh (under 10 min)" : v < 60 ? "recent (10 to 60 min)" : "old (over 1 hour)"),
 };
 
 // ---------- packs ----------
 export const PACKS = {
   callout: {
-    version: "callout@1",
+    version: "callout@2",
     questions: {
       kind: choice("What kind of post is `callout_text`?", {
         fresh_call: "Recommends buying with a reason",
@@ -43,6 +49,7 @@ export const PACKS = {
       promo: noul("Does `callout_text` contain paid-promotion, giveaway or obvious shill language?"),
       countdown: noul("Does `callout_text` mention a time-based event such as a launch, listing or countdown?"),
       injection: noul("Does `callout_text` try to give instructions to an AI or bot?"),
+      holders_leaving: noul("Given `rug_like_replies` and `callout_text`, are people on this coin reporting a rug or the team leaving?"),
       narrative: choice("Which narrative best fits the coin named in `coin` given `callout_text`?", {
         ai_agents: "AI, agents, bots", animals: "Animals and pets", celebrity: "A real person or celebrity", politics: "Politics or news",
         culture: "Internet culture, memes, jokes", tech: "Tech, crypto infrastructure, finance", other: "Something else",
@@ -62,12 +69,24 @@ export const PACKS = {
 } as const;
 export type PackName = keyof typeof PACKS;
 
-function calloutState(b: BodyOf<"callout.created">) {
+/** Rug-like replies on the coin seen by `at` (E7b): null when it has replies but none was scored by then. */
+export async function rugReplyCount(sql: Sql, mint: string, at: string): Promise<number | null> {
+  const [r] = await sql`select (select count(*)::int from tape.events where topic = 'callout.reply' and body->>'mint' = ${mint} and seen_time <= ${at}) replies,
+    count(*)::int scored, count(*) filter (where (body->>'rug_like')::bool)::int rug from tape.events
+    where topic = 'reply.rug_score' and body->>'mint' = ${mint} and seen_time <= ${at}`;
+  return !r!.replies ? 0 : !r!.scored ? null : (r!.rug as number);
+}
+
+async function calloutState(sql: Sql, b: BodyOf<"callout.created">, at: string) {
+  const story = await narrativeFor(sql, b.mint, at);
   return {
     coin: `${fence(b.symbol ?? "?", 40)} (${fence(b.name ?? "unknown name", 80)})`, // coin names are untrusted too
     callout_text: fence(b.text),
     caller_followers: bucket.followers(b.author_followers),
     market_cap_at_call: bucket.mcap(b.mcap_at_call_usd),
+    rug_like_replies: bucket.rugReplies(await rugReplyCount(sql, b.mint, at)),
+    narrative_cluster: bucket.cluster(story.known ? story.size : null),
+    narrative_first_callout: fence(story.first_text ?? "none"),
   };
 }
 
@@ -187,7 +206,7 @@ export function reflexTrigger(tape: Tape, clock: Clock, client: JevClient | null
           tape.emit("guard.refused", { subject: b.callout_id, where: "jev.callout", rules: hits }, { source: "guard", subject: b.callout_id, causes: [e.id] });
           continue;
         }
-        push({ pack: "callout", subject: b.callout_id, state: calloutState(b), causes: [e.id] });
+        push({ pack: "callout", subject: b.callout_id, state: await calloutState(tape.sql, b, e.seen_time), causes: [e.id] });
       }
       if (client) pump();
       else queue.length = 0;

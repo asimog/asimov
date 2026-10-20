@@ -12,16 +12,21 @@ export type MemoryItem = { id: string; kind: MemoryKind; ref: string; mint: stri
 export const COPY_SIMILARITY = 0.97;
 
 export type Copy = { callout_id: string; copy_of: string; similarity: number };
-/** Embed and store items not stored yet. A callout records the earlier callout it copies, if any. Returns rows written and the copies found. */
-export async function remember(sql: Sql, emb: Embedder, items: MemoryItem[]): Promise<{ written: number; copies: Copy[] }> {
+/**
+ * Embed and store items not stored yet. A callout records the earlier callout it copies, if any. Returns rows written, the
+ * copies found and each new reply's vector (the Librarian scores replies against the rug examples, E7b).
+ */
+export async function remember(sql: Sql, emb: Embedder, items: MemoryItem[]): Promise<{ written: number; copies: Copy[]; replies: { ref: string; v: number[] }[] }> {
   const copies: Copy[] = [];
-  if (!items.length) return { written: 0, copies };
+  const replies: { ref: string; v: number[] }[] = [];
+  if (!items.length) return { written: 0, copies, replies };
   const have = new Set((await sql`select id from agents.memory where id = any(${items.map((i) => i.id)})`).map((r) => r.id as string));
   const fresh = items.filter((i) => !have.has(i.id) && i.text.trim());
-  if (!fresh.length) return { written: 0, copies };
+  if (!fresh.length) return { written: 0, copies, replies };
   const { vectors } = await emb.embed(fresh.map((i) => i.text));
   for (const [n, i] of fresh.entries()) {
     const v = vec(vectors[n]!);
+    if (i.kind === "reply") replies.push({ ref: i.ref, v: vectors[n]! });
     let copy_of: string | null = null;
     if (i.kind === "callout") {
       const [c] = await sql`select ref, 1 - (embedding <=> ${v}::vector) similarity from agents.memory where model = ${emb.model} and kind = 'callout' and seen_at <= ${i.seen_at} and ref <> ${i.ref}
@@ -32,7 +37,7 @@ export async function remember(sql: Sql, emb: Embedder, items: MemoryItem[]): Pr
     await sql`insert into agents.memory (id, kind, ref, mint, text, model, embedding, seen_at, copy_of)
       values (${i.id}, ${i.kind}, ${i.ref}, ${i.mint}, ${i.text}, ${emb.model}, ${v}::vector, ${i.seen_at}, ${copy_of}) on conflict (id) do nothing`;
   }
-  return { written: fresh.length, copies };
+  return { written: fresh.length, copies, replies };
 }
 
 type Ev = { id: string; topic: string; seen_time: string; subject: string | null; body: Record<string, unknown> };

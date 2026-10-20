@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-307 keys. Secrets live only in `.env.local` and are not listed here.
+311 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -71,6 +71,10 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `WIKI_MIN_CALLS` | `5` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `WIKI_MAX_CALLERS` | `50` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_EMBED` | `0.05` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `RUG_SIMILARITY` | `0.8` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `NARRATIVE_SIMILARITY` | `0.85` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `NARRATIVE_WINDOW_H` | `24` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
+| `NARRATIVE_EVERY_MIN` | `60` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `EMBEDDING_PRICE_PER_M` | `0.02` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_SYNTH` | `0.2` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |
 | `LLM_USD_HOUR_SWARM` | `0.5` | slow mind (docs/OPS.md, docs/SYSTEM.md): one key per lane in .env.local; LLM_STUB=1 runs everything offline |

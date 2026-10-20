@@ -38,3 +38,4 @@ Search (E7c), clusters and copies (E7), E8.
 
 ## State
 Written 2026-10-20. Not started.
+- 2026-10-20, done here, from the test on branch `e7b-suite`. Changes from this file: the event is `reply.rug_score` for every scored reply (so the bucket can say `unknown` when a coin's replies were not scored yet), written at core's now rather than the reply's time, and the bucket counts scores seen by the callout's time. There is no `exit` pack: the callout pack (`callout@2`) carries `rug_like_replies` and asks `holders_leaving`. `services/agents/src/lanes.ts` was edited to give the Librarian the two new tools. Suite `memory-rugs` passed 3 of 3. Done.

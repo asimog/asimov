@@ -5,7 +5,7 @@ export type Kind = "feed" | "coin" | "swarm";
 /** `usd_cap`: the run's spend cap (its stage's SLOW_STAGE<n>_USD_PER_RUN); `stage`: null for feed runs. */
 export type Job = { id: string; engine: Engine; kind: Kind; subject: string; preset: string; slot: string; stage: number | null; usd_cap: number };
 
-export type RunRequest = { job_id: string; kind: Kind; subject: string; preset: string; usd_cap: number; window_min: number; started_at: string; as_of: string; parent_reports: string[]; dossier?: unknown; parent_texts?: { report_id: string; producer: string; summary: string; markdown: string | null }[] };
+export type RunRequest = { job_id: string; kind: Kind; subject: string; preset: string; usd_cap: number; window_min: number; started_at: string; as_of: string; parent_reports: string[]; dossier?: unknown; parent_texts?: { report_id: string; producer: string; summary: string; markdown: string | null }[]; narrative?: { size: number; first_text: string | null } };
 export type ReportOut = { producer: string; kind: Kind; subject: string; summary: string; cites: string[]; ir?: Record<string, unknown> | null; markdown?: string | null; simulated?: boolean };
 export type RunOutput = {
   reports?: ReportOut[];
