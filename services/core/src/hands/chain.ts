@@ -69,7 +69,7 @@ export class RpcChain implements Chain {
     return null;
   }
   async findByMemo(wallet: string, memo: string) {
-    const rows = await this.rpc<{ signature: string; memo: string | null; err: unknown }[]>("getSignaturesForAddress", [wallet, { limit: 50, commitment: "confirmed" }]);
+    const rows = await this.rpc<{ signature: string; memo: string | null; err: unknown }[]>("getSignaturesForAddress", [wallet, { limit: 1000, commitment: "confirmed" }]); // the RPC maximum: a close or sweep memo is never far back
     // the RPC joins memos with "; " and prefixes each with its byte length, as in "[19] asimog:or_1"
     return rows.find((r) => r.memo?.split("; ").some((m) => m.replace(/^\[\d+\] /, "") === memo))?.signature ?? null;
   }

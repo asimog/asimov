@@ -56,10 +56,20 @@ export function validateSoul(next: string, prev: string): string[] {
   return reasons;
 }
 
-/** Version 0 is the file as the owner wrote it. Safe to call on every boot. */
+/** Write to a temp file, then rename: a crash leaves the old file or the new one, never half of it. */
+function writeAtomic(file: string, text: string) {
+  fs.writeFileSync(`${file}.tmp`, text);
+  fs.renameSync(`${file}.tmp`, file);
+}
+
+/** Version 0 is the file as the owner wrote it. Safe to call on every boot. Once versions exist the database is the truth: a file
+ * left behind by a crash between the commit and the write is brought back to the newest version. */
 export async function ensureGenesis(sql: Sql, file: string): Promise<void> {
-  const [any] = await sql`select 1 from ops.soul_versions limit 1`;
-  if (any) return;
+  const [newest] = await sql`select body, sha256 from ops.soul_versions order by version desc limit 1`;
+  if (newest) {
+    if (!fs.existsSync(file) || sha(fs.readFileSync(file, "utf8")) !== newest.sha256) writeAtomic(file, newest.body as string);
+    return;
+  }
   const body = fs.readFileSync(file, "utf8");
   const s = sha(body);
   await sql`insert into ops.soul_versions (version, sha256, prev_sha256, chain_sha256, body, reason, by)
@@ -123,6 +133,6 @@ export async function updateSoul(sql: Sql, tape: Tape, file: string, o: { text: 
   const blob = await putBlob(sql, "soul-diff", `soul:${res.version}`, diffLines(prev.body, text));
   tape.emit("soul.updated", { version: res.version, sha256: res.sha256, prev_sha256: prev.sha256, chain_sha256: res.chain_sha256, reason: o.reason, by: o.by, diff_ref: blob.sha256 }, { source: "soul", subject: `soul_v${res.version}` });
   await tape.flush();
-  fs.writeFileSync(file, text);
+  writeAtomic(file, text);
   return { ok: true, version: res.version, sha256: res.sha256, chain_sha256: res.chain_sha256 };
 }

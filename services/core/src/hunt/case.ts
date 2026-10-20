@@ -245,7 +245,7 @@ export function renderCase(c: CaseFile): string {
   if (!c.ai_judgments.length) L.push("| none recorded | | | | |");
   L.push("", "## INDICATORS", "", "Deterministic patterns over what we observed. Each is a lower bound with other explanations. None is an accusation.", "");
   for (const i of c.indicators) {
-    L.push(`### ${i.name}: ${i.fired ? "present" : "not observed"}`, "", `Value: \`${JSON.stringify(i.value)}\``, "");
+    L.push(`### ${i.name}: ${i.fired ? "present" : "not observed"}`, "", `Value: \`${JSON.stringify(i.value).replaceAll("`", "'")}\``, ""); // a ticker with a backtick cannot end the span
     if (i.fired) L.push(`Evidence (${i.evidence.length}): ${i.evidence.slice(0, 12).join(", ")}${i.evidence.length > 12 ? ", ..." : ""}`, "");
     L.push(`Other explanations: ${i.alternatives.join("; ")}.`, "", `Limits: ${i.limits}`, "");
   }

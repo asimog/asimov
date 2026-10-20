@@ -328,6 +328,17 @@ create table if not exists mind.score_days (
   p_sum double precision not null default 0,
   primary key (kind, horizon_min, day)
 );
+-- the score samples an outcome added: a gap that later supersedes the outcome takes them back out of score_days
+create table if not exists mind.score_samples (
+  outcome_id text not null,
+  kind text not null,
+  horizon_min int not null,
+  day date not null,
+  brier double precision not null,
+  hit int not null,
+  p double precision not null,
+  primary key (outcome_id, kind)
+);
 -- pre-call: known-caller buys waiting for their horizon (docs/PIPELINE.md precall); desk coins in play before a callout
 -- probabilities waiting for their horizon: pre-call per coin and buying caller (id mint:caller), slow-mind kinds per signal
 create table if not exists mind.prob_watch (

@@ -9,7 +9,7 @@ import type { SignerClient } from "../hands/signer-client.ts";
 import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import type { Tape } from "../tape/tape.ts";
-import { balances } from "./books.ts";
+import { balancesAt } from "./books.ts";
 
 const sha = (x: unknown) => crypto.createHash("sha256").update(canonical(x)).digest("hex");
 
@@ -37,7 +37,7 @@ export async function publishProof(d: ProofDeps, hour: string) {
       sweeps: await events("fees.swept"),
       fills: await events("order.filled"),
       entries: entries.map((r) => ({ entry_id: r.entry_id, kind: r.kind, tx_sig: r.tx_sig, legs: r.legs })),
-      balances: await balances(sql),
+      balances: await balancesAt(sql, to),
       reconciliation: recon[recon.length - 1]?.body ?? null,
       commits: (await events("commit.made")).map((c) => (c.body as { sha256: string }).sha256),
     };

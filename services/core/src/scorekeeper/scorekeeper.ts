@@ -52,8 +52,9 @@ export async function scoresAsOf(sql: Sql | Tx, at: string, kinds?: string[]): P
     group by 1, 2 having sum(n) > 0 order by 1, 2`) as unknown as ScoreRow[];
 }
 
-/** One resolved sample, in the bucket of the day it resolved. */
-async function addScore(tx: Tx, kind: string, h: number, at: string, brier: number, hit: number, p: number) {
+/** One resolved sample, in the bucket of the day it resolved. `outcome`: the outcome it came from, so a correction can take it back. */
+async function addScore(tx: Tx, kind: string, h: number, at: string, brier: number, hit: number, p: number, outcome?: string) {
+  if (outcome) await tx`insert into mind.score_samples (outcome_id, kind, horizon_min, day, brier, hit, p) values (${outcome}, ${kind}, ${h}, ${at.slice(0, 10)}, ${brier}, ${hit}, ${p}) on conflict do nothing`;
   await tx`insert into mind.score_days (kind, horizon_min, day, n, brier_sum, hits, p_sum) values (${kind}, ${h}, ${at.slice(0, 10)}, 1, ${brier}, ${hit}, ${p})
     on conflict (kind, horizon_min, day) do update set n = mind.score_days.n + 1, brier_sum = mind.score_days.brier_sum + excluded.brier_sum,
       hits = mind.score_days.hits + excluded.hits, p_sum = mind.score_days.p_sum + excluded.p_sum`;
@@ -136,12 +137,12 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
     for (const h of HORIZONS) {
       if (w.done.includes(h) || now < w.t0_ms + h * 60_000) continue;
       const o = await measure(tx, w, h, e.seen_time);
-      await tape.emitIn(tx, "outcome.measured", o, { source: "scorekeeper", subject: w.callout_id, causes: [w.event_id, e.id], after: e.seen_time });
+      const oe = await tape.emitIn(tx, "outcome.measured", o, { source: "scorekeeper", subject: w.callout_id, causes: [w.event_id, e.id], after: e.seen_time });
       stats.outcomes++;
       if (o.coverage !== "gap")
         for (const pr of w.probs.filter((x) => x.horizon_min === h)) {
           const hit = o.new_callouts >= pr.n ? 1 : 0;
-          await addScore(tx, pr.kind, h, e.seen_time, (pr.p - hit) ** 2, hit, pr.p);
+          await addScore(tx, pr.kind, h, e.seen_time, (pr.p - hit) ** 2, hit, pr.p, oe.id);
           stats.scored++;
         }
       w.done.push(h);
@@ -166,6 +167,10 @@ export function scorekeeper(tape: Tape, clock: Clock): Consumer & { stats: Recor
       const t0 = Date.parse(o.t0);
       if (o.coverage === "gap" || Date.parse(g.from) > t0 + o.horizon_min * 60_000 || (g.to && Date.parse(g.to) < t0 - STALE_MS)) continue;
       await tape.emitIn(tx, "outcome.measured", { ...o, coverage: "gap", gaps: [e.id], supersedes: r.id as string }, { source: "scorekeeper", subject: o.callout_id, causes: [e.id, r.id as string], after: e.seen_time });
+      // the superseded outcome's samples were scored on data with a hole in it: they leave the score
+      for (const x of await tx`delete from mind.score_samples where outcome_id = ${r.id as string} returning kind, horizon_min, day, brier, hit, p`)
+        await tx`update mind.score_days set n = n - 1, brier_sum = brier_sum - ${x.brier as number}, hits = hits - ${x.hit as number}, p_sum = p_sum - ${x.p as number}
+          where kind = ${x.kind as string} and horizon_min = ${x.horizon_min as number} and day = ${x.day as Date}`;
       stats.corrected++;
     }
   }

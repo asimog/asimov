@@ -21,7 +21,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-type House = { house_id: string; mint: string; position_id: string; strategy_id: string; thesis_id: string; opened_ms: number; tokens: number; left: number; entry: number; size: number; kind: Thesis["kind"]; horizon: number; commit_id: string };
+type House = { house_id: string; mint: string; position_id: string; strategy_id: string; thesis_id: string; opened_ms: number; tokens: number; left: number; sold: Set<string>; entry: number; size: number; kind: Thesis["kind"]; horizon: number; commit_id: string };
 
 /** One reply under another caller's callout, only while we hold the coin (docs/EXECUTION.md). Pure. */
 export function replyFor(h: Pick<House, "size" | "tokens" | "left"> | undefined, c: Pick<BodyOf<"callout.created">, "via" | "author_wallet">, own: string[] = []): { ok: true; text: string } | { ok: false; reason: string } {
@@ -44,7 +44,7 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
       const [p] = await tx`select tokens, tokens_left from mind.positions where id = ${r.position_id as string}`;
       open.set(r.mint as string, {
         house_id: r.house_id as string, mint: r.mint as string, position_id: r.position_id as string, strategy_id: r.strategy_id as string,
-        thesis_id: r.thesis_id as string, opened_ms: (r.opened_at as Date).getTime(), tokens: p!.tokens as number, left: p!.tokens_left as number,
+        thesis_id: r.thesis_id as string, opened_ms: (r.opened_at as Date).getTime(), tokens: p!.tokens as number, left: p!.tokens_left as number, sold: new Set(),
         entry: th.plan.entry_price_sol, size: th.plan.size_sol, kind: th.kind, horizon: th.prediction.horizon_min, commit_id: th.commit_id,
       });
     }
@@ -96,11 +96,11 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
     const te = await tape.emitIn(tx, "thesis.formed", { ...thesis, commit_id }, { source: "publisher", subject: thesis.thesis_id, causes: [e.id, ce.id], after: ce.seen_time });
     const h: House = {
       house_id: clock.id("house"), mint: b.mint, position_id: pos.id as string, strategy_id: b.strategy_id, thesis_id: thesis.thesis_id, opened_ms: now,
-      tokens: pos.tokens as number, left: pos.tokens as number, entry: b.price_sol, size: thesis.plan.size_sol, kind: thesis.kind, horizon: thesis.prediction.horizon_min, commit_id,
+      tokens: pos.tokens as number, left: pos.tokens as number, sold: new Set(), entry: b.price_sol, size: thesis.plan.size_sol, kind: thesis.kind, horizon: thesis.prediction.horizon_min, commit_id,
     };
     const mcap = (bv["curve.progress"]?.mcap_usd as number | undefined) ?? null;
-    const pe = await queue(tx, h, "callout", calloutText(thesis, { paper: true, mcap_usd: mcap }), thesis.thesis_id, [e.id, te.id], te.seen_time);
-    if (!pe) return;
+    // a refused callout is not posted, but the commit is public: the house row is written either way, so its reveal still comes
+    await queue(tx, h, "callout", calloutText(thesis, { paper: true, mcap_usd: mcap }), thesis.thesis_id, [e.id, te.id], te.seen_time);
     await tx`insert into mind.house (house_id, mint, position_id, strategy_id, thesis_id, opened_at) values (${h.house_id}, ${h.mint}, ${h.position_id}, ${h.strategy_id}, ${h.thesis_id}, ${e.seen_time})`;
     open.set(b.mint, h);
     stats.callouts++;
@@ -112,6 +112,8 @@ export function publisher(tape: Tape, clock: Clock): Consumer & { stats: Record<
     if (!h || h.strategy_id !== b.strategy_id) return;
     const [ie] = await tx`select body from tape.events where topic = 'intent.created' and subject = ${b.intent_id} limit 1`;
     const reason = ((ie?.body as BodyOf<"intent.created"> | undefined)?.reason[0]) ?? "exit:-1:unknown";
+    if (h.sold.has(b.intent_id)) return; // a re-read event is counted once
+    h.sold.add(b.intent_id);
     h.left = Math.max(0, h.left - b.tokens);
     if (h.left <= h.tokens * 1e-9) return; // the full exit is told once, by the close
     await queue(tx, h, "update", exitText({ paper: true, reason, sold: b.tokens / h.tokens, left: h.left / h.tokens, mult: b.price_sol / h.entry }), null, [e.id], e.seen_time);

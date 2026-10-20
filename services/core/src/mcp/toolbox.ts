@@ -516,7 +516,7 @@ export const TOOLS: Tool[] = [
       order by published_at desc limit ${a.limit}`,
   })),
 
-  tool("soul_update", [CAP.soul], "Replace SOUL.md with a new version. Validated, hashed and chained.", { text: z.string().min(200), reason: z.string().min(5).max(300) }, async (a, c) => {
+  tool("soul_update", [CAP.soul], "Replace SOUL.md with a new version. Validated, hashed and chained.", { text: z.string().min(200).max(20_000), reason: z.string().min(5).max(300) }, async (a, c) => {
     const r = await updateSoul(c.sql, c.tape, c.soulFile, { text: a.text, reason: a.reason, by: "agent" });
     if (!r.ok) throw new Refusal("invalid_soul", r.reasons.join("; "));
     return r;

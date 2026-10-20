@@ -60,6 +60,8 @@ export function books(tape: Tape, wallets: { trade: string }): Consumer {
         const T = `sol:${wallets.trade}`;
         const day = e.seen_time.slice(0, 10);
         if (f.side === "buy") {
+          // the buy fee stays in the lot's cost, so it lands in realized PnL when the lot is sold, as the sell fee does: the daily
+          // loss stop sees every fee (expensing it here would make losses look smaller)
           const cost = lam(f.sol) + lam(f.fee_sol);
           const legs: Leg[] = [
             { account: T, lamports: -(cost + lam(f.rent_sol)) },
@@ -91,6 +93,13 @@ export function books(tape: Tape, wallets: { trade: string }): Consumer {
 
 export async function balances(sql: Sql): Promise<Record<string, number>> {
   const rows = await sql`select account, lamports from books.balances`;
+  return Object.fromEntries(rows.map((r) => [r.account as string, Number(r.lamports)]));
+}
+
+/** Balances as the entries stood before `to`: a proof for an hour describes that hour, not the moment it was published. */
+export async function balancesAt(sql: Sql, to: string): Promise<Record<string, number>> {
+  const rows = await sql`select leg->>'account' account, sum((leg->>'lamports')::bigint)::text lamports from books.entries, jsonb_array_elements(legs) leg
+    where seen_time < ${to} group by 1 having sum((leg->>'lamports')::bigint) <> 0`;
   return Object.fromEntries(rows.map((r) => [r.account as string, Number(r.lamports)]));
 }
 
