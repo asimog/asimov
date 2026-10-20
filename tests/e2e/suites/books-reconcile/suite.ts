@@ -124,7 +124,14 @@ export const suite: Suite = {
       check("a tampered segment is found", !v2.ok && v2.bad === 1, `bad segment ${v2.bad}`);
       check("the proof hash is on chain as a memo from the agent wallet", !!p1.memo_sig && w.chain.memosOf(p1.memo_sig).includes(`asimog:proof:${p1.sha256}`), String(p1.memo_sig).slice(0, 12));
 
-      // 7. one lamport of drift: the hour fails, the kill switch trips, and the next order is refused
+      // 7. an order in flight skips the hour only while it is young; one stuck past TRADER_GIVE_UP_MS never hides drift
+      const stuck = (state: string, ms: number) => w.sql`insert into hands.orders (order_id, intent_id, state, tx_sig, memo, mint, strategy_id, attempts, next_at, created_at, updated_at)
+        values (${`or_stuck_${state}`}, 'in_stuck', ${state}, 'sigstuck', 'asimog:or_stuck', ${w.mint}, 'sr_live', 0, null, ${new Date(w.clock.now() - ms).toISOString()}, ${new Date(w.clock.now() - ms).toISOString()})`;
+      await stuck("submitted", 1000);
+      const skipped = await reconcile(w.sql, w.tape, w.chain, w.books, [w.wallets.trade], `${h1.slice(0, 11)}22:00:00Z`);
+      check("a young order in flight skips the hour", skipped === null, String(skipped));
+      await w.sql`update hands.orders set updated_at = ${new Date(w.clock.now() - 10 * 3_600_000).toISOString()} where order_id = 'or_stuck_submitted'`;
+      // 8. one lamport of drift: the hour fails even with the stuck order, the kill switch trips, and the next order is refused
       w.chain.drift(w.wallets.trade, 1);
       const bad = await reconcile(w.sql, w.tape, w.chain, w.books, [w.wallets.trade], `${h1.slice(0, 11)}23:00:00Z`);
       check("1 lamport of drift fails reconciliation", bad?.ok === false && bad.wallets[0]!.chain_lamports - bad.wallets[0]!.ledger_lamports === 1, JSON.stringify(bad?.wallets));
@@ -134,6 +141,10 @@ export const suite: Suite = {
       await w.settle();
       const rej = (await w.topic("order.rejected")).filter((e) => e.body.reason_code === "kill_switch");
       check("no new order after the kill", rej.length === 1, `${rej.length} rejection with kill_switch`);
+      const stale = (await w.topic("ops.alert")).filter((e) => e.body.finding === "order.stale");
+      check("the stuck order is reported", stale.length === 1, `${stale.length} order.stale alerts`);
+      await w.sql`delete from ops.kill`;
+      check("a missing kill row reads as halted, never running", (await killState(w.sql)) === "halted", await killState(w.sql));
     } finally {
       await w.close();
     }

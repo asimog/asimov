@@ -14,7 +14,7 @@ const RANK: Record<KillState, number> = { running: 0, exit_only: 1, halted: 2 };
 
 export async function killState(sql: Sql | Tx): Promise<KillState> {
   const [r] = await sql`select state from ops.kill where id = 1`;
-  return (r?.state as KillState | undefined) ?? "running";
+  return (r?.state as KillState | undefined) ?? "halted"; // schema.sql seeds the row: a missing one is damage, and damage halts
 }
 
 /** The file the Signer reads. No file: running. Unreadable or unknown content: halted (fail closed). */

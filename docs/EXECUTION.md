@@ -69,7 +69,7 @@ Ways it fails: session expired (re-login once, retry once); moderation refuses (
 | Piece | Rule |
 |---|---|
 | Ledger | Double entry, a projection of `ledger.entry` events; every transaction's legs sum to zero; rebuildable from the Tape |
-| Reconciliation | Every hour each wallet's ledger balance equals the chain to the lamport; a mismatch moves the kill state to `exit_only` |
+| Reconciliation | Every hour each wallet's ledger balance equals the chain to the lamport; a mismatch moves the kill state to `exit_only`. An order in flight skips the hour only while it is younger than `TRADER_GIVE_UP_MS`; an older one raises `order.stale` and the check runs anyway. W_operator is outside the books (`ext:operator`), so it is not reconciled |
 | Realized PnL | FIFO per strategy and day, net of every fee, tip and unrecovered rent |
 | NAV | SOL balances plus open lots marked at the Board price |
 | Fee sweep | Every 10 minutes: collect creator fees, then 50% to W_trade (base capital, never profit), 50% to W_agent up to its runway, the rest to W_operator; idempotent by sweep id |

@@ -104,7 +104,7 @@ Keys and the deposit seed live only in the Signer's host files. RPC, Jev and lan
 | `ctl kill` | `halted`: nothing trades or signs; senses keep recording; writes the kill file itself | Owner, no token needed |
 | `ctl resume` | Back to `running` | Owner, admin token |
 
-Automatic triggers move the firm to `exit_only` (exits keep running): the live daily loss stop, 3 Signer refusals in 10 min, live fills drifting from their ghost twins, a feed gap over 5 min with open positions, a failed reconciliation, the Ops agent's stop request. Thresholds are `KILL_*` settings.
+Automatic triggers move the firm to `exit_only` (exits keep running): the live daily loss stop, 3 Signer refusals in 10 min, live fills drifting from their ghost twins, a feed gap over 5 min with open positions, a failed reconciliation, the Ops agent's stop request. Thresholds are `KILL_*` settings. A missing `ops.kill` row reads as `halted`: the schema seeds it, so its absence is damage.
 
 ## 6. RPC pool
 

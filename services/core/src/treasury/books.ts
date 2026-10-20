@@ -5,6 +5,7 @@ import type { Envelope } from "@asimog/contracts";
 import { LAMPORTS } from "../hands/builder.ts";
 import type { Chain } from "../hands/chain.ts";
 import type { Sql } from "../lib/db.ts";
+import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import { type Consumer, drain, type Tx } from "../tape/consumer.ts";
 import type { Tape } from "../tape/tape.ts";
@@ -110,10 +111,17 @@ export async function recordDeposit(tape: Tape, wallet: string, lamports: number
 
 export const hourOf = (iso: string) => `${iso.slice(0, 13)}:00:00Z`;
 
-/** Hourly: ledger balance of every wallet must equal its chain balance to the lamport. Skipped while an order is in flight. */
+/**
+ * Hourly: ledger balance of every wallet must equal its chain balance to the lamport. Skipped while an order is in flight, but only
+ * for TRADER_GIVE_UP_MS: an order stuck longer is reported and the check runs anyway, so one stuck order never hides real drift.
+ */
 export async function reconcile(sql: Sql, tape: Tape, chain: Chain, consumer: Consumer, wallets: string[], hour: string) {
-  const [inflight] = await sql`select count(*)::int n from hands.orders where state = 'submitted'`;
-  if (inflight!.n > 0) return null;
+  const young = new Date(tape.clock.now() - env.int("TRADER_GIVE_UP_MS")).toISOString();
+  const [inflight] = await sql`select count(*) filter (where updated_at > ${young})::int fresh, count(*) filter (where updated_at <= ${young})::int stale,
+    min(order_id) filter (where updated_at <= ${young}) first from hands.orders where state in ('submitted', 'retry') or (state = 'filled' and close_pending)`;
+  if (inflight!.fresh > 0) return null;
+  if (inflight!.stale > 0)
+    tape.emit("ops.alert", { severity: "warn", text: `${inflight!.stale} orders in flight past TRADER_GIVE_UP_MS, first ${inflight!.first}; reconciling anyway`, finding: "order.stale" }, { source: "treasurer", subject: inflight!.first as string, dedupe: `stale:${hour}` });
   await drain(sql, consumer);
   const b = await balances(sql);
   const rows: { wallet: string; ledger_lamports: number; chain_lamports: number }[] = [];
