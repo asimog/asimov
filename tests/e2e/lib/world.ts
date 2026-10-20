@@ -69,8 +69,8 @@ export async function world(tag: string, o: { live?: boolean; strategies?: strin
   const { wallets, killFile, signer, chain, builder, swapSigner, treasurySigner, gate, trader: tr, books: bk, kill: kl, consumers } = leg;
   chain.prices.set(keys.mint, 4e-8);
 
-  /** drain every consumer until nothing moves; a consumer that throws (confirm timeout) is reported, not hidden */
-  async function settle(rounds = 12): Promise<string[]> {
+  /** drain every consumer until nothing moves; a consumer that throws fails the suite */
+  async function settle(rounds = 12): Promise<void> {
     const errors: string[] = [];
     for (let i = 0; i < rounds; i++) {
       await tape.flush();
@@ -85,7 +85,7 @@ export async function world(tag: string, o: { live?: boolean; strategies?: strin
       moved += await tr.retry();
       if (!moved) break;
     }
-    return errors;
+    if (errors.length) throw new Error(`consumer errors: ${errors.join("; ")}`);
   }
 
   async function fund(wallet: string, sol: number, sig = `fund-${wallet.slice(0, 6)}`) {

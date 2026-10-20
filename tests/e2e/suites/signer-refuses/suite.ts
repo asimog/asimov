@@ -1,5 +1,6 @@
 // Every forbidden request to the Signer is refused with its own reason and logged; the allowed shapes sign.
 // Real serialized transactions, test keypairs made in memory, no network (docs/EXECUTION.md, docs/OPS.md).
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -108,7 +109,8 @@ export const suite: Suite = {
     const good = await signer.handle("/sign/swap", SWAP, { tx: build(T, goodBuy).b64, ctx });
     const { VersionedTransaction } = await import("../../../../services/signer/src/web3.ts");
     const back = VersionedTransaction.deserialize(Buffer.from(good.body.signed!, "base64"));
-    const signedByTrade = back.signatures[0]!.some((b) => b !== 0);
+    const tradeKey = crypto.createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), k.trade.publicKey.toBuffer()]), format: "der", type: "spki" });
+    const signedByTrade = back.message.staticAccountKeys[0]!.toBase58() === T && crypto.verify(null, Buffer.from(back.message.serialize()), tradeKey, Buffer.from(back.signatures[0]!));
 
     // kill file: exit_only refuses buys and keeps close-account open; anything else is halted and refuses every endpoint
     fs.writeFileSync(killFile, "exit_only");

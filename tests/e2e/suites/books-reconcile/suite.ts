@@ -40,8 +40,8 @@ export const suite: Suite = {
       await w.intent("sell", { fraction: 1, mint: mint2 });
       await w.settle();
       await w.intent("sell", { fraction: 1 });
-      const errors = await w.settle();
-      check("no consumer errors during the day", errors.length === 0, errors.join("; ") || "clean");
+      await w.settle(); // throws on any consumer error
+      check("no consumer errors during the day", true, "clean");
 
       const fills = (await w.topic("order.filled")).map((e) => e.body as { side: string; mint: string; tokens: number; sol: number; fee_sol: number; rent_sol: number; strategy_id: string });
       check("six fills landed", fills.length === 6, `${fills.length} fills`);

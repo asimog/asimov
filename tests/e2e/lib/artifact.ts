@@ -66,7 +66,7 @@ export type Report = {
 export function write(r: Omit<Report, "pass">, files: Record<string, string> = {}): Report & { artifact_dir: string; sha256: string } {
   const sha = (x: string) => crypto.createHash("sha256").update(x).digest("hex");
   const metrics = Object.keys(files).length ? { ...r.metrics, files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, sha(v)])) } : r.metrics;
-  const report: Report = { ...r, metrics, pass: !r.skipped && r.checks.every((c) => c.pass) };
+  const report: Report = { ...r, metrics, pass: !r.skipped && r.checks.length > 0 && r.checks.every((c) => c.pass) };
   const dir = path.join("artifacts", "e2e", r.suite, r.run_id);
   fs.mkdirSync(dir, { recursive: true });
   for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);

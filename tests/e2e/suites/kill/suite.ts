@@ -47,10 +47,10 @@ export const suite: Suite = {
       await w.settle();
       check("a buy the paper desk did not fill never becomes a live order", (await count(w, "order.created")) === 0, `${await count(w, "order.created")} orders`);
       await w.intent("buy");
-      const errors = await w.settle();
+      await w.settle();
       await w.intent("sell");
-      errors.push(...(await w.settle()));
-      check("roundtrip: buy, sell, account closed", errors.length === 0 && (await fills()) === "buy,sell" && w.chain.tokensOf(w.wallets.trade, w.mint) === undefined, `${await fills()} ${errors.join(";")}`);
+      await w.settle();
+      check("roundtrip: buy, sell, account closed", (await fills()) === "buy,sell" && w.chain.tokensOf(w.wallets.trade, w.mint) === undefined, await fills());
 
       // 2. owner kill: halted
       await w.intent("buy");
@@ -104,8 +104,8 @@ export const suite: Suite = {
       const d2 = await directBuy();
       check("exit_only: the Signer refuses a buy on its own", !d2.ok && d2.reason === "kill_switch", d2.ok ? "signed" : d2.reason);
       await w.intent("sell");
-      const sellErrors = await w.settle();
-      check("exit_only: an exit passes and closes the open position", sellErrors.length === 0 && (await fills()) === "buy,sell,buy,sell" && w.chain.tokensOf(w.wallets.trade, w.mint) === undefined, `${await fills()} ${sellErrors.join(";")}`);
+      await w.settle();
+      check("exit_only: an exit passes and closes the open position", (await fills()) === "buy,sell,buy,sell" && w.chain.tokensOf(w.wallets.trade, w.mint) === undefined, await fills());
       await resumeNow();
 
       // 5. a confirm timeout never sends twice; a failed sell is retried until it closes

@@ -50,7 +50,7 @@ function staged(consumers: Consumer[], reverse = false): Consumer[] {
  * Lockstep: every consumer reaches each Tape time T before any consumer goes past it. A decision at T is stamped T + 1 ms,
  * so no consumer has already passed it, whatever the order (docs/OPS.md replays).
  * `extra`: input events to add to the tape (for example a recorded gap).
- * `restartAt`: 0..1 of the tape; there every consumer is rebuilt from scratch, as after a crash, and resumes from its offset.
+ * `restartAt`: 0..1 of the tape; there every consumer is rebuilt from scratch, as after a crash, and the driver carries on from that Tape time (it does not read offsets back).
  * `liveLeg`: the seed strategies also trade live, through the real gate, Trader, books and kill on the mock chain (fix plan 1.17).
  */
 export async function replay(tapeFile: string, opts: { tag: string; seed?: number; extra?: Row[]; restartAt?: number; reverse?: boolean; liveLeg?: boolean }): Promise<ReplayResult> {
