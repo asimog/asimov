@@ -139,15 +139,16 @@ export class Backfill {
     // our own rollups already folded every trade up to idx.coin.last_at; RPC is asked only for the gap after it
     const [c] = await this.sql`select last_at from idx.coin where mint = ${mint}`;
     const cutoff = c?.last_at ? (c.last_at as Date).getTime() : null;
-    const known = new Set((await this.sql`select body->>'tx' tx from tape.events where subject = ${mint} and topic in ('trade.curve', 'trade.amm')`).map((r) => r.tx as string));
-    const todo = sigs.filter((s) => !s.err && !known.has(s.signature) && (cutoff === null || (s.blockTime ?? 0) * 1000 > cutoff)); // newest first: the minutes before the watch matter most
+    const known = new Set((await this.sql`select body->>'tx' tx from tape.events where subject = ${mint} and topic in ('trade.curve', 'trade.amm') and body->>'tx' = any(${sigs.map((s) => s.signature)})`).map((r) => r.tx as string));
+    // a signature with no block time yet is read, not dropped: only a known time can be before the cutoff
+    const todo = sigs.filter((s) => !s.err && !known.has(s.signature) && (cutoff === null || s.blockTime == null || s.blockTime * 1000 > cutoff)); // newest first: the minutes before the watch matter most
     this.stats.overlap += sigs.length - todo.length;
     let unread: { from: string; to: string } | null = null;
     const budget = Math.max(0, this.budgetLeft());
     const batch = todo.slice(0, budget);
     if (batch.length < todo.length) {
       const t = (x: { blockTime: number | null } | undefined) => (x?.blockTime ? new Date(x.blockTime * 1000).toISOString() : started);
-      unread = { from: t(todo.at(-1)), to: t(batch.at(-1) ?? todo[0]) };
+      unread = { from: t(todo.at(-1)), to: t(todo[batch.length]) }; // newest first: the unread span runs from the oldest to the first one not read
     }
     const read: Trade[] = [];
     if (batch.length) {

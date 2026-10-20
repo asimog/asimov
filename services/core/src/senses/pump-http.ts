@@ -15,6 +15,24 @@ function retryAfterMs(h: string | null): number {
   return /^\s*\d+(\.\d+)?\s*$/.test(h) ? Number(h) * 1000 : Date.parse(h) - Date.now();
 }
 
+/** The body, read up to `max` bytes; null (and the stream cancelled) past it, so a huge or endless answer is never buffered whole. */
+export async function capped(res: Response, max: number): Promise<Buffer | null> {
+  if (!res.body) return Buffer.alloc(0);
+  const parts: Uint8Array[] = [];
+  let n = 0;
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    n += chunk.length;
+    if (n > max) {
+      await res.body.cancel().catch(() => {});
+      return null;
+    }
+    parts.push(chunk);
+  }
+  return Buffer.concat(parts);
+}
+
+const MAX_JSON_BYTES = 20 * 1024 * 1024; // a feed page is well under 1 MB
+
 export async function pumpGet<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<{ status: number; body: T | null; raw: string }> {
   const url = new URL(path.startsWith("http") ? path : BASE() + path);
   for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, String(v));
@@ -26,7 +44,7 @@ export async function pumpGet<T>(path: string, params: Record<string, string | n
       headers: { "User-Agent": UA, Accept: "application/json" },
       signal: AbortSignal.timeout(15_000),
     });
-    const raw = await res.text();
+    const raw = (await capped(res, MAX_JSON_BYTES))?.toString("utf8") ?? "";
     if (res.status === 429 || res.status >= 500) {
       const after = retryAfterMs(res.headers.get("retry-after"));
       lane.backoffMs = Math.min(60_000, Number.isFinite(after) && after > 0 ? after : Math.max(1000, lane.backoffMs * 2));

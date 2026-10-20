@@ -167,6 +167,7 @@ export class Scout {
     const cut = this.tape.clock.now() - 2 * WINDOW_MS;
     for (const [mint, ticks] of this.flow) if ((ticks.at(-1)?.at ?? 0) < cut) this.flow.delete(mint);
     for (const [mint, at] of this.promoted) if (at < this.tape.clock.now() - this.p.repromoteMs) this.promoted.delete(mint);
+    for (const [mint, at] of this.refusedAt) if (at < this.tape.clock.now() - this.p.repromoteMs) this.refusedAt.delete(mint); // a refusal is not forever
     this.stats.live_coins = this.flow.size;
   }
 

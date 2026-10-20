@@ -52,6 +52,6 @@ export class ReplyReader {
       this.tape.emit("callout.reply", { callout_id: calloutId, mint, reply_id: x.id, parent_id: x.parentMessageId ?? null, wallet: x.walletAddress ?? null, handle: x.userName ?? null, text: x.content, likes: x.likeCount ?? 0, media_url: x.mediaUrl ?? null, created_at: x.createdAt }, { source: "feedreader", subject: calloutId, dedupe: `reply:${x.id}` });
       this.stats.replies++;
     }
-    this.seen.set(calloutId, count);
+    this.seen.set(calloutId, list.length); // what was read: a short page is asked again when the count says more exist
   }
 }

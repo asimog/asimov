@@ -7,6 +7,7 @@ import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import { putBlob, type Tape } from "../tape/tape.ts";
+import { capped } from "./pump-http.ts";
 
 const HOSTS = () => (env.opt("MEDIA_HOSTS") ?? "socialimages.pump.fun,pump.mypinata.cloud,ipfs.io").split(",").map((h) => h.trim());
 
@@ -48,8 +49,10 @@ export class MediaCache {
     const res = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(15_000) }) /* a redirect could leave the host allowlist */.catch(() => null);
     const type = res?.headers.get("content-type") ?? "";
     if (!res?.ok || !type.startsWith("image/")) return void this.stats.skipped++;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > env.int("MEDIA_MAX_BYTES")) return void this.stats.skipped++;
+    const max = env.int("MEDIA_MAX_BYTES");
+    if (Number(res.headers.get("content-length") ?? 0) > max) return void (this.stats.skipped++, res.body?.cancel());
+    const buf = await capped(res, max); // a server that lies about its length is cut off at the cap, never buffered whole
+    if (!buf) return void this.stats.skipped++;
     const blob = await putBlob(this.sql, "media", url, buf);
     this.tape.emit("media.cached", { media_id: mediaId, kind: kind as "callout" | "coin", mint, callout_id: calloutId, url, sha256: blob.sha256, bytes: blob.bytes, mime: type }, { source: "feedreader", subject: mediaId, dedupe: `media:${mediaId}` });
     this.stats.cached++;

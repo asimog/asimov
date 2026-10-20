@@ -14,12 +14,15 @@ import type { Consumer, Tx } from "../tape/consumer.ts";
 
 const MIN = 60_000;
 /** Share of claims that survived the citation rule; 0.5 when a run made none. */
-const keptShare = (b: Record<string, unknown>) => (Number(b.claims_total) > 0 ? 1 - Number(b.claims_dropped) / Number(b.claims_total) : 0.5);
+const keptShare = (b: Record<string, unknown>) => {
+  const k = Number(b.claims_total) > 0 ? 1 - Number(b.claims_dropped) / Number(b.claims_total) : 0.5;
+  return Number.isFinite(k) ? Math.max(0, Math.min(1, k)) : 0.5;
+};
 const KINDS: Record<string, { kind?: string; subject: (b: Record<string, unknown>) => string; validMin: number; analyzer: string; conf: (b: Record<string, unknown>) => number }> = {
   "synthesis.feed": { subject: () => "global", validMin: 30, analyzer: "bettafish@1", conf: keptShare },
   "mood.feed": { subject: () => "global", validMin: 15, analyzer: "bettafish@1", conf: () => 0.6 },
   "synthesis.coin": { subject: (b) => String(b.mint), validMin: 30, analyzer: "bettafish@1", conf: keptShare },
-  "swarm.wave_p": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: (b) => (b.truncated ? 0.3 : Math.min(0.8, 0.4 + 0.1 * Number(b.samples))) },
+  "swarm.wave_p": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: (b) => (b.truncated ? 0.3 : Math.min(0.8, 0.4 + 0.1 * (Number(b.samples) || 0))) },
   "swarm.beliefs": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: () => 0.3 },
   "swarm.impact": { subject: (b) => String(b.mint), validMin: 30, analyzer: "miroshark@1", conf: (b) => (b.truncated ? 0.3 : 0.5) },
   "report.published": { kind: "report.latest", subject: (b) => `${b.subject}|${b.producer}`, validMin: 30, analyzer: "report@1", conf: (b) => (b.simulated ? 0.3 : 0.6) },

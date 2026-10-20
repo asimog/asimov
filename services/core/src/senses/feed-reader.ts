@@ -249,7 +249,7 @@ export class FeedReader {
       this.stats.rejected_by_chain[byChain] = (this.stats.rejected_by_chain[byChain] ?? 0) + 1;
       if (sampled(c.calloutId, this.samplePct))
         this.tape.emit("filter.sampled", { reason, source, chain, callout: { callout_id: c.calloutId, mint: item.coinMint, position_usd: positionUsd, mcap_usd: mcapUsd }, launch: null }, { source: "feedreader", subject: c.calloutId, causes });
-      return false;
+      return true; // new, though filtered: the gap walk counts it as unseen, so a page of filtered callouts never ends the walk
     }
     this.tape.emit(
       "coin.seen",
@@ -335,7 +335,7 @@ export class FeedReader {
       };
       if (m.type !== "position" || !m.coinMint || !m.walletAddress) return;
       this.stats.pushes++;
-      if (m.callout) {
+      if (m.callout && Number.isFinite(new Date(m.callout.createdAt).getTime())) { // a bad time drops this callout, never the exit below
         this.ingestItem(
           {
             coinMint: m.coinMint,

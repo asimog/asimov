@@ -191,7 +191,7 @@ export function precallAnalyzers(tape: Tape, clock: Clock): Consumer {
     const top = each.reduce((a, b) => (b.f.edge > a.f.edge || (b.f.edge === a.f.edge && b.wallet < a.wallet) ? b : a));
     const peaks = (await tx`select (body->>'peak_multiple')::float peak from (
         select distinct on (body->>'callout_id') body from tape.events
-        where topic = 'outcome.measured' and seen_time <= ${e.seen_time} and body->>'author_wallet' = ${top.wallet} and (body->>'horizon_min')::int = 3
+        where topic = 'outcome.measured' and seen_time <= ${e.seen_time} and body->>'author_wallet' = ${top.wallet} and (body->>'horizon_min')::int = ${H}
         order by body->>'callout_id', seen_time desc, id desc) x where body->>'coverage' = 'ok'`).map((r) => r.peak as number);
     const p = 1 - each.reduce((a, x) => a * (1 - x.p), 1);
     await putSignal(tx, clock, {

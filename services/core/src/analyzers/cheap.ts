@@ -231,7 +231,8 @@ async function callers(tx: Tx, clock: Clock, e: Envelope<BodyOf<"callout.created
     dist = next;
   }
   const muU = Math.max(0, mu - known);
-  const pois = Array.from({ length: p.waveN }, (_, k) => Math.exp(-muU) * muU ** k / [1, 1, 2, 6, 24, 120, 720, 5040][k]!);
+  let fact = 1;
+  const pois = Array.from({ length: p.waveN }, (_, k) => Math.exp(-muU) * muU ** k / (fact *= k || 1));
   let below = 0; // P(total < N)
   for (let k = 0; k < p.waveN; k++) for (let j = 0; j <= k; j++) below += (dist[j] ?? 0) * pois[k - j]!;
   const atLeast = Math.max(0, Math.min(1, 1 - below));
