@@ -19,7 +19,6 @@ import { consume, decodeJson, natsConnect } from "./nats.ts";
 const WINDOW_MS = 60_000;
 type Tick = { at: number; wallet: string; buy: boolean; sol: number };
 type Reason = BodyOf<"coin.watched">["reason"];
-type Features = BodyOf<"coin.watched">["features"];
 type Role = "caller" | "smart" | "follow";
 type Trade = NonNullable<ReturnType<typeof toTrade>>;
 
@@ -52,13 +51,17 @@ export class Scout {
     launch_refused: 0, unknown: {} as Record<string, number>,
   };
 
-  /** `watched(mint)`: already in the Chain Reader's set. `onPromote(mint, curveAccount, eventId, features)`: subscribe, backfill, snapshot holders (`features()` is the Index's view at snapshot time). */
+  /** `watched(mint)`: already in the Chain Reader's set. A promotion or a demotion is only a Tape event (`coin.watched`, `coin.unwatched`): the senses that act on it read it there (runtime.ts). */
   constructor(
     private tape: Tape, private sql: Sql, private watched: (mint: string) => boolean,
-    private onPromote: (mint: string, curveAccount: string | null, eventId: string, features: () => Features | null) => void,
     private hotMax = env.int("SCOUT_HOT_WALLETS"),
-    private opts: { config?: Config; facts?: LaunchFacts; onDemote?: (mint: string) => void; samplePct?: number } = {},
+    private opts: { config?: Config; facts?: LaunchFacts; samplePct?: number } = {},
   ) {}
+
+  /** The curve account a promoted coin's launch facts found, else the rollup's. */
+  curveAccount(mint: string) {
+    return this.launches.get(mint)?.curve_account ?? this.rollup.curveAccount(mint);
+  }
 
   async start() {
     await this.refresh();
@@ -249,7 +252,6 @@ export class Scout {
     const we = this.tape.emit("coin.watched", {
       mint: t.mint, reason, wallet: reason === "caller_buy" || reason === "smart_buy" || reason === "follow" ? t.wallet : null, note, buyers_60s: q.buyers, net_sol_60s: q.net, trigger_tx: t.tx, features, creator_record,
     }, { source: "nats", subject: t.mint, causes: [te.id], dedupe: `watch:${t.mint}:${Math.floor(now / this.p.repromoteMs)}` });
-    this.onPromote(t.mint, resolved.curve_account ?? this.rollup.curveAccount(t.mint), we.id, () => this.rollup.features(t.mint, this.tape.clock.now()));
   }
 
   private refuse(t: Trade, watchReason: Reason, reason: string, facts: ResolvedLaunch) {
@@ -289,7 +291,6 @@ export class Scout {
       this.promoted.delete(mint);
       this.launches.delete(mint);
       this.refusedAt.set(mint, this.tape.clock.now());
-      this.opts.onDemote?.(mint);
       this.tape.emit("coin.unwatched", { mint, reason: verdict.reason, by: "rpc_recheck" }, { source: "rpc", subject: mint, dedupe: `unwatch:${mint}:${at}` });
       this.tape.emit("system.note", { kind: "coin.demoted", detail: { mint, reason: verdict.reason, source: "rpc" } }, { source: "rpc", subject: mint });
       log.info("coin demoted after chain recheck", { mint, reason: verdict.reason });

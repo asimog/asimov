@@ -28,7 +28,8 @@ export const suite: Suite = {
     const promoted: { mint: string; reason: string }[] = [];
     const config = configValues();
     config.filters.launch = { ...config.filters.launch, on_unknown: { ...config.filters.launch.on_unknown, follow: "pass" } };
-    const scout = new Scout(tape, db.sql, () => false, (m) => promoted.push({ mint: m, reason: "follow" }), 100, {
+    tape.onFlush((es) => { for (const e of es) if (e.topic === "coin.watched") promoted.push({ mint: e.subject!, reason: "follow" }); });
+    const scout = new Scout(tape, db.sql, () => false, 100, {
       config, facts: new LaunchFacts(null, false), samplePct: 100,
     });
     try {

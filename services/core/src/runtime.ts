@@ -1,5 +1,6 @@
 // The runtime: one place that wires parts together. main.ts runs it live; the replay driver runs the same consumers.
 
+import type { Envelope } from "@asimog/contracts";
 import { cheapAnalyzers } from "./analyzers/cheap.ts";
 import { indexSignals } from "./analyzers/index-signals.ts";
 import { precallAnalyzers } from "./analyzers/precall.ts";
@@ -45,6 +46,36 @@ export interface Runtime {
   stats(): Record<string, unknown>;
 }
 
+/** Live only (it subscribes NATS, so a replay never runs it): a promoted coin is subscribed and its holders snapshotted; a demoted one is dropped. */
+function watchConsumer(chain: ChainReader, scout: Scout, pool: RpcPool, tape: Tape, timers: NodeJS.Timeout[]): Consumer {
+  let todo: Envelope[] = [];
+  return {
+    name: "senses.watch",
+    topics: ["coin.watched", "coin.unwatched"],
+    startAtHead: true,
+    async handle(events) {
+      todo.push(...events);
+    },
+    afterCommit() {
+      const now = todo;
+      todo = [];
+      for (const e of now) {
+        const mint = e.subject!;
+        if (e.topic === "coin.unwatched") {
+          chain.unwatch(mint);
+          continue;
+        }
+        chain.watchNow(mint); // subscribes and queues the Backfill
+        if (!pool.size) continue;
+        // a coin seconds old may be unknown to the RPC yet: snapshot after HOLDERS_DELAY_S, retry once
+        const snap = (tries: number) => void snapshotHolders(pool, tape, mint, scout.curveAccount(mint), [e.id], () => scout.rollup.features(mint, tape.clock.now())).catch((err) =>
+          tries > 0 ? timers.push(setTimeout(() => snap(tries - 1), 30_000)) : log.warn("holders", { mint, err: String(err).slice(0, 120) }));
+        timers.push(setTimeout(() => snap(1), env.int("HOLDERS_DELAY_S") * 1000));
+      }
+    },
+  };
+}
+
 /** Consumers in dependency order. Each gets its own clock stream (Clock.fork), named after it. */
 export function buildConsumers(tape: Tape): Consumer[] {
   const own = (name: string) => tape.for(tape.clock.fork(name));
@@ -62,25 +93,21 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
   const treasury = treasuryWiring(sql, tape, clock); // null without keys: paper runs as before
   const consumers = [...buildConsumers(tape), ...(treasury?.consumers ?? [])];
   const config = configValues(); // main.ts already validated it; the senses read the same values
-  const archiver = env.bool("ARCHIVER") ? new Archiver(tape, sql, config, undefined, consumers.map((c) => c.name)) : null;
   const feed = env.bool("SENSE_FEED") ? new FeedReader(tape, config) : null;
   const replies = env.bool("SENSE_REPLIES") ? new ReplyReader(tape, sql) : null;
   const media = env.bool("SENSE_MEDIA") ? new MediaCache(tape, sql) : null;
   const pool = new RpcPool();
   const backfill = env.bool("SENSE_BACKFILL") && pool.size ? new Backfill(tape, sql, pool) : null;
   const chain = env.bool("SENSE_CHAIN") ? new ChainReader(tape, sql, (mint) => backfill?.enqueue(mint)) : null;
-  const scout = chain && env.bool("SCOUT")
-    ? new Scout(tape, sql, (mint) => chain.isWatched(mint), (mint, curveAccount, eventId, features) => {
-        chain.watchNow(mint); // subscribes and queues the Backfill
-        // a coin seconds old may be unknown to the RPC yet: snapshot after HOLDERS_DELAY_S, retry once
-        const snap = (tries: number) => void snapshotHolders(pool, tape, mint, curveAccount, [eventId], features).catch((err) =>
-          tries > 0 ? setTimeout(() => snap(tries - 1), 30_000) : log.warn("holders", { mint, err: String(err).slice(0, 120) }));
-        if (pool.size) setTimeout(() => snap(1), env.int("HOLDERS_DELAY_S") * 1000);
-      }, env.int("SCOUT_HOT_WALLETS"), { config, facts: new LaunchFacts(pool.size ? pool : null), onDemote: (mint) => chain.unwatch(mint) })
-    : null;
-  // Backfill's read is the chain's own answer: the Scout re-checks the launch facts against it (B3)
-  if (backfill && scout) backfill.onRead = (mint, trades) => scout.recheck(mint, trades);
+  const scout = chain && env.bool("SCOUT") ? new Scout(tape, sql, (mint) => chain.isWatched(mint), env.int("SCOUT_HOT_WALLETS"), { config, facts: new LaunchFacts(pool.size ? pool : null) }) : null;
   const timers: NodeJS.Timeout[] = [];
+  // senses meet on the Tape (docs/SYSTEM.md): a Scout promotion or demotion is read here once it has committed, never called
+  const watch = chain && scout ? watchConsumer(chain, scout, pool, tape, timers) : null;
+  if (watch) consumers.push(watch);
+  const archiver = env.bool("ARCHIVER") ? new Archiver(tape, sql, config, undefined, consumers.map((c) => c.name)) : null;
+  // Backfill's read is the chain's own answer: the Scout re-checks the launch facts against it (B3). A call, not the Tape: the
+  // recheck needs the whole read at once, and consumer batches would split it
+  if (backfill && scout) backfill.onRead = (mint, trades) => scout.recheck(mint, trades);
   // the door for thinking agents (docs/SYSTEM.md): off unless MCP_TOKENS names at least one lane
   const tokens = parseTokens(env.opt("MCP_TOKENS"));
   const soulFile = `${env.root}/SOUL.md`;

@@ -2,7 +2,7 @@
 // one that reads to the head skips it for good. Dedupe repeats return the id that is on the Tape. A full queue refuses and counts.
 import { liveClock } from "../../../../services/core/src/lib/clock.ts";
 import { connect, type Sql } from "../../../../services/core/src/lib/db.ts";
-import { type Consumer, drain } from "../../../../services/core/src/tape/consumer.ts";
+import { type Consumer, drain, runLive } from "../../../../services/core/src/tape/consumer.ts";
 import { lowWater, release, Tape } from "../../../../services/core/src/tape/tape.ts";
 import type { Check } from "../../lib/checks.ts";
 import { freshDb } from "../../lib/freshdb.ts";
@@ -75,6 +75,8 @@ export const suite: Suite = {
       const read = await ro`select count(*)::int n from tape.events`.then((r) => r[0]!.n as number, () => -1);
       await ro.end();
       add("the read role reads the Tape and cannot write", read > 0 && wrote.includes("permission denied"), `read ${read} rows; write: ${wrote}`);
+      const twice = await runLive(db.sql, [B, B], liveClock("live")).then(() => "started", (err: Error) => err.message);
+      add("two consumers with one name are refused before either runs", twice.includes("share a name"), twice);
       const refuse = () => Promise.reject(new Error("connection refused"));
       const down = { begin: refuse, unsafe: refuse } as unknown as Sql; // no real connection, so its retries never hold the database
       const stuck = new Tape(down, liveClock("live"));

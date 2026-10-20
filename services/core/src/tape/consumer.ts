@@ -77,6 +77,9 @@ export async function drain(sql: Sql, c: Consumer, untilIso?: string) {
 
 /** Live loop: wake on NOTIFY, also poll every pollMs as a safety net. */
 export async function runLive(sql: Sql, consumers: Consumer[], _clock: Clock, pollMs = 1000) {
+  const names = consumers.map((c) => c.name);
+  const twice = names.filter((n, i) => names.indexOf(n) !== i);
+  if (twice.length) throw new Error(`two consumers share a name, so they would share one offset: ${twice.join(", ")}`);
   for (const c of consumers.filter((x) => x.startAtHead))
     await sql`insert into tape.consumer_offsets (consumer, last_seen_time, last_id)
       select ${c.name}, seen_time, id from tape.events order by seen_time desc, id desc limit 1

@@ -33,12 +33,12 @@ export const suite: Suite = {
         await db.sql`insert into mem.callers (wallet, first_seen) values (${`Filler${i}`}, now())`;
       await db.sql`insert into idx.wallet (wallet, version, n, archetype, refreshed_at) values (${SMART}, 1, 9, 'smart', now())`;
       const promoted: string[] = [];
+      tape.onFlush((es) => { for (const e of es) if (e.topic === "coin.watched") promoted.push(e.subject!); });
       const make = () => {
         const s = new Scout(
           tape,
           db.sql,
           () => false,
-          (m) => promoted.push(m),
           BOUND,
           { facts: new LaunchFacts(null, false) }, // no RPC and no HTTP in this suite
         );
@@ -78,10 +78,12 @@ export const suite: Suite = {
         max <= BOUND,
         `max ${max}, bound ${BOUND}`,
       );
+      await tape.flush();
       add("a plain wallet promotes nothing", promoted.length === 0, `${promoted.length} promoted`);
       add("the caller was evicted from memory", !a.hot.has(CALLER));
       buy(a, CALLER, mint(1000), 1000);
       await a.resolve();
+      await tape.flush();
       add(
         "an evicted caller is recognised from the table",
         promoted.includes(mint(1000)) && a.stats.caller_buy === 1,
@@ -91,6 +93,7 @@ export const suite: Suite = {
       const b = make();
       buy(b, SMART, mint(2000), 2000);
       await b.resolve();
+      await tape.flush();
       add(
         "after a restart a smart wallet is recognised from the table",
         promoted.includes(mint(2000)) && b.stats.smart_buy === 1,

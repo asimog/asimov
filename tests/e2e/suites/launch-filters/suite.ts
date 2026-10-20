@@ -95,7 +95,8 @@ async function setup(tag: string, cfg: Config, facts: LaunchFacts): Promise<Env>
   await db.sql`insert into mem.callers (wallet, first_seen) values (${CALLER}, now())`;
   const promoted: string[] = [];
   const demoted: string[] = [];
-  const scout = new Scout(tape, db.sql, () => false, (m) => promoted.push(m), 100, { config: cfg, facts, samplePct: 100, onDemote: (m) => demoted.push(m) });
+  tape.onFlush((es) => { for (const e of es) (e.topic === "coin.watched" ? promoted : e.topic === "coin.unwatched" ? demoted : []).push(e.subject!); });
+  const scout = new Scout(tape, db.sql, () => false, 100, { config: cfg, facts, samplePct: 100 });
   await scout.refresh();
   return { db, tape, scout, promoted, demoted };
 }
