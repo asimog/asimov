@@ -1,0 +1,46 @@
+/* Wiki search (E7c, docs/UI.md /wiki): a plain field and a ruled list of hits. Dark, radius 0, 1 px lines, no motion. */
+.form {
+  display: flex;
+  gap: calc(var(--gap) * 2);
+  max-inline-size: 64ch;
+}
+.field {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 44px;
+  padding-inline: calc(var(--gap) * 3);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--night-2);
+  color: var(--fg);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--step-0);
+}
+.field::placeholder {
+  color: var(--fg-soft);
+}
+.hits {
+  margin: calc(var(--gap) * 3) 0 0;
+  padding: 0;
+  list-style: none;
+  max-inline-size: 80ch;
+}
+.hits li {
+  display: grid;
+  gap: var(--gap);
+  padding-block: calc(var(--gap) * 3);
+  border-block-end: 1px solid var(--line);
+  min-inline-size: 0;
+}
+.hits a {
+  min-block-size: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--gap) * 2);
+}
+.snippet {
+  margin: 0;
+  color: var(--fg-soft);
+  font-size: var(--step--1);
+  overflow-wrap: anywhere;
+}

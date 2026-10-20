@@ -5,11 +5,13 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import postgres from "postgres";
+import { Embedder } from "../../../packages/lane/src/index.ts";
 import { env } from "../../core/src/lib/env.ts";
 import { log } from "../../core/src/lib/log.ts";
 import { scoresAsOf } from "../../core/src/scorekeeper/scorekeeper.ts";
 import { rooms } from "./rooms.ts";
 import { rugFeed } from "./rug-feed.ts";
+import { ReadSpend, searchRoom } from "./search.ts";
 import { slowRooms } from "./slow-rooms.ts";
 import { wikiRoom } from "./wiki.ts";
 
@@ -257,6 +259,13 @@ const rugs = rugFeed({ sql, cached, sym });
 app.get("/v1/rugfeed", async (c) => c.json(await rugs()));
 const wiki = wikiRoom({ sql, cached });
 app.get("/v1/wiki", async (c) => c.json(await wiki.list()));
+// E7c: the agents' memory, read only (its own database when AGENTS_DATABASE_URL is set); search embeds on the EMBED lane
+const memSql = env.opt("AGENTS_DATABASE_URL") ? postgres(env.str("AGENTS_DATABASE_URL"), { max: 2, idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } }) : sql;
+const search = searchRoom({ sql: memSql, cached, embedder: env.opt("EMBEDDING_MODEL") || env.bool("LLM_STUB") ? new Embedder({ spend: new ReadSpend(memSql) }) : null });
+app.get("/v1/search", async (c) => {
+  const r = await search(c.req.query());
+  return c.json(r.body, r.status);
+});
 app.get("/v1/wiki/:slug", async (c) => {
   const v = c.req.query("v");
   const p = await wiki.page(c.req.param("slug"), v && /^\d+$/.test(v) ? Number(v) : null);

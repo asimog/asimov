@@ -12,6 +12,7 @@ import { loadEnv, need, num } from "./env.ts";
 export * from "./core-client.ts";
 export * from "./embed.ts";
 export { loadEnv, need, num } from "./env.ts";
+export * from "./recall.ts";
 export const LANES = ["SYNTH", "SWARM", "EXTRACT", "THINK", "OPS", "BUILD"] as const;
 export type LaneName = (typeof LANES)[number];
 

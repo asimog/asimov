@@ -3,6 +3,7 @@
 // prose, where there is any, is the Wiki writer's and is labelled AI judgment on the page itself.
 import Link from "next/link";
 import { useRoom } from "@/lib/live";
+import { WikiSearch } from "./search";
 
 type Row = { slug: string; kind: "caller" | "coin"; version: number; as_of: string; title: string; prose: boolean };
 
@@ -26,6 +27,7 @@ export default function WikiPage() {
         </dl>
       </header>
       {error && !data ? <p className="empty">The relay is unreachable ({error}).</p> : null}
+      <WikiSearch />
       {groups.map((g) => {
         const rows = pages.filter((p) => p.kind === g.kind);
         return (

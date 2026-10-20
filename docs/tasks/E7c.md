@@ -39,4 +39,10 @@ The first and last fail before the change. `memory-asof` stays green. Fake embed
 Rug similarity (E7b), copies and clusters (E7), E6 wallet pages, E8.
 
 ## State
-Written 2026-10-20. Not started.
+Written 2026-10-20. Done 2026-10-20.
+- Before the change `npm run e2e -- site-search` failed all six named checks (no `services/relay/src/search.ts`; bridge runs had no hits). After: PASS, 7 of 7 (4 acceptance lines, plus kinds and `@mention` masking, bad input refused, time budget). `memory-asof` PASS 7 of 7. Fast tier: 46 of 50 pass; the 4 that fail (slow-bridge one check, bettafish-stance, fence-parity, amm-golden) need the engines' Python venvs, absent in this sandbox, and fail the same way without this change.
+- Shared query: `packages/lane/src/recall.ts` (`recall`, option `unique` = one row per kind and ref); `services/agents/src/memory.ts` re-exports it, its copy deleted.
+- Relay: `GET /v1/search` (`services/relay/src/search.ts`); reads `agents.memory` and the EMBED spend on a read-only connection (`AGENTS_DATABASE_URL` if set, else the relay's own); its own embedding spend is counted in memory on top of the agents' spend, never written.
+- Bridge: `memory_hits` on coin and swarm run requests when `BridgeDeps.memory` is given; the coin's symbol and name come from core's `coin_dossier` (the Bridge reads no core table, `agent-lanes` holds).
+- Screenshots (desktop 1440x900, phone 390x844, dark, hits match `/v1/search`): `artifacts/verify/e7c/wiki.png`, `wiki-phone.png` (gitignored).
+- Open: `services/slow-bridge/src/main.ts` (not in the write list) must pass `memory: { sql, embedder }` for production runs to carry hits; the engines' workers (`asimog_worker.py` in both engines) do not read `memory_hits` yet.

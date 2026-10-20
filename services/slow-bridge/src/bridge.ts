@@ -7,6 +7,7 @@
 // a slot is still running when the next comes (one job per (engine, kind, subject, slot), never queued twice);
 // an escalation storm (the Bridge alone owns room: per-hour quotas per engine and the day cap; a grant with no room is deferred,
 // promoted oldest first when room returns, and expires after SLOW_DEFER_MAX_MIN); a long run delays escalations (schedule and drain run on their own loops).
+import { BudgetExceeded, CoreRefused, type Embedder, fence, recall } from "@asimog/lane";
 import type { EngineClient } from "./engine.ts";
 import { claim, daySpend, defer, enqueue, expireDeferred, finish, promoteDeferred, requeueStale } from "./jobs.ts";
 import { type Cores, mapOutput } from "./mapper.ts";
@@ -30,7 +31,10 @@ export type BridgeConfig = {
   coinWindowMin: number; // a coin run reads the coin's in-play window (ENTRY_WINDOW_MIN) of callouts
 };
 
-export type BridgeDeps = { sql: Sql; cores: Cores; engines: Record<Engine, EngineClient | null>; now: () => number; newId: () => string; cfg: BridgeConfig };
+/** `memory`: the agents' embedded memory (E7c); with it, coin and swarm runs get the coin's top wiki and report hits. */
+export type BridgeDeps = { sql: Sql; cores: Cores; engines: Record<Engine, EngineClient | null>; now: () => number; newId: () => string; cfg: BridgeConfig; memory?: { sql: Sql; embedder: Embedder } };
+/** One memory hit as an engine reads it: the text fenced as untrusted, seen at or before the run's slot. */
+export type MemoryHit = { kind: string; ref: string; seen_at: string; similarity: number; text: string };
 
 type Ev = { id: string; seen_time: string; subject: string | null; body: Record<string, unknown> };
 type Target = { engine: Engine; kind: Kind; preset: string; stage: 1 | 2 | 3 | null };
@@ -114,6 +118,22 @@ export class Bridge {
     return reports.map((r) => r.report_id);
   }
 
+  /** The top 3 wiki pages and reports for the coin's symbol and name, as of the slot (E7c). None for a feed run, or when
+   * the EMBED lane is over its hourly limit: the run goes ahead without them. */
+  private async memoryHits(job: Job, dossier?: unknown): Promise<MemoryHit[]> {
+    if (!this.d.memory || job.kind === "feed") return [];
+    // the coin's names come from core's dossier (the Bridge reads no core table); an unknown coin is searched by its mint
+    const d = (dossier ?? (await this.d.cores.swarm.call("coin_dossier", { mint: job.subject }).catch((err) => { if (err instanceof CoreRefused) return null; throw err; }))) as { coin?: { symbol?: string | null; name?: string | null } } | null;
+    const text = [d?.coin?.symbol, d?.coin?.name].filter(Boolean).join(" ") || job.subject;
+    try {
+      const rows = await recall(this.d.memory.sql, this.d.memory.embedder, { text, kinds: ["wiki", "report"], as_of: job.slot, k: 3, unique: true });
+      return rows.map((r) => ({ kind: r.kind, ref: r.ref, seen_at: r.seen_at, similarity: r.similarity, text: fence(r.text, 600) }));
+    } catch (err) {
+      if (err instanceof BudgetExceeded) return [];
+      throw err;
+    }
+  }
+
   /** With SLOW_CHAIN=bettafish_first, a swarm waits (up to chainWaitS) for the BettaFish coin run on the same slot. */
   private async waitForChain(job: Job): Promise<void> {
     if (this.d.cfg.chain !== "bettafish_first" || job.engine !== "miroshark") return;
@@ -147,7 +167,8 @@ export class Bridge {
       const extra = job.engine === "miroshark"
         ? { dossier: await this.d.cores.swarm.call("coin_dossier", { mint: job.subject }), parent_texts: (await this.d.cores.exchange.call<{ reports: { report_id: string; producer: string; summary: string; markdown: string | null }[] }>("reports_for", { subject: job.subject, producer_prefix: "bettafish.", limit: 3 })).reports }
         : {};
-      const runId = await engine.start({ job_id: job.id, kind: job.kind, subject: job.subject, preset: job.preset, usd_cap: job.usd_cap, window_min: windowMin, started_at: this.iso(), as_of: job.slot, parent_reports: parents, ...extra });
+      const memory_hits = await this.memoryHits(job, (extra as { dossier?: unknown }).dossier);
+      const runId = await engine.start({ job_id: job.id, kind: job.kind, subject: job.subject, preset: job.preset, usd_cap: job.usd_cap, window_min: windowMin, started_at: this.iso(), as_of: job.slot, parent_reports: parents, ...extra, ...(memory_hits.length ? { memory_hits } : {}) });
       const until = this.d.now() + this.d.cfg.runTimeoutS * 1000;
       for (;;) {
         const s = await engine.status(runId);
