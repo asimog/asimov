@@ -52,7 +52,11 @@ export const HORIZON_MAX_MIN = {
 export type Horizon = keyof typeof HORIZON_MAX_MIN;
 
 const Op = z.enum([">=", "<=", ">", "<", "==", "exists", "absent"]);
-const Cond = z.object({ sig: z.string(), field: z.string().optional(), op: Op, v: z.union([z.number(), z.string(), z.boolean()]).optional() });
+const Cond = z
+  .object({ sig: z.string(), field: z.string().optional(), op: Op, v: z.union([z.number(), z.string(), z.boolean()]).optional() })
+  // an ordered comparison against text is always false: such a condition would silently never hold
+  .refine((c) => !["<", "<=", ">", ">="].includes(c.op) || (typeof c.v === "number" && Number.isFinite(c.v)), { message: "an ordered comparison needs a number v" })
+  .refine((c) => c.op === "exists" || c.op === "absent" || c.v !== undefined, { message: "a comparison needs v" });
 const Term = z.object({ w: z.number().min(-2).max(2), sig: z.string(), field: z.string().optional(), missing: z.union([z.literal("skip"), z.number().min(0).max(1)]).default("skip") });
 const ExitWhen = z.union([
   z.object({ mult_gte: z.number().min(1.01).max(100) }),
@@ -130,7 +134,7 @@ export function read(board: BoardValues, sig: string, field?: string): number | 
   const f = field ?? CATALOG[sig]?.unit[0];
   if (!f) return undefined;
   if (f === "followers_norm") return Math.min(1, Math.log10(((v.followers as number) ?? 0) + 1) / 5);
-  if (f.startsWith("p.") && v.probabilities) return ((v.probabilities as Record<string, number>)[f.slice(2)] ?? 0) as number;
+  if (f.startsWith("p.") && v.probabilities) return (v.probabilities as Record<string, number>)[f.slice(2)]; // missing, not 0: `missing` decides
   const x = v[f];
   return typeof x === "string" && x !== "" && !Number.isNaN(Number(x)) ? Number(x) : (x as number | string | boolean | undefined);
 }
@@ -193,7 +197,8 @@ export function evaluateEntry(spec: Spec, board: BoardValues, quote: (sol: numbe
   const g = geometry(spec);
   const bin = map ? binFor(map, score) : null;
   // Kelly's b: the bin's measured payoff when it has one; with only wins the limit is p; else the spec's geometry
-  const p = bin ? bin.win : score;
+  // a bin's win share is shrunk toward even by its size: a few lucky decisions do not size like many (prior weight: one bin)
+  const p = bin ? (bin.win * bin.n + 0.5 * CALIB.minPerBin) / (bin.n + CALIB.minPerBin) : score;
   const b = bin ? bin.payoff : g.b;
   const kelly = b === null ? (bin && bin.win === 1 ? p : 0) : b > 0 ? Math.max(0, (p * b - (1 - p)) / b) : 0;
   if (!bin && kelly <= 0) return { enter: false, reason: "no_edge", score, terms };

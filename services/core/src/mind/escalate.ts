@@ -116,7 +116,7 @@ export function escalationGate(tape: Tape, clock: Clock, cfg: GateConfig = gateC
     const now = Date.parse(e.seen_time);
     const arm = armOf(mint);
     await tape.emitIn(tx, "jev.escalated", { subject: mint, gate_reasons: arm === "control" ? [...reasons, "control"] : reasons, job: arm === "control" ? null : JOB[stage], voi, stage, arm }, { source: "attention", subject: mint, causes: [e.id], after: e.seen_time });
-    granted.set(mint, { stage, at_ms: now, arm });
+    granted.set(mint, { stage: Math.max(stage, granted.get(mint)?.stage ?? 0) as 1 | 2, at_ms: now, arm }); // a stage-1 refresh never undoes a stage-2 grant
     pending.grants++;
     if (arm === "control") pending.control++;
   }

@@ -69,7 +69,7 @@ export const suite: Suite = {
     const silent = await run("quietnone", false);
     const a = await run("quieta", true);
     const b = await run("quietb", true);
-    add("positions opened before the market went quiet", silent.opened > 0 && a.opened === silent.opened, `${silent.opened} opened`);
+    add("positions opened before the market went quiet", silent.opened > 0 && a.opened > 0, `${silent.opened} without ticks, ${a.opened} with (an exit frees the per-coin cap for another entry)`);
     add("with no tick, a quiet market never closes a position", silent.closed.length === 0, `${silent.closed.length} closed`);
     add("ticks close positions during the quiet hours", a.closed.length > 0, `${a.closed.length} of ${a.opened} closed: ${a.closed.slice(0, 3).join("; ")}`);
     add("the same tape closes the same positions at the same times", JSON.stringify(a.closed) === JSON.stringify(b.closed), `${b.closed.length} closed on the second run`);

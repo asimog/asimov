@@ -259,7 +259,7 @@ create table if not exists mind.intents (
   mint text not null,
   side text not null,
   size_sol double precision,
-  fraction double precision,
+  tokens double precision,
   position_id text,
   reason text not null,
   created_at timestamptz not null,

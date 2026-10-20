@@ -19,7 +19,9 @@ export type Stats = { n: number; sum: number; sq: number; rets: number[]; max_dd
 export function posterior(s: Stats) {
   const n = s.n;
   const mean = n ? s.sum / n : 0;
-  const sd = n >= 2 ? Math.sqrt(Math.max(1e-8, (s.sq - n * mean * mean) / (n - 1))) : K.priorSd;
+  // two passes over the returns when all are kept: sq - n*mean^2 cancels when the mean is large against the spread
+  const ss = s.rets.length === n ? s.rets.reduce((a, r) => a + (r - mean) ** 2, 0) : s.sq - n * mean * mean;
+  const sd = n >= 2 ? Math.sqrt(Math.max(1e-8, ss / (n - 1))) : K.priorSd;
   const N = K.priorN + n;
   const mu = (K.priorN * K.priorMean + n * mean) / N;
   const scale = sd / Math.sqrt(N);

@@ -53,8 +53,9 @@ export const suite: Suite = {
     const sure = [0, 0.1, 0.2].map((lo) => ({ lo, hi: 1, n: 20, win: 0.99, mean: 0.5, payoff: 3 }));
     const d = evaluateEntry(spec, board, quote, { budget_sol: 1 }, sure);
     const g = geometry(spec);
-    const k = Math.min(CALIB.kellyCap, spec.size.kelly_fraction * ((0.99 * 3 - 0.01) / 3));
-    add("full sizing is fractional Kelly on the bin's win share and measured payoff, capped at KELLY_CAP", d.enter && Math.abs(d.size_sol - Math.min(spec.size.max_sol, k)) < 1e-9, d.enter ? `${d.size_sol.toFixed(4)} SOL of a 1 SOL budget, cap ${CALIB.kellyCap}` : d.reason);
+    // bins of 20 at a 0.99 win share, shrunk by one bin of prior toward 0.5: p = (0.99*20 + 0.5*20) / 40 = 0.745; Kelly at b = 3: (0.745*3 - 0.255) / 3 = 0.66
+    const k = Math.min(CALIB.kellyCap, spec.size.kelly_fraction * 0.66);
+    add("full sizing is fractional Kelly on the bin's shrunk win share and measured payoff, capped at KELLY_CAP", d.enter && Math.abs(d.size_sol - Math.min(spec.size.max_sol, k)) < 1e-9, d.enter ? `${d.size_sol.toFixed(4)} SOL of a 1 SOL budget, cap ${CALIB.kellyCap}` : d.reason);
     // many small wins and few big losses: the take-profit geometry says bet, the measured payoff says no
     const thin = sure.map((b) => ({ ...b, win: 0.6, mean: 0.05, payoff: 0.1 }));
     const dt = evaluateEntry(spec, board, quote, { budget_sol: 1 }, thin);

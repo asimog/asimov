@@ -79,7 +79,7 @@ export function evolve(pool: Member[], bookSol: number, rand: () => number, newI
   let retire: { id: string; reason: string; m: Member }[] = [];
   for (const m of pool) {
     const mk = [...m.mk60].sort((x, y) => x - y);
-    if (m.stats.n >= E.retireMinTrades && lcb(m.stats) < 0) retire.push({ id: m.spec.id, reason: "lcb_below_zero", m });
+    if (m.stats.n >= E.retireMinTrades && lcb(m.stats, members.get(m.spec.family)) < 0) retire.push({ id: m.spec.id, reason: "lcb_below_zero", m });
     else if (m.stats.max_dd > E.retireDdFrac * bookSol) retire.push({ id: m.spec.id, reason: "drawdown", m });
     else if (mk.length >= E.retireMinTrades && mk[Math.floor(mk.length / 2)]! < 0) retire.push({ id: m.spec.id, reason: "markout_60s_negative", m });
     else if (m.idle_min > E.retireIdleMin) retire.push({ id: m.spec.id, reason: "idle", m });

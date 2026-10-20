@@ -98,7 +98,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     for (const r of await tx`select * from mind.intents order by created_at, id`)
       push(pending, r.mint as string, {
         id: r.id as string, strategy_id: r.strategy_id as string, mint: r.mint as string, side: r.side as "buy" | "sell", size_sol: r.size_sol as number | null,
-        tokens: r.fraction as number | null, position_id: r.position_id as string | null, reason: r.reason as string,
+        tokens: r.tokens as number | null, position_id: r.position_id as string | null, reason: r.reason as string,
         created_ms: (r.created_at as Date).getTime(), fill_after_ms: (r.fill_after as Date).getTime(), event_id: r.event_id as string, score: r.score as number | null, in_play: r.in_play as InPlay | null,
       });
     for (const r of await tx`select * from mind.fills where not done order by at, id`)
@@ -150,7 +150,11 @@ export function desk(tape: Tape, clock: Clock): Desk {
   // ---------- books ----------
   function book(sid: string, now: number): Book {
     const t = closedToday.get(sid);
-    return bookFrom(D.bookSol + (realized.get(sid) ?? 0), [...open.values()].flat().filter((p) => p.strategy_id === sid), t && t.day === day(now) ? t.net : 0);
+    const b = bookFrom(D.bookSol + (realized.get(sid) ?? 0), [...open.values()].flat().filter((p) => p.strategy_id === sid), t && t.day === day(now) ? t.net : 0);
+    // the per-coin cap is the firm's, not the strategy's: every strategy's open position and pending buy on the coin counts
+    b.position_sol = bookFrom(0, [...open.values()].flat(), 0).position_sol;
+    for (const i of [...pending.values()].flat()) if (i.side === "buy") b.position_sol.set(i.mint, (b.position_sol.get(i.mint) ?? 0) + (i.size_sol ?? 0));
+    return b;
   }
 
   async function saveStats(tx: Tx, sid: string) {
@@ -248,7 +252,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
         const s = st.get(a.strategy_id);
         if (s && (s.share !== a.share || s.stage !== a.stage)) ((s.share = a.share), (s.stage = a.stage), await saveStats(tx, a.strategy_id));
       }
-      await tape.emitIn(tx, "kernel.allocation", { round: clockRow.round, hurdle: 0, shares: shares.slice(0, 32) }, { source: "strategies", causes: [e.id], after: e.seen_time });
+      await tape.emitIn(tx, "kernel.allocation", { round: clockRow.round, hurdle: 0, shares }, { source: "strategies", causes: [e.id], after: e.seen_time });
       await tx`insert into mind.desk_clock (name, at, round) values ('next_alloc', ${iso(clockRow.next_alloc)}, ${clockRow.round}) on conflict (name) do update set at = excluded.at, round = excluded.round`;
       bump("rounds");
     }
@@ -265,8 +269,14 @@ export function desk(tape: Tape, clock: Clock): Desk {
     }
   }
 
-  /** Time exits, stale intents and markouts on coins that went quiet. */
+  /** Time exits, stale intents and markouts on coins that went quiet; then the per-coin memory of coins out of play is dropped. */
   async function sweep(tx: Tx, e: Envelope, now: number) {
+    for (const mint of [...market.keys()])
+      if (!open.has(mint) && !pending.has(mint) && !fills.has(mint) && !inPlay(mint, now) && now - (market.get(mint)?.at_ms ?? 0) > D.entryWindowMs) {
+        for (const m of [market, coinCallout, coinPrecall, coinWatch, lastEval]) m.delete(mint);
+        for (const [id, mm] of calloutMint) if (mm === mint) calloutMint.delete(id);
+        for (const k of lastExit.keys()) if (k.endsWith(`:${mint}`) && now - lastExit.get(k)! > D.reentryMs) lastExit.delete(k);
+      }
     for (const [mint, ps] of open) {
       const m = market.get(mint);
       if (!m) continue;
@@ -275,7 +285,12 @@ export function desk(tape: Tape, clock: Clock): Desk {
     }
     for (const [mint, list] of pending)
       for (const i of [...list]) if (now - i.fill_after_ms > F.staleFillMs) await fillIntent(tx, i, market.get(mint) ?? null, now, e);
-    for (const [mint, list] of fills) for (const f of [...list]) if (now - f.at_ms > 360_000) await finishMarkout(tx, mint, f, e);
+    for (const mint of [...fills.keys()]) { // a quiet coin: a passed horizon takes the price still in force, since no trade came after it
+      const m = market.get(mint);
+      if (m) await markouts(tx, mint, m.price_sol, now, e);
+    }
+    const last = Math.max(...D.markouts) * 1000;
+    for (const [mint, list] of fills) for (const f of [...list]) if (now - f.at_ms > last + 60_000) await finishMarkout(tx, mint, f, e); // no price at all: the missing keys stay null
   }
 
   // ---------- intents and fills ----------
@@ -297,7 +312,7 @@ export function desk(tape: Tape, clock: Clock): Desk {
     }
     const full: Intent = { ...i, id, event_id: ev.id, fill_after_ms: i.created_ms + sampleLatencyMs(clock.rand) };
     push(pending, i.mint, full);
-    await tx`insert into mind.intents (id, strategy_id, mint, side, size_sol, fraction, position_id, reason, created_at, fill_after, event_id, in_play, score)
+    await tx`insert into mind.intents (id, strategy_id, mint, side, size_sol, tokens, position_id, reason, created_at, fill_after, event_id, in_play, score)
       values (${id}, ${i.strategy_id}, ${i.mint}, ${i.side}, ${i.size_sol}, ${i.tokens}, ${i.position_id}, ${i.reason}, ${iso(i.created_ms)}, ${iso(full.fill_after_ms)}, ${ev.id}, ${i.in_play}, ${i.score})`;
     return full;
   }

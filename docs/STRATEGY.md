@@ -85,7 +85,7 @@ A score is a ranking, not a probability. Per family, closed ghost decisions are 
 
 - Entry needs the map's expected net at this score, minus this trade's slippage and fees, above zero.
 - Until a family has a map with at least 3 bins, every entry uses the fixed probe size.
-- After that: fractional Kelly on the map's win chance and the bin's measured payoff (mean win over mean loss, not the take-profit), capped at `KELLY_CAP`, then by the kernel share and stage, then by the owner's limits.
+- After that: fractional Kelly on the map's win chance, shrunk toward 0.5 by one bin of prior (`CALIB_MIN_PER_BIN` decisions), and the bin's measured payoff (mean win over mean loss, not the take-profit), capped at `KELLY_CAP`, then by the kernel share and stage, then by the owner's limits.
 - A term whose signal confidence is below `TERM_MIN_CONF` (0.3) counts as missing.
 - Before a map, the score is only a ranking: the geometry floor (take-profit and stop) filters entries, and the size is the probe.
 
@@ -134,7 +134,7 @@ Owner limits (defaults in `config/limits.default.json`, changed only by `ctl lim
 
 | Limit | Default |
 |---|---|
-| `max_order_sol`, `max_position_sol`, `max_open_coins`, `min_free_sol` | 0.02, 0.04, 5, 0.1 |
+| `max_order_sol`, `max_position_sol` (per coin, across every strategy and their pending buys), `max_open_coins`, `min_free_sol` | 0.02, 0.04, 5, 0.1 |
 | `probe_order_sol` | 0.005 |
 | `daily_loss_stop_frac` (live book), `max_drawdown_frac` | 0.25, 0.4 |
 | `max_consecutive_losses`, `loss_cooldown_min` | 5, 30 |
