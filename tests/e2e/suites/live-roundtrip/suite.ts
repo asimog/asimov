@@ -85,7 +85,7 @@ export const suite: Suite = {
       const rec = await reconcile(db.sql, tape, chain, bk, [trade], hourOf(clock.iso()));
       check("ledger equals chain to the lamport", rec?.ok === true, JSON.stringify(rec?.wallets));
       const end = await chain.balance(trade);
-      check("round trip cost at most 0.002 SOL (fees and spread)", start - end < 0.002e9 + 0.0002e9, `${(start - end) / 1e9} SOL`);
+      check("round trip cost at most 0.002 SOL (fees and spread), and not a gain", start - end >= 0 && start - end < 0.002e9 + 0.0002e9, `${(start - end) / 1e9} SOL`);
     } finally {
       await tape.close();
       await db.done();

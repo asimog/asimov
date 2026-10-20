@@ -95,6 +95,7 @@ export const suite: Suite = {
         return a;
       };
       const baseFails: string[] = [];
+      const accepted: string[] = [];
       let fields = 0;
       for (const t of writes) {
         const b = base[t.name];
@@ -107,12 +108,14 @@ export const suite: Suite = {
         for (const f of textPaths(t.input, b)) {
           const a = unique(structuredClone(b));
           setAt(a, f.path, BAD.padEnd(Math.max(f.min, BAD.length), "."));
-          await call(t.name, a);
+          // a top-level field is refused outright; a claim inside a list is dropped and counted by design (passClaims)
+          if ((await call(t.name, a)).ok && !f.path.some((x) => typeof x === "number" || /^\d+$/.test(String(x)))) accepted.push(`${t.name}.${f.path.join(".")}`);
           fields++;
         }
       }
       await tape.flush();
       const [v] = await db.sql`select count(*)::int n from tape.events where body::text like ${`%${BAD}%`}`;
+      add("every write tool refuses the bad text in each of its top-level text fields", accepted.length === 0 && fields > 0, accepted.join(", ") || `${fields} fields refused`);
       add("every write tool's text fields pass one check", baseFails.length === 0 && v!.n === 0 && fields > 0, `${v!.n} text violations in ${fields} fields of ${writes.length} tools${baseFails.length ? `; valid calls refused: ${baseFails.join("; ")}` : ""}`);
       return { checks, metrics: { fields, tools: writes.length, violations: v!.n } };
     } finally {

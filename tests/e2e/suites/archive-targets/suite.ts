@@ -25,7 +25,7 @@ async function s3Server(refuse = false) {
       res.end("down");
       return;
     }
-    if (!String(req.headers.authorization ?? "").startsWith("AWS4-HMAC-SHA256")) {
+    if (!String(req.headers.authorization ?? "").startsWith("AWS4-HMAC-SHA256")) { // proves a SigV4 header is sent, not that its signature is right
       res.statusCode = 403;
       res.end("unsigned");
       return;

@@ -48,11 +48,14 @@ export const suite: Suite = {
       await tape.flush();
       const before = Object.fromEntries((await db.sql`select wallet, n, copy_net, copy_win_lcb, early_right from idx.wallet order by wallet`).map((r) => [r.wallet, r]));
 
+      const [start] = await db.sql`select count(*)::int n from idx.wallet_coin`;
       const moved = await compact(db.sql, iso(NOW), 48);
+      const [old] = await db.sql`select count(*)::int n from idx.wallet_coin where last_at < ${iso(NOW - 48 * 3_600_000)}`;
       const [hot] = await db.sql`select count(*)::int n from idx.wallet_coin`;
       const [all] = await db.sql`select count(*)::int n from idx.wallet_coin_all`;
       const [days] = await db.sql`select count(*)::int n from idx.wallet_day`;
-      add("hourly rollups older than 48 h move to wallet x coin and wallet x day", moved.moved === 8 && hot!.n === 3 && all!.n === 8 && days!.n === 8, `${moved.moved} moved; hot ${hot!.n}, all ${all!.n}, days ${days!.n}`);
+      // invariants, not this fixture's counts: nothing older than 48 h stays hot, nothing is lost, every moved row has a lifetime row
+      add("hourly rollups older than 48 h move to wallet x coin and wallet x day", old!.n === 0 && moved.moved > 0 && hot!.n + moved.moved === start!.n && all!.n >= moved.moved && days!.n > 0, `${moved.moved} moved of ${start!.n}; hot ${hot!.n} (${old!.n} older than 48 h), all ${all!.n}, days ${days!.n}`);
 
       await refresh(db.sql, tape);
       await tape.flush();

@@ -40,10 +40,12 @@ export async function everyReplayChecks(sql: Sql, netCalls: string[]): Promise<C
   checks.push({ name: "no_orphan_effects", pass: orph!.n === 0, detail: `${orph!.n} fills or rejections without an intent` });
 
   // 5. risk gate: no ghost buy over the order cap (plus the priority fee it pays)
+  // each buy against the limits in force when it filled (the owner may have changed them), else the defaults
   const [cap] = await sql`
-    select count(*)::int n, coalesce(max((body->>'sol')::float), 0) max from tape.events
-    where topic = 'intent.ghost_filled' and body->>'side' = 'buy' and (body->>'sol')::float > ${defaultLimits().max_order_sol + F.priorityFeeSol + 1e-9}`;
-  checks.push({ name: "orders_within_limits", pass: cap!.n === 0, detail: `${cap!.n} buys over ${defaultLimits().max_order_sol} SOL` });
+    select count(*)::int n, coalesce(max((e.body->>'sol')::float), 0) max from tape.events e
+    left join lateral (select (body->>'max_order_sol')::float m from mind.limits where set_at <= e.seen_time order by version desc limit 1) l on true
+    where e.topic = 'intent.ghost_filled' and e.body->>'side' = 'buy' and (e.body->>'sol')::float > coalesce(l.m, ${defaultLimits().max_order_sol}) + ${F.priorityFeeSol + 1e-9}`;
+  checks.push({ name: "orders_within_limits", pass: cap!.n === 0, detail: `${cap!.n} buys over the order cap in force when they filled` });
 
   // 6. no live model or network calls
   checks.push({ name: "no_network_calls", pass: netCalls.length === 0, detail: netCalls.length ? netCalls.slice(0, 3).join(", ") : "0 calls" });

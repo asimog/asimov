@@ -38,9 +38,9 @@ export const suite: Suite = {
         }
       }
       await r.flush(db.sql, now);
-      const bound = (CAP + 20) * WALLETS * 2; // a coin has a balance and a bought entry per wallet; up to one flush interval of new coins
+      const bound = CAP * WALLETS * 2; // after a flush at most CAP full coins keep maps (a balance and a bought entry per wallet); slim ones keep none
       add("wallet-map entries stay within the cap", peak <= bound, `peak ${peak}, now ${r.stats.coin_wallets}, bound ${bound}`);
-      add("coins were evicted", r.stats.evicted >= COINS - CAP - 20, `${r.stats.evicted} evicted`);
+      add("coins were evicted", r.stats.evicted >= COINS - CAP, `${r.stats.evicted} evicted`);
       const [row] = await db.sql`select count(*)::int coins, sum(trades)::int trades from idx.coin`;
       add("idx.coin holds every coin and every trade", row!.coins === COINS && row!.trades === COINS * WALLETS, `${row!.coins} coins, ${row!.trades} trades`);
 

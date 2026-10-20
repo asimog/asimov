@@ -250,7 +250,9 @@ export const suite: Suite = {
 
       // ---------- agents never touch core's tables ----------
       const src = (d: string) => fs.readdirSync(d, { recursive: true, withFileTypes: false }).map(String).filter((f) => f.endsWith(".ts")).map((f) => fs.readFileSync(path.join(d, f), "utf8")).join("\n");
-      const code = [src(path.join(env.root, "services/agents/src")), src(path.join(env.root, "services/slow-bridge/src"))].join("\n");
+      // the Python workers too: our own asimog_*.py files (upstream code and the venvs are not ours to scan)
+      const py = (d: string) => fs.readdirSync(d, { recursive: true, withFileTypes: false }).map(String).filter((f) => /(^|[\\/])asimog_\w*\.py$/.test(f) && !f.includes(".venv")).map((f) => fs.readFileSync(path.join(d, f), "utf8")).join("\n");
+      const code = [src(path.join(env.root, "services/agents/src")), src(path.join(env.root, "services/slow-bridge/src")), py(path.join(env.root, "services/bettafish/engine")), py(path.join(env.root, "services/miroshark/engine/backend"))].join("\n");
       add("no thinking service reads or writes tape, mem, mind, board, idx or ops tables", !/\b(from|into|update|join)\s+(tape|mem|mind|board|idx|ops)\./i.test(code), "static check of services/agents, bettafish, miroshark");
       add("agent names are exactly the roster", AGENT_NAMES.join() === "noop,postmortem,researcher,ops,reporter,integrity,wiki,librarian");
       return { checks, metrics: { tools: TOOLS.length, caps: ALL_CAPS.length, out_of_lane_pairs: pairs, llm_calls: { ...lanesA.calls, ...lanesB.calls } } };

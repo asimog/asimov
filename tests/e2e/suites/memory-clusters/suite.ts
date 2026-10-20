@@ -126,7 +126,7 @@ export const suite: Suite = {
         const asOf = new Date(slot).toISOString();
         const r1 = clusterNarratives(rows, asOf, 0.85);
         const r2 = clusterNarratives([...rows].reverse(), asOf, 0.85);
-        add("a replay gives the same clusters", JSON.stringify(r1) === JSON.stringify(r2) && sig(r1) === sig(ev!.clusters) && rows.length === 5, `event ${sig(ev!.clusters)}; replay ${sig(r1)} over ${rows.length} rows`);
+        add("the same rows in any order give the same clusters, and the event matches them", JSON.stringify(r1) === JSON.stringify(r2) && sig(r1) === sig(ev!.clusters) && rows.length === 5, `event ${sig(ev!.clusters)}; replay ${sig(r1)} over ${rows.length} rows`);
         const late = await a.emit("co_ai5", MINT_A, "ai bots", WALLETS[2]!);
         const s = await a.ask(late);
         add("the callout pack sees the coin's story as a bucket", String(s.narrative_cluster).startsWith("a small shared story") && String(s.narrative_first_callout).includes("ai agent coin"),
