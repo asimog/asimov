@@ -30,31 +30,37 @@ export interface EmitOpts {
 
 type Pending = { env: Envelope; dedupe?: string };
 
-/** seen_time (ms) of every write still open in this process: an emitIn transaction, or a buffered batch until it commits */
-const open = new Map<object, { ms: number; since: number }>();
-const roots = new Set<Tape>();
+/** seen_time (ms) of every emitIn transaction still open in this process, with the root Tape (one writer, one Clock) it writes for */
+const open = new Map<object, { ms: number; since: number; root: Tape }>();
 const OPEN_MAX_MS = 120_000;
 
-function hold(key: object, ms: number) {
+function hold(key: object, ms: number, root: Tape) {
   const o = open.get(key);
-  if (!o || ms < o.ms) open.set(key, { ms, since: o?.since ?? Date.now() });
+  if (!o || ms < o.ms) open.set(key, { ms, since: o?.since ?? Date.now(), root });
 }
 
-/** The transaction that wrote with emitIn has committed or rolled back. */
+const tracked = new WeakSet<object>();
+
+/** A live consumer transaction (consumer.ts step, the Trader's retry): its emitIn writes hold the low watermark until release(). */
+export function track(tx: object) {
+  tracked.add(tx);
+}
+
+/** The tracked transaction has committed or rolled back. */
 export function release(tx: object) {
+  tracked.delete(tx);
   open.delete(tx);
 }
 
-/** The newest seen_time a live reader may read: just below the oldest write still open here, or null when none is open. */
-export function lowWater(): string | null {
-  let low = Number.POSITIVE_INFINITY;
+function lowWaterOf(root: Tape): string | null {
+  let low = root.oldestQueued();
   for (const [k, o] of open) {
+    if (o.root !== root) continue;
     if (Date.now() - o.since > OPEN_MAX_MS) { // a transaction that never released must not stop every reader
       log.error("tape write open too long; readers pass it", { seen_ms: o.ms });
       open.delete(k);
     } else low = Math.min(low, o.ms);
   }
-  for (const t of roots) low = Math.min(low, t.oldestQueued());
   return Number.isFinite(low) ? new Date(low - 1).toISOString() : null;
 }
 
@@ -82,8 +88,11 @@ export class Tape {
     readonly sql: Sql,
     readonly clock: Clock,
     private readonly root?: Tape,
-  ) {
-    if (!root) roots.add(this);
+  ) {}
+
+  /** The newest seen_time a live reader may read: just below the oldest write of this Tape still open, or null when none is open. */
+  lowWater(): string | null {
+    return lowWaterOf(this.root ?? this);
   }
 
   /** seen_time (ms) of the oldest accepted event not yet committed */
@@ -140,7 +149,7 @@ export class Tape {
     const after = Date.parse(o.after) + 1;
     const now = new Date(this.clock.mode === "replay" ? after : Math.max(this.clock.now(), after)).toISOString();
     const e = this.envelope(topic, body, o, now);
-    hold(tx, Date.parse(now));
+    if (tracked.has(tx)) hold(tx, Date.parse(now), this.root ?? this);
     // a decision's hour partition exists before its row, or the row lands in the default partition and that hour can never be made
     // made inside the transaction and not remembered, since a rollback undoes it; the next flush remembers it
     if (!(this.root ?? this).ensured.has(hourPartition(Date.parse(now)))) await ensureHourPartition(tx, Date.parse(now));
@@ -240,7 +249,6 @@ export class Tape {
 
   async close() {
     await this.flush();
-    roots.delete(this);
   }
 }
 

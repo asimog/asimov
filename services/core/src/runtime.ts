@@ -126,7 +126,7 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     tape,
     consumers,
     async start() {
-      void runLive(sql, consumers, clock);
+      void runLive(sql, consumers, tape);
       const every = env.int("TAPE_TICK_MS"); // time on the Tape: Clock work in a quiet period, the same in replay
       timers.push(setInterval(() => tape.emit("clock.tick", { every_ms: every }, { source: "system" }), every));
       treasury?.start();

@@ -3,7 +3,7 @@
 import { liveClock } from "../../../../services/core/src/lib/clock.ts";
 import { connect, type Sql } from "../../../../services/core/src/lib/db.ts";
 import { type Consumer, drain, runLive } from "../../../../services/core/src/tape/consumer.ts";
-import { lowWater, release, Tape } from "../../../../services/core/src/tape/tape.ts";
+import { release, Tape, track } from "../../../../services/core/src/tape/tape.ts";
 import type { Check } from "../../lib/checks.ts";
 import { freshDb } from "../../lib/freshdb.ts";
 import type { Suite } from "../../lib/suite.ts";
@@ -40,6 +40,7 @@ export const suite: Suite = {
       let held: object | null = null;
       const early = db.sql.begin(async (tx) => {
         held = tx;
+        track(tx); // as a live consumer's step does
         await tape.emitIn(tx as never, "ops.alert", alert("early"), { source: "system", after });
         await gate;
       }).finally(() => held && release(held));
@@ -48,16 +49,16 @@ export const suite: Suite = {
       tape.emit("ops.alert", alert("late"), { source: "system" });
       await tape.flush();
 
-      await drain(db.sql, B, lowWater() ?? undefined);
+      await drain(db.sql, B, tape.lowWater() ?? undefined);
       await drain(db.sql, H);
       add("while the early write is open the bounded reader waits below it", !bounded.includes("late"), bounded.join(","));
       open();
       await early;
-      await drain(db.sql, B, lowWater() ?? undefined);
+      await drain(db.sql, B, tape.lowWater() ?? undefined);
       await drain(db.sql, H);
       add("the bounded reader reads the early row after it commits, then the late one", bounded.join(",") === "start,early,late", bounded.join(","));
       add("a reader that reads to the head skips the late commit (the defect the watermark removes)", head.includes("late") && !head.includes("early"), head.join(","));
-      add("nothing is open once both writes commit", lowWater() === null, String(lowWater()));
+      add("nothing is open once both writes commit", tape.lowWater() === null, String(tape.lowWater()));
 
       const first = await db.sql.begin((tx) => tape.emitIn(tx as never, "ops.alert", alert("dup"), { source: "system", after, dedupe: "order:dup" }));
       const again = await db.sql.begin((tx) => tape.emitIn(tx as never, "ops.alert", alert("dup"), { source: "system", after, dedupe: "order:dup" }));
@@ -75,7 +76,7 @@ export const suite: Suite = {
       const read = await ro`select count(*)::int n from tape.events`.then((r) => r[0]!.n as number, () => -1);
       await ro.end();
       add("the read role reads the Tape and cannot write", read > 0 && wrote.includes("permission denied"), `read ${read} rows; write: ${wrote}`);
-      const twice = await runLive(db.sql, [B, B], liveClock("live")).then(() => "started", (err: Error) => err.message);
+      const twice = await runLive(db.sql, [B, B], tape).then(() => "started", (err: Error) => err.message);
       add("two consumers with one name are refused before either runs", twice.includes("share a name"), twice);
       const refuse = () => Promise.reject(new Error("connection refused"));
       const down = { begin: refuse, unsafe: refuse } as unknown as Sql; // no real connection, so its retries never hold the database

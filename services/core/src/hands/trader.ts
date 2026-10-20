@@ -10,7 +10,7 @@ import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import { type Limits, loadLimits } from "../mind/risk.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
-import { release, type Tape } from "../tape/tape.ts";
+import { release, type Tape, track } from "../tape/tape.ts";
 import { killState } from "../treasury/kill.ts";
 import { appendMemo, type Builder, closeAccountTx, LAMPORTS } from "./builder.ts";
 import type { Chain, Parsed } from "./chain.ts";
@@ -205,6 +205,7 @@ export function trader(d: TraderDeps): Trader {
         await d.sql
           .begin(async (tx) => {
             held = tx;
+            track(tx);
             const e = await orderEvent(tx, r.order_id as string);
             if (!e) return;
             const o = clamp(e.body as Order, await limitsOf(tx));

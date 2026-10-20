@@ -2,10 +2,9 @@
 // update share one transaction, so a crash never applies a batch twice (docs/SYSTEM.md).
 import type { Envelope } from "@asimog/contracts";
 import type postgres from "postgres";
-import type { Clock } from "../lib/clock.ts";
 import type { Sql } from "../lib/db.ts";
 import { log } from "../lib/log.ts";
-import { lowWater, release } from "./tape.ts";
+import { release, type Tape, track } from "./tape.ts";
 
 export type Tx = postgres.TransactionSql<Record<string, unknown>>;
 
@@ -36,6 +35,7 @@ export async function step(sql: Sql, c: Consumer, untilIso?: string): Promise<nu
   let held: object | null = null;
   const n = await sql.begin(async (tx) => {
     held = tx;
+    track(tx);
     const [off] = await tx`
       insert into tape.consumer_offsets (consumer) values (${c.name})
       on conflict (consumer) do update set consumer = excluded.consumer
@@ -76,7 +76,7 @@ export async function drain(sql: Sql, c: Consumer, untilIso?: string) {
 }
 
 /** Live loop: wake on NOTIFY, also poll every pollMs as a safety net. */
-export async function runLive(sql: Sql, consumers: Consumer[], _clock: Clock, pollMs = 1000) {
+export async function runLive(sql: Sql, consumers: Consumer[], tape: Tape, pollMs = 1000) {
   const names = consumers.map((c) => c.name);
   const twice = names.filter((n, i) => names.indexOf(n) !== i);
   if (twice.length) throw new Error(`two consumers share a name, so they would share one offset: ${twice.join(", ")}`);
@@ -98,7 +98,7 @@ export async function runLive(sql: Sql, consumers: Consumer[], _clock: Clock, po
       g.pending = false;
       for (const c of g.consumers) {
         try {
-          await drain(sql, c, lowWater() ?? undefined); // never past a write still open here (docs/SYSTEM.md read order)
+          await drain(sql, c, tape.lowWater() ?? undefined); // never past a write still open here (docs/SYSTEM.md read order)
         } catch (err) {
           log.error("consumer", { consumer: c.name, err: String(err) });
         }
