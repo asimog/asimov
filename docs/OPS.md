@@ -96,6 +96,8 @@ Prices are rough and change; check before buying. Recommended path: build on the
 
 Keys and the deposit seed live only in the Signer's host files. RPC, Jev and lane keys live in `.env.local`. The worker container gets a named list of the secrets it needs, never the whole file. Logs and `ctl doctor` print provider names, never URLs. Never print a secret, never commit `.env.local`, never put a secret in a prompt.
 
+Database roles: core owns the schemas (`DATABASE_URL`); the relay reads as `asimog_reader` (`RELAY_DATABASE_URL`), which can select and nothing else; the slow engines read the `slow.*` views as `slow_reader`. `tape.events` refuses update, delete and truncate by trigger; only the archiver drops a partition. Postgres trusts connections on 127.0.0.1 (the compose file binds nothing else); a deploy on a shared host sets a password before anything else. If `.env.local` points `DATABASE_URL` somewhere else, set `RELAY_DATABASE_URL` there too.
+
 ## 5. Stopping
 
 | Command | Effect | Who |
