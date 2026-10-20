@@ -180,6 +180,9 @@ export const ObservationRaw = z.object({
 export const SystemNote = z.object({ kind: z.string(), detail: z.unknown() });
 
 /** One closed Tape partition was exported, read back and verified, then dropped (docs/tasks/B6-archiver.md). */
+/** Time as an input: core writes one every TAPE_TICK_MS, so work due on the Clock (time exits, sweeps) runs in a quiet period and replays the same. */
+export const ClockTick = z.object({ every_ms: z.number().int().positive() });
+
 export const TapeArchived = z.object({
   partition: z.string(),
   file: z.string(),
@@ -691,6 +694,7 @@ export const TOPICS = {
   "system.schema_drift": SystemNote,
   "system.source_disagree": SourceDisagree,
   "tape.archived": TapeArchived,
+  "clock.tick": ClockTick,
 } as const;
 export type Topic = keyof typeof TOPICS;
 export type BodyOf<T extends Topic> = z.infer<(typeof TOPICS)[T]>;
@@ -733,7 +737,7 @@ export const TOPIC_CLASS: Record<Topic, TapeClass> = {
   "filter.sampled": "inputs_kept", "coin.watched": "inputs_kept", "coin.unwatched": "inputs_kept", "coin.graduated": "inputs_kept",
   "config.loaded": "inputs_kept", "lists.loaded": "inputs_kept", "limits.changed": "inputs_kept", "kill.changed": "inputs_kept",
   "system.note": "inputs_kept", "system.gap": "inputs_kept", "system.schema_drift": "inputs_kept", "system.source_disagree": "inputs_kept",
-  "ops.stop_requested": "inputs_kept", "ops.restart_requested": "inputs_kept", "tape.archived": "inputs_kept",
+  "ops.stop_requested": "inputs_kept", "ops.restart_requested": "inputs_kept", "tape.archived": "inputs_kept", "clock.tick": "inputs_hot",
   "jev.answer": "derived", "intent.created": "derived", "intent.ghost_filled": "derived", "order.rejected": "derived",
   "order.created": "derived", "order.submitted": "derived", "order.filled": "derived", "order.failed": "derived",
   "signer.refused": "derived", "position.changed": "derived", "ledger.entry": "derived", "fees.swept": "derived",

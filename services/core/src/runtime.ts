@@ -100,9 +100,11 @@ export async function runtime({ sql, clock }: { sql: Sql; clock: Clock }): Promi
     consumers,
     async start() {
       void runLive(sql, consumers, clock);
+      const every = env.int("TAPE_TICK_MS"); // time on the Tape: Clock work in a quiet period, the same in replay
+      timers.push(setInterval(() => tape.emit("clock.tick", { every_ms: every }, { source: "system" }), every));
       treasury?.start();
+      await ensureGenesis(sql, soulFile); // the soul chain exists whether or not any agent lane is configured
       if (tokens.size) {
-        await ensureGenesis(sql, soulFile);
         mcp = await startMcp(new Toolbox({ sql, tape, clock, soulFile }, tokens), Number(env.str("MCP_PORT")));
         log.info("mcp", { url: mcp.url, lanes: tokens.size });
       }

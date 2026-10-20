@@ -2,7 +2,7 @@
 
 Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not edit by hand.
 
-84 topics.
+85 topics.
 
 | Topic | Body fields |
 |---|---|
@@ -90,3 +90,4 @@ Generated from `packages/contracts/src/index.ts` by `npm run docs:gen`. Do not e
 | `system.schema_drift` | `kind`, `detail` |
 | `system.source_disagree` | `mint`, `fact`, `nats`, `rpc`, `at` |
 | `tape.archived` | `partition`, `file`, `rows`, `sha256`, `target`, `from`, `to`, `at` |
+| `clock.tick` | `every_ms` |
