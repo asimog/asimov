@@ -156,12 +156,16 @@ async function snapshot() {
 }
 
 // ---------- rooms (docs/UI.md): small read-only queries, cached a few seconds ----------
+// bounded: a key can carry a visitor's input (the board's time), so the oldest entry leaves once the map is full
+const CACHE_MAX = 500;
 const cache = new Map<string, { at: number; body: unknown }>();
 const cached = async (key: string, ms: number, fn: () => Promise<unknown>) => {
   const c = cache.get(key);
   if (c && Date.now() - c.at < ms) return c.body;
   const body = await fn();
+  cache.delete(key);
   cache.set(key, { at: Date.now(), body });
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
   return body;
 };
 
@@ -198,6 +202,8 @@ const ledgerRoom = () => cached("ledger", 4000, async () => {
 
 /** Integrity: the caller ledger at 5 min (ov2 outcomes, denominators), the Index, the risk floor at work. */
 const integrity = () => cached("integrity", 8000, async () => {
+  const [h] = await sql`select max(seen_time) head from tape.events`;
+  const head = ((h?.head as Date | null) ?? new Date()).toISOString(); // the Tape's time, like every other room
   const callers = await sql`
     with o as (select distinct on (body->>'callout_id') body from tape.events where topic = 'outcome.measured' and (body->>'horizon_min')::int = 5
       order by body->>'callout_id', seen_time desc, id desc)
@@ -208,16 +214,18 @@ const integrity = () => cached("integrity", 8000, async () => {
   const handles = new Map((await sql`select wallet, handle from mem.callers where wallet = any(${callers.map((c) => c.wallet as string)})`).map((r) => [r.wallet as string, r.handle as string | null]));
   const smart = await sql`select wallet, n, copy_net, copy_win_lcb, lead_s, archetype from idx.wallet where archetype = 'smart' order by copy_win_lcb desc limit 20`.catch(() => []);
   const arche = await sql`select archetype, count(*)::int n from idx.wallet group by 1 order by 2 desc`.catch(() => []);
-  const refused = await sql`select body->>'reason_code' reason, count(*)::int n from tape.events where topic = 'order.rejected' and seen_time > now() - interval '24 hours' group by 1 order by 2 desc`;
-  const watched = await sql`select body->>'reason' reason, count(*)::int n from tape.events where topic = 'coin.watched' and seen_time > now() - interval '24 hours' group by 1 order by 2 desc`;
+  const refused = await sql`select body->>'reason_code' reason, count(*)::int n from tape.events where topic = 'order.rejected' and seen_time > ${head}::timestamptz - interval '24 hours' group by 1 order by 2 desc`;
+  const watched = await sql`select body->>'reason' reason, count(*)::int n from tape.events where topic = 'coin.watched' and seen_time > ${head}::timestamptz - interval '24 hours' group by 1 order by 2 desc`;
   return {
-    callers: callers.map((c) => ({ ...c, who: c.wallet === "house" ? "house" : handles.get(c.wallet as string) ?? `${String(c.wallet).slice(0, 4)}…${String(c.wallet).slice(-4)}` })),
+    callers: callers.map((c) => ({ ...c, wallet: c.wallet === "house" ? "house" : `${String(c.wallet).slice(0, 4)}…${String(c.wallet).slice(-4)}`, who: c.wallet === "house" ? "house" : handles.get(c.wallet as string) ?? `${String(c.wallet).slice(0, 4)}…${String(c.wallet).slice(-4)}` })),
     smart: smart.map((w) => ({ ...w, wallet: `${String(w.wallet).slice(0, 4)}…${String(w.wallet).slice(-4)}` })), archetypes: arche, refused, watched,
   };
 });
 
 // ---------- live fan-out ----------
-type Client = { send: (lines: Line[]) => Promise<void> };
+/** each viewer has its own bounded queue and writer, so a viewer that stops reading never holds the follower or anyone else */
+type Client = { push: (lines: Line[]) => void };
+const CLIENT_QUEUE_LINES = 5000;
 const clients = new Set<Client>();
 let cursor: { t: Date; id: string } | null = null;
 
@@ -228,11 +236,12 @@ async function follow() {
   }
   const rows = (await sql`select id, topic, seen_time, subject, body, causes from tape.events
     where (seen_time, id) > (${cursor.t}, ${cursor.id}) and topic not in ('callout.counts', 'observation.raw', 'coin.seen', 'outcome.measured')
+      and seen_time < now() - interval '2 seconds' -- core's writes commit out of stamp order; this process cannot see core's watermark
     order by seen_time, id limit 2000`) as unknown as Row[];
   if (!rows.length) return;
   cursor = { t: rows[rows.length - 1]!.seen_time, id: rows[rows.length - 1]!.id };
   const lines = rows.map(line).filter((x): x is Line => x !== null);
-  if (lines.length) await Promise.all([...clients].map((c) => c.send(lines).catch(() => clients.delete(c))));
+  if (lines.length) for (const c of clients) c.push(lines);
 }
 
 let busy = false;
@@ -276,7 +285,12 @@ app.get("/v1/treasury", async (c) => c.json(await r.treasury()));
 const slow = slowRooms({ sql, cached, sym });
 app.get("/v1/synthesis", async (c) => c.json(await slow.synthesis()));
 app.get("/v1/simulations", async (c) => c.json(await slow.simulations()));
-app.get("/v1/board", async (c) => c.json(await r.board(c.req.query("at") ? Number(c.req.query("at")) : null)));
+app.get("/v1/board", async (c) => {
+  const raw = c.req.query("at");
+  const at = raw === undefined ? null : Number(raw);
+  if (at !== null && !Number.isFinite(at)) return c.json({ error: "at must be a time in ms" }, 400);
+  return c.json(await r.board(at === null ? null : Math.floor(at / 5000) * 5000)); // a 5 s grid: the cache holds one entry per step
+});
 app.get("/v1/connectome", async (c) => c.json(await r.connectome()));
 app.get("/v1/cards", async (c) => c.json(await r.cardIds()));
 app.get("/v1/card/:id", async (c) => {
@@ -289,13 +303,31 @@ app.get("/v1/case/:id", async (c) => {
 });
 app.get("/v1/stream", (c) =>
   streamSSE(c, async (stream) => {
-    const client: Client = { send: (lines) => stream.writeSSE({ event: "lines", data: JSON.stringify(lines) }) };
+    const queue: Line[][] = [];
+    let queued = 0;
+    let wake: (() => void) | null = null;
+    const client: Client = {
+      push: (lines) => {
+        if (queued + lines.length > CLIENT_QUEUE_LINES) { // too far behind: drop it; its page reconnects and reloads the snapshot
+          clients.delete(client);
+          stream.abort();
+        } else (queue.push(lines), (queued += lines.length));
+        wake?.();
+      },
+    };
     clients.add(client);
     stream.onAbort(() => void clients.delete(client));
     await stream.writeSSE({ event: "hello", data: JSON.stringify({ viewers: clients.size }) });
     while (!stream.aborted) {
-      await stream.sleep(15_000);
-      await stream.writeSSE({ event: "ping", data: String(clients.size) });
+      const next = queue.shift();
+      if (next) {
+        queued -= next.length;
+        await stream.writeSSE({ event: "lines", data: JSON.stringify(next) });
+        continue;
+      }
+      const woke = await Promise.race([new Promise<boolean>((r) => (wake = () => r(true))), stream.sleep(15_000).then(() => false)]);
+      wake = null;
+      if (!woke && !stream.aborted) await stream.writeSSE({ event: "ping", data: String(clients.size) });
     }
   }),
 );

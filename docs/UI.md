@@ -67,6 +67,7 @@ Type: IBM Plex Mono for labels and data (caps micro-titles tracked 0.08em), IBM 
 
 - `apps/web` on Next.js. One R3F canvas mounted in the root layout; rooms place views into DOM slots, so moving between rooms never recreates the WebGL context. No hand-made 3D models: forms are generated from data.
 - Data flow: core to the read-only relay (SSE), to a normalizer, to zustand stores, to the Animator (event to cue, rate limited), to the scene inside `useFrame`. React never re-renders per frame.
+- The relay serves strangers, so it bounds what they can cost: each SSE viewer has its own queue of at most 5000 lines and is dropped past it (the page reconnects and reloads the snapshot), the room cache holds 500 entries, `/v1/board?at=` takes only a number in ms and snaps it to a 5 s grid, and the follower reads rows at least 2 s old so a late core commit is not skipped. The integrity room masks wallets like every other room. Public search spends the `EMBED` lane only in the relay's memory, so it never counts against the agents' metered spend; a relay restart resets that count.
 - Server components fetch a snapshot so first paint has real data; the client takes over with SSE.
 - Share cards render with `next/og`, no browser.
 - Mobile at 760 px and below: dominant form on top at lower density, the strip stacked; low-power stills when frame rate drops; 44 px targets.

@@ -13,9 +13,17 @@ function bearer(req: http.IncomingMessage): string | null {
   return h.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : null;
 }
 
+class TooLarge extends Error {}
+const MAX_BODY = 1024 * 1024; // the largest tool argument (a 400 kB report) with room to spare
+
 async function readBody(req: http.IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
-  for await (const c of req) chunks.push(c as Buffer);
+  let size = 0;
+  for await (const c of req) {
+    size += (c as Buffer).length;
+    if (size > MAX_BODY) throw new TooLarge();
+    chunks.push(c as Buffer);
+  }
   const s = Buffer.concat(chunks).toString("utf8");
   return s ? JSON.parse(s) : undefined;
 }
@@ -44,6 +52,7 @@ export async function startMcp(box: Toolbox, port: number): Promise<{ port: numb
       await mcp.connect(transport);
       await transport.handleRequest(req, res, req.method === "POST" ? await readBody(req) : undefined);
     } catch (err) {
+      if (err instanceof TooLarge) return void (res.headersSent || res.writeHead(413).end());
       log.warn("mcp", { err: String(err) });
       if (!res.headersSent) res.writeHead(500).end();
     }

@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import type postgres from "postgres";
 import { boardAt } from "../../core/src/board/board.ts";
 import { buildCase } from "../../core/src/hunt/case.ts";
+import { env } from "../../core/src/lib/env.ts";
 
 type Row = { id: string; topic: string; seen_time: Date; subject: string | null; body: Record<string, any>; causes: string[] };
 export type Deps<L> = {
@@ -54,7 +55,7 @@ export function rooms<L>({ sql, cached, sym, line, mandate }: Deps<L>) {
       const diff = Math.abs(net - (tp!.net as number));
       return {
         as_of: last ? last.getTime() : 0,
-        mode: "PAPER",
+        mode: env.str("ASIMOG_MODE").toUpperCase(),
         mandate_sol: mandate,
         paper: { equity_sol: mandate + net, net_sol: net, closed: pos!.closed as number, open_cost_sol: opn!.cost as number },
         reconciliation: { positions_net: net, tape_net: tp!.net as number, diff, ok: diff < 1e-9 },
