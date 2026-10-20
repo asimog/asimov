@@ -8,8 +8,9 @@ import type { Sql } from "./db.ts";
 export { type MemoryKind, type Recalled, recall } from "@asimog/lane";
 export type MemoryItem = { id: string; kind: MemoryKind; ref: string; mint: string | null; text: string; seen_at: string };
 
-/** A callout this close to an earlier callout by text is a copy of it (copy-paste shills, docs/PIPELINE.md). Core's `mark_copy` holds the same bar. */
-export const COPY_SIMILARITY = 0.97;
+import { COPY_SIMILARITY } from "@asimog/contracts";
+
+export { COPY_SIMILARITY };
 
 export type Copy = { callout_id: string; copy_of: string; similarity: number };
 /**

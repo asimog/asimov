@@ -36,5 +36,10 @@ const loop = async () => {
     console.error(String(err));
   }
 };
-await loop();
-setInterval(() => void loop(), Number(env.AGENTS_TICK_S ?? 10) * 1000);
+// each tick starts after the last one ended: a slow tick never overlaps the next
+const every = Number(env.AGENTS_TICK_S ?? 10) * 1000;
+const next = async () => {
+  await loop();
+  setTimeout(() => void next(), every);
+};
+await next();

@@ -2,7 +2,7 @@
 // exactly one capability. This file is the only door thinking agents have: reads of the Tape, Board and mind tables,
 // and writes of proposal, synthesis, swarm and report events. Nothing here trades, signs, posts or changes limits.
 import crypto from "node:crypto";
-import { canonical, type Source, SwarmPlatform } from "@asimog/contracts";
+import { COPY_SIMILARITY, canonical, type Source, SwarmPlatform } from "@asimog/contracts";
 import { z } from "zod";
 import { liveFor } from "../board/board.ts";
 import { publicText } from "../hands/text-checks.ts";
@@ -10,6 +10,7 @@ import type { Clock } from "../lib/clock.ts";
 import { configValues } from "../lib/config.ts";
 import type { Sql } from "../lib/db.ts";
 import { env } from "../lib/env.ts";
+import { log } from "../lib/log.ts";
 import { why } from "../lib/why.ts";
 import { narrativeFor } from "../memory/narratives.ts";
 import { validate as validateSpec } from "../mind/dsl.ts";
@@ -116,6 +117,7 @@ function requireText(what: string, text: string, maxLen?: number): string {
   if (r.failed.length) throw new Refusal("guard", `${what} refused: ${r.failed.join(", ")}`);
   return r.text;
 }
+const depth = (x: unknown, d = 0): number => (d > 24 || x === null || typeof x !== "object" ? d : Math.max(d, ...Object.values(x as object).map((v) => depth(v, d + 1))));
 const passClaims = <T extends Record<string, unknown>>(xs: T[], fields: (keyof T & string)[], ok: (x: T) => boolean) =>
   xs.flatMap((x) => {
     const t = passClaim(x, fields);
@@ -161,7 +163,9 @@ export const TOOLS: Tool[] = [
     const [px] = await c.sql`select (body->>'price_sol')::float price_sol, seen_time from tape.events
       where topic = 'trade.curve' and subject = ${a.mint} and seen_time <= ${at} order by seen_time desc, id desc limit 1`;
     const callouts = await c.sql`select callout_id, wallet, text, created_at, likes, replies from mem.callouts where mint = ${a.mint} and seen_at <= ${at} order by created_at desc limit 20`;
-    const callers = await c.sql`select wallet, handle, followers, calls_seen from mem.callers order by calls_seen desc limit 40`;
+    // the coin's own callers, the most active first (not the firm's top callers in general)
+    const callers = await c.sql`select k.wallet, k.handle, k.followers, k.calls_seen from mem.callers k
+      where k.wallet in (select wallet from mem.callouts where mint = ${a.mint} and seen_at <= ${at}) order by k.calls_seen desc, k.wallet limit 40`;
     const dna = await Promise.all(callers.map(async (k) => ({ ...k, dna: (await liveFor(c.sql, k.wallet as string, at))["caller.dna"]?.value ?? null })));
     const live = await liveFor(c.sql, a.mint, at);
     const shared = await c.sql`select o.mint, k.symbol, count(distinct o.wallet)::int shared from mem.callouts o left join mem.coins k using (mint)
@@ -191,7 +195,7 @@ export const TOOLS: Tool[] = [
   }),
 
   tool("mark_copy", [CAP.memory], "Record that a callout copies an earlier callout's text (E7a). Both must be on the Tape, the original seen no later than the copy.", {
-    callout_id: z.string(), copy_of: z.string(), similarity: z.number().min(0.97).max(1), model: z.string().max(120),
+    callout_id: z.string(), copy_of: z.string(), similarity: z.number().min(COPY_SIMILARITY).max(1), model: z.string().max(120),
   }, async (a, c) => {
     if (a.callout_id === a.copy_of) throw new Refusal("invalid", "a callout cannot copy itself");
     const rows = await c.sql`select subject, seen_time, body->>'mint' mint from tape.events where topic = 'callout.created'
@@ -500,7 +504,9 @@ export const TOOLS: Tool[] = [
     const parents = a.parent_reports.length ? (await c.sql`select report_id from slow.reports where report_id = any(${a.parent_reports}) and published_at <= ${now}`).map((r) => r.report_id as string) : [];
     if (parents.length !== a.parent_reports.length) throw new Refusal("bad_parent", "a parent report is unknown or newer than now");
     const body = { ir: a.ir, markdown };
-    const sha256 = (await import("node:crypto")).createHash("sha256").update(canonical(body)).digest("hex");
+    // the IR is engine output: bounded before it is hashed (canonical() recurses) and stored
+    if (a.ir && (JSON.stringify(a.ir).length > 400_000 || depth(a.ir) > 24)) throw new Refusal("too_large", "the report IR is over 400 000 characters or 24 levels deep");
+    const sha256 = crypto.createHash("sha256").update(canonical(body)).digest("hex");
     await c.sql`insert into slow.reports (report_id, producer, kind, subject, window_from, window_to, preset, sha256, summary, cites, parent_reports, ir, markdown, published_at)
       values (${a.report_id}, ${a.producer}, ${a.kind}, ${a.subject}, ${a.window_from}, ${a.window_to}, ${a.preset}, ${sha256}, ${summary}, ${cites}, ${parents}, ${a.ir ? c.sql.json(a.ir as never) : null}, ${markdown}, ${now})
       on conflict (report_id) do nothing`;
@@ -522,9 +528,9 @@ export const TOOLS: Tool[] = [
     return r;
   }),
 
-  tool("job_event", ANY_LANE, "Record that a job was queued, started or done.", { kind: z.enum(["queued", "started", "done"]), job_id: z.string(), agent: z.string().max(40), trigger_event: z.string().nullable().default(null), cost_usd: z.number().min(0).optional(), error: z.string().max(300).optional() }, async (a, c) => {
+  tool("job_event", ANY_LANE, "Record that a job was queued, started or done.", { kind: z.enum(["queued", "started", "done"]), job_id: z.string().min(1).max(80), agent: z.string().max(40), trigger_event: z.string().max(80).nullable().default(null), cost_usd: z.number().min(0).optional(), error: z.string().max(300).optional() }, async (a, c) => {
     const { kind, ...rest } = a;
-    const body = { ...rest, agent: requireText("agent", rest.agent), ...(rest.error === undefined ? {} : { error: requireText("error", rest.error) }) };
+    const body = { ...rest, agent: requireText("agent", rest.agent), trigger_event: rest.trigger_event === null ? null : requireText("trigger_event", rest.trigger_event), ...(rest.error === undefined ? {} : { error: requireText("error", rest.error) }) };
     c.tape.emit(`job.${kind}`, body, { source: source(c), subject: a.job_id });
     await c.tape.flush();
     return { ok: true };
@@ -563,7 +569,8 @@ export class Toolbox {
       return { ok: true, value: await t.run(parsed.data as never, { ...this.ctx, cap }) };
     } catch (err) {
       if (err instanceof Refusal) return { ok: false, code: err.code, message: err.message };
-      return { ok: false, code: "internal", message: String(err).slice(0, 300) };
+      log.error("mcp tool failed", { tool: name, cap, err: String(err).slice(0, 500) }); // the detail stays in core's log
+      return { ok: false, code: "internal", message: "internal error; core logged the detail" };
     }
   }
 }

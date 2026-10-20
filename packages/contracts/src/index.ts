@@ -771,6 +771,9 @@ export const SCHEMA_VERSION: Record<Topic, number> = {
   "clock.tick": 1,
 };
 
+/** A callout this close to an earlier one by text embedding is a copy of it (E7a). The one bar: the Librarian and core's mark_copy read it here. */
+export const COPY_SIMILARITY = 0.97;
+
 /** Canonical JSON (sorted keys, recursively): the only form commit hashes are computed over. */
 export function canonical(x: unknown): string {
   if (Array.isArray(x)) return `[${x.map(canonical).join(",")}]`;

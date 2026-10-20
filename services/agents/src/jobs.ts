@@ -18,7 +18,9 @@ export async function enqueue(sql: Sql, agent: AgentName, trigger: Trigger, dedu
 export async function claim(sql: Sql): Promise<Job | null> {
   const [r] = await sql`
     update agents.jobs set state = 'running', started_at = now(), attempts = attempts + 1
-    where id = (select id from agents.jobs where state = 'queued' order by created_at, id for update skip locked limit 1)
+    where id = (select id from agents.jobs where state = 'queued'
+      or (state = 'failed' and attempts < 3 and finished_at < now() - make_interval(mins => attempts * attempts)) -- a failed job is retried twice, waiting 1 then 4 minutes
+      order by created_at, id for update skip locked limit 1)
     returning id, agent, trigger, attempts`;
   return (r as unknown as Job | undefined) ?? null;
 }

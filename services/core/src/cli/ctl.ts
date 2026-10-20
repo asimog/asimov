@@ -26,7 +26,8 @@ const [cmd = "help", ...args] = process.argv.slice(2);
 const flag = (n: string) => args.includes(`--${n}`);
 const opt = (n: string) => {
   const i = args.indexOf(`--${n}`);
-  return i >= 0 ? args[i + 1] : undefined;
+  const v = i >= 0 ? args[i + 1] : undefined;
+  return v?.startsWith("--") ? undefined : v; // `--out --json` has no value, it does not swallow the next flag
 };
 const out = (o: unknown) => console.log(flag("json") ? JSON.stringify(o) : JSON.stringify(o, null, 2));
 
@@ -180,7 +181,13 @@ const commands: Record<string, () => Promise<unknown>> = {
     spend_24h: await sql`select body->>'agent' agent, count(*)::int jobs, coalesce(sum((body->>'cost_usd')::float), 0)::float usd from tape.events where topic = 'job.done' and seen_time > now() - interval '24 hours' group by 1 order by 3 desc`,
   }),
   migrate: async () => (await migrate(sql), { ok: true }),
-  rebuild: async () => (await resetProjections(sql, buildConsumers(new Tape(sql, liveClock("live")))), { ok: true, note: "projections cleared; restart core to rebuild from the tape" }),
+  rebuild: async () => {
+    if (!flag("yes")) return { ok: false, note: "rebuild clears every projection; run again with --yes" };
+    const t = new Tape(sql, liveClock("live"));
+    await resetProjections(sql, buildConsumers(t));
+    await t.close();
+    return { ok: true, note: "projections cleared; restart core to rebuild from the tape" };
+  },
   export: () => exportTape(opt("out") ?? `data/tapes/tape-${Date.now()}.ndjson.gz`, opt("from"), opt("to")),
   stats: async () => {
     const r = await stats();

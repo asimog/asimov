@@ -126,7 +126,7 @@ export class Lane {
       const apiKey = e[keyName];
       if (!apiKey) return { model, chat: new NoLaneKey(`no key: set ${keyName} in .env.local`) };
       // no client retries: a failure moves down the chain at once
-      return { model, chat: new ChatOpenAI({ apiKey, model, temperature: 0.2, maxTokens, maxRetries: 0, configuration: { baseURL: need(e, "LLM_BASE_URL") } }) };
+      return { model, chat: new ChatOpenAI({ apiKey, model, temperature: 0.2, maxTokens, maxRetries: 0, timeout: Number(e.LLM_TIMEOUT_MS ?? 120_000), configuration: { baseURL: need(e, "LLM_BASE_URL") } }) };
     });
   }
 

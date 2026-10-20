@@ -31,12 +31,11 @@ async function readBody(req: http.IncomingMessage): Promise<unknown> {
 export async function startMcp(box: Toolbox, port: number): Promise<{ port: number; url: string; close(): Promise<void> }> {
   const srv = http.createServer(async (req, res) => {
     try {
+      // the path first: a wrong path answers 404 whatever the token, so the status never tells a caller its token is valid
+      if (req.url !== "/mcp") return void res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: "not found" }));
       const token = bearer(req);
       const cap = box.capOf(token);
-      if (req.url !== "/mcp" || !cap) {
-        res.writeHead(cap ? 404 : 401, { "content-type": "application/json" }).end(JSON.stringify({ error: cap ? "not found" : "unauthorized" }));
-        return;
-      }
+      if (!cap) return void res.writeHead(401, { "content-type": "application/json" }).end(JSON.stringify({ error: "unauthorized" }));
       const mcp = new Server({ name: "asimog-core", version: "1" }, { capabilities: { tools: {} } });
       mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         tools: box.list(cap).map((t) => ({ name: t.name, description: t.desc, inputSchema: z.toJSONSchema(t.input, { io: "input" }) as { type: "object" } })),

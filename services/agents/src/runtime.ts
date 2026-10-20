@@ -105,7 +105,11 @@ export class AgentsRuntime {
     if (!this.belts.has(agent)) {
       const token = this.o.token(agent);
       if (!token) return Promise.reject(new Error(`no token for ${agent}: set ${AGENTS[agent].tokenEnv}`));
-      this.belts.set(agent, loadBelt(agent, this.o.mcpUrl, token, AGENTS[agent].tools));
+      // a failed connect is not cached: the next job tries again
+      this.belts.set(agent, loadBelt(agent, this.o.mcpUrl, token, AGENTS[agent].tools).catch((err) => {
+        this.belts.delete(agent);
+        throw err;
+      }));
     }
     return this.belts.get(agent)!;
   }
@@ -171,11 +175,12 @@ export class AgentsRuntime {
     const spec = AGENTS[job.agent];
     const lane = this.o.lane(spec.lane, job.agent);
     const usd0 = lane.usd;
-    const belt = await this.belt(job.agent);
-    const ev = (kind: "started" | "done", extra: Record<string, unknown> = {}) => belt.call("job_event", { kind, job_id: job.id, agent: job.agent, trigger_event: job.trigger.type === "event" ? String((job.trigger.event as { id?: string }).id ?? "") : null, ...extra });
-    await ev("started");
     let out: { ok: boolean; cost_usd: number; result?: unknown; error?: string };
-    try {
+    let ev: ((kind: "started" | "done", extra?: Record<string, unknown>) => Promise<unknown>) | null = null;
+    try { // everything inside: a failed connect or start event fails the job instead of leaving it running
+      const belt = await this.belt(job.agent);
+      ev = (kind, extra = {}) => belt.call("job_event", { kind, job_id: job.id, agent: job.agent, trigger_event: job.trigger.type === "event" ? String((job.trigger.event as { id?: string }).id ?? "") : null, ...extra });
+      await ev("started");
       const emb = this.o.embedder;
       const graph = buildGraph(job.agent, { belt, lane, recall: emb ? (q) => recall(this.o.sql, emb, q) : undefined }, this.o.checkpointer);
       const res = await graph.invoke({ trigger: job.trigger }, { configurable: { thread_id: job.id } });
@@ -184,7 +189,7 @@ export class AgentsRuntime {
       out = { ok: false, cost_usd: lane.usd - usd0, error: (err instanceof BudgetExceeded ? "budget: " : "") + String(err instanceof Error ? err.message : err).slice(0, 280) };
     }
     await finish(this.o.sql, job.id, out);
-    await ev("done", { cost_usd: out.cost_usd, ...(out.error ? { error: out.error } : {}) }).catch(() => {});
+    await ev?.("done", { cost_usd: out.cost_usd, ...(out.error ? { error: out.error } : {}) }).catch(() => {});
     return out;
   }
 

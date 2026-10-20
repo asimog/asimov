@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-316 keys. Secrets live only in `.env.local` and are not listed here.
+317 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -20,6 +20,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `RPC_WS_URL` | `wss://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}` | providers (docs/OPS.md) |
 | `OPENROUTER_API_KEY` | ` ` | providers (docs/OPS.md) |
 | `LLM_BASE_URL` | `https://openrouter.ai/api/v1` | providers (docs/OPS.md) |
+| `LLM_TIMEOUT_MS` | `120000` | providers (docs/OPS.md) |
 | `LLM_MODEL_CHEAP` | `deepseek/deepseek-v4.1-flash` | providers (docs/OPS.md) |
 | `LLM_MODEL_SMART` | `deepseek/deepseek-v4.1-flash` | providers (docs/OPS.md) |
 | `TYPESAFE_API_KEY` | ` ` | providers (docs/OPS.md) |
