@@ -10,7 +10,7 @@ import { env } from "../lib/env.ts";
 import { log } from "../lib/log.ts";
 import { type Limits, loadLimits } from "../mind/risk.ts";
 import type { Consumer, Tx } from "../tape/consumer.ts";
-import type { Tape } from "../tape/tape.ts";
+import { release, type Tape } from "../tape/tape.ts";
 import { killState } from "../treasury/kill.ts";
 import { appendMemo, type Builder, closeAccountTx, LAMPORTS } from "./builder.ts";
 import type { Chain, Parsed } from "./chain.ts";
@@ -195,8 +195,10 @@ export function trader(d: TraderDeps): Trader {
       let n = 0;
       for (const r of rows) {
         if (r.state === "retry" && (r.next_at as Date).getTime() > d.clock.now()) continue;
+        let held: object | null = null;
         await d.sql
           .begin(async (tx) => {
+            held = tx;
             const e = await orderEvent(tx, r.order_id as string);
             if (!e) return;
             const o = clamp(e.body as Order, await limitsOf(tx));
@@ -205,7 +207,8 @@ export function trader(d: TraderDeps): Trader {
             else await attempt(tx, e, o, r.attempts as number);
             n++;
           })
-          .catch((err) => log.warn("trader", { retry: r.order_id, err: String(err).slice(0, 160) }));
+          .catch((err) => log.warn("trader", { retry: r.order_id, err: String(err).slice(0, 160) }))
+          .finally(() => held && release(held));
       }
       return n;
     },

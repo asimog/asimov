@@ -2,11 +2,14 @@
 //
 // Two ways to write, two dedupe rules:
 // - `emit` (buffered): an accepted event stays queued until its batch commits. A failed batch goes back to the front of the queue and is
-//   retried with backoff, so nothing is dropped; while it cannot be written `unhealthy` is true (stats) and one `ops.alert` is queued.
+//   retried with backoff, so nothing accepted is dropped; past TAPE_MAX_QUEUED a new event is refused and counted in `dropped`. While it cannot be written `unhealthy` is true (stats) and one `ops.alert` is queued.
 //   With `dedupe`, a repeat key is skipped and counted in `deduped`; a retried batch cannot write twice (event ids and dedupe keys are
 //   inside the same transaction, so a rolled-back attempt leaves neither).
 // - `emitIn` (inside a consumer transaction): it commits or rolls back with the consumer's offset. With `dedupe`, a repeat returns the
 //   envelope it would have written and writes nothing.
+// A dedupe event's id is derived from its key, so the id a repeat returns is the id on the Tape.
+// Read order (docs/SYSTEM.md): a row is stamped before it commits, so a later-stamped row can commit first. Every write still open in
+// this process holds the low watermark; live consumers read only below it (`lowWater`), so a late commit is never skipped.
 // A listener (`onFlush`) runs after commit; its error is logged and never re-runs or fails the write.
 import crypto from "node:crypto";
 import { type BodyOf, type Envelope, SCHEMA_VERSION, type Source, TAPE_CLASSES, TOPIC_CLASS, TOPICS, type Topic } from "@asimog/contracts";
@@ -27,6 +30,34 @@ export interface EmitOpts {
 
 type Pending = { env: Envelope; dedupe?: string };
 
+/** seen_time (ms) of every write still open in this process: an emitIn transaction, or a buffered batch until it commits */
+const open = new Map<object, { ms: number; since: number }>();
+const roots = new Set<Tape>();
+const OPEN_MAX_MS = 120_000;
+
+function hold(key: object, ms: number) {
+  const o = open.get(key);
+  if (!o || ms < o.ms) open.set(key, { ms, since: o?.since ?? Date.now() });
+}
+
+/** The transaction that wrote with emitIn has committed or rolled back. */
+export function release(tx: object) {
+  open.delete(tx);
+}
+
+/** The newest seen_time a live reader may read: just below the oldest write still open here, or null when none is open. */
+export function lowWater(): string | null {
+  let low = Number.POSITIVE_INFINITY;
+  for (const [k, o] of open) {
+    if (Date.now() - o.since > OPEN_MAX_MS) { // a transaction that never released must not stop every reader
+      log.error("tape write open too long; readers pass it", { seen_ms: o.ms });
+      open.delete(k);
+    } else low = Math.min(low, o.ms);
+  }
+  for (const t of roots) low = Math.min(low, t.oldestQueued());
+  return Number.isFinite(low) ? new Date(low - 1).toISOString() : null;
+}
+
 export class Tape {
   private buf: Pending[] = [];
   private timer: NodeJS.Timeout | null = null;
@@ -41,12 +72,25 @@ export class Tape {
   /** true while a batch cannot be written; the queue keeps every accepted event */
   unhealthy = false;
   private failures = 0;
+  /** events refused because the queue was full (TAPE_MAX_QUEUED); each is counted and alerted, never silent */
+  dropped = 0;
+  private readonly maxQueued = env.int("TAPE_MAX_QUEUED");
+  private inflight: number | null = null;
+  private inflightN = 0;
 
   constructor(
     readonly sql: Sql,
     readonly clock: Clock,
     private readonly root?: Tape,
-  ) {}
+  ) {
+    if (!root) roots.add(this);
+  }
+
+  /** seen_time (ms) of the oldest accepted event not yet committed */
+  oldestQueued(): number {
+    const q = this.buf[0] ? Date.parse(this.buf[0].env.seen_time) : Number.POSITIVE_INFINITY;
+    return Math.min(q, this.inflight ?? Number.POSITIVE_INFINITY);
+  }
 
   /** A consumer's own view: its decisions take ids from its own clock stream; buffered writes and counts stay on the root. */
   for(clock: Clock): Tape {
@@ -60,7 +104,7 @@ export class Tape {
       throw new Error(`invalid body for ${topic}`);
     }
     return {
-      id: this.clock.id("event"),
+      id: o.dedupe ? `${this.clock.id("event").split("_")[0]}_${crypto.createHash("sha256").update(o.dedupe).digest("hex").slice(0, 26)}` : this.clock.id("event"),
       topic,
       v: SCHEMA_VERSION[topic],
       event_time: o.eventTime ?? now,
@@ -76,8 +120,12 @@ export class Tape {
   emit<T extends Topic>(topic: T, body: BodyOf<T>, o: EmitOpts): Envelope<BodyOf<T>> {
     if (this.root) return this.root.emit(topic, body, o);
     const e = this.envelope(topic, body, o);
+    if (this.buf.length + this.inflightN >= this.maxQueued) {
+      if (this.dropped++ % 1000 === 0) log.error("tape queue full; events refused", { topic, queued: this.buf.length, dropped: this.dropped });
+      return e;
+    }
     this.buf.push({ env: e, dedupe: o.dedupe });
-    if (this.buf.length >= 500) void this.flush();
+    if (this.buf.length === 500) void this.flush(); // once per 500: past it the pending flush takes the whole queue
     else if (!this.timer) this.timer = setTimeout(() => void this.flush(), this.batchMs);
     return e;
   }
@@ -92,6 +140,7 @@ export class Tape {
     const after = Date.parse(o.after) + 1;
     const now = new Date(this.clock.mode === "replay" ? after : Math.max(this.clock.now(), after)).toISOString();
     const e = this.envelope(topic, body, o, now);
+    hold(tx, Date.parse(now));
     // a decision's hour partition exists before its row, or the row lands in the default partition and that hour can never be made
     // made inside the transaction and not remembered, since a rollback undoes it; the next flush remembers it
     if (!(this.root ?? this).ensured.has(hourPartition(Date.parse(now)))) await ensureHourPartition(tx, Date.parse(now));
@@ -120,13 +169,15 @@ export class Tape {
     this.chain = this.chain.then(async () => {
       if (this.buf.length === 0) return;
       const batch = this.buf.splice(0, this.buf.length);
+      this.inflightN = batch.length;
+      this.inflight = batch.reduce((m, p) => Math.min(m, Date.parse(p.env.seen_time)), Number.POSITIVE_INFINITY);
       try {
         await this.ensurePartitions(batch.map((p) => p.env.seen_time));
         await this.write(batch);
         this.failures = 0;
         this.unhealthy = false;
       } catch (err) {
-        this.buf.unshift(...batch);
+        this.buf = batch.concat(this.buf); // not unshift(...batch): a long outage queue overflows the call stack
         this.failures++;
         log.error("tape write failed, will retry", { queued: this.buf.length, failures: this.failures, err: String(err) });
         this.timer = setTimeout(() => void this.flush(), Math.min(200 * 2 ** this.failures, 5000));
@@ -134,6 +185,9 @@ export class Tape {
           this.unhealthy = true;
           this.buf.push({ env: this.envelope("ops.alert", { severity: "page", text: "The Tape cannot write; accepted events are queued in memory", finding: "tape.unhealthy" }, { source: "system", subject: "tape.unhealthy" }) });
         }
+      } finally {
+        this.inflight = null;
+        this.inflightN = 0;
       }
     });
     return this.chain;
@@ -186,6 +240,7 @@ export class Tape {
 
   async close() {
     await this.flush();
+    roots.delete(this);
   }
 }
 

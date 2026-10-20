@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-311 keys. Secrets live only in `.env.local` and are not listed here.
+313 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -39,6 +39,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `JEV_TOKENS_PER_HOUR` | `1500000` | scale knobs: sized for a small VM by default |
 | `JEV_CONCURRENCY` | `4` | scale knobs: sized for a small VM by default |
 | `TAPE_BATCH_MS` | `100` | scale knobs: sized for a small VM by default |
+| `TAPE_MAX_QUEUED` | `200000` | scale knobs: sized for a small VM by default |
 | `JEV_QUEUE_MAX` | `64` | scale knobs: sized for a small VM by default |
 | `JEV_MAX_AGE_S` | `60` | scale knobs: sized for a small VM by default |
 | `DB_POOL` | `8` | scale knobs: sized for a small VM by default |
@@ -275,6 +276,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `JEV_CALLOUT_MIN_FOLLOWERS` | `0` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `JEV_TIMEOUT_MS` | `4000` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `HOLDERS_DELAY_S` | `15` | defaults that lived in code until fix plan 2.1; each key has one default, here |
+| `LAUNCH_SIG_PAGES` | `5` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `INDEX_REFRESH_MIN` | `60` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `SCOUT` | `true` | defaults that lived in code until fix plan 2.1; each key has one default, here |
 | `SENSE_BACKFILL` | `true` | defaults that lived in code until fix plan 2.1; each key has one default, here |

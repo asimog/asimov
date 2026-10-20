@@ -5,6 +5,7 @@ import type postgres from "postgres";
 import type { Clock } from "../lib/clock.ts";
 import type { Sql } from "../lib/db.ts";
 import { log } from "../lib/log.ts";
+import { lowWater, release } from "./tape.ts";
 
 export type Tx = postgres.TransactionSql<Record<string, unknown>>;
 
@@ -32,7 +33,9 @@ export function normalize(r: Row): Envelope {
 
 /** Process at most one batch. Returns how many events were handled. */
 export async function step(sql: Sql, c: Consumer, untilIso?: string): Promise<number> {
+  let held: object | null = null;
   const n = await sql.begin(async (tx) => {
+    held = tx;
     const [off] = await tx`
       insert into tape.consumer_offsets (consumer) values (${c.name})
       on conflict (consumer) do update set consumer = excluded.consumer
@@ -49,7 +52,7 @@ export async function step(sql: Sql, c: Consumer, untilIso?: string): Promise<nu
     const events = rows.map(normalize);
     await apply(tx, c, events);
     return events.length;
-  });
+  }).finally(() => held && release(held));
   if (n) c.afterCommit?.();
   return n;
 }
@@ -92,7 +95,7 @@ export async function runLive(sql: Sql, consumers: Consumer[], _clock: Clock, po
       g.pending = false;
       for (const c of g.consumers) {
         try {
-          await drain(sql, c);
+          await drain(sql, c, lowWater() ?? undefined); // never past a write still open here (docs/SYSTEM.md read order)
         } catch (err) {
           log.error("consumer", { consumer: c.name, err: String(err) });
         }

@@ -15,7 +15,7 @@ import { narrativeFor } from "../memory/narratives.ts";
 import { validate as validateSpec } from "../mind/dsl.ts";
 import { scoresAsOf } from "../scorekeeper/scorekeeper.ts";
 import { latest as latestSoul, updateSoul } from "../soul/soul.ts";
-import type { Tape } from "../tape/tape.ts";
+import { lowWater, type Tape } from "../tape/tape.ts";
 
 export const CAP = {
   synth: "cap:board.synthesis",
@@ -184,7 +184,7 @@ export const TOOLS: Tool[] = [
     const allowed = READ_TOPICS[c.cap] ?? [];
     for (const t of a.topics) if (!allowed.some((p) => t.startsWith(p))) throw new Refusal("out_of_lane", `topic ${t} is not readable with ${c.cap}`);
     const rows = await c.sql`select id, topic, seen_time, subject, body from tape.events
-      where topic = any(${a.topics}) and seen_time <= ${c.clock.iso()}
+      where topic = any(${a.topics}) and seen_time <= ${lowWater() ?? c.clock.iso()} and seen_time <= ${c.clock.iso()}
         and (seen_time, id) > (${a.after_seen_time ?? "1970-01-01T00:00:00Z"}::timestamptz, ${a.after_id ?? ""})
       order by seen_time, id limit ${a.limit}`;
     return { events: rows };
