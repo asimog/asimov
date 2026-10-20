@@ -27,9 +27,19 @@ function num(name: string, fallback: number): number {
   if (!Number.isFinite(n)) throw new Error(`env ${name} must be a number, got ${v}`);
   return n;
 }
-const load = (name: string) => (E[name] ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(E[name]!, "utf8")) as number[])) : undefined);
+function load(name: string) {
+  const file = E[name];
+  if (!file) return undefined;
+  // POSIX modes only: on Windows the bits are not access control
+  if (process.platform !== "win32" && (fs.statSync(file).mode & 0o077) !== 0) throw new Error(`${name}: ${file} is readable by group or others; chmod 600 it`);
+  return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(file, "utf8")) as number[]));
+}
 
-const tokens = Object.fromEntries((E.SIGNER_TOKENS ?? "").split(",").filter(Boolean).map((s) => [s.slice(0, s.indexOf("=")), s.slice(s.indexOf("=") + 1)]));
+const tokens = Object.fromEntries((E.SIGNER_TOKENS ?? "").split(",").filter(Boolean).map((s) => {
+  const i = s.indexOf("=");
+  if (i <= 0 || i === s.length - 1) throw new Error("SIGNER_TOKENS entries are token=capability");
+  return [s.slice(0, i), s.slice(i + 1)];
+}));
 const signer = new Signer({
   keys: { trade: load("SIGNER_KEYPAIR_TRADE"), creator: load("SIGNER_KEYPAIR_CREATOR"), agent: load("SIGNER_KEYPAIR_AGENT"), operator: E.WALLET_OPERATOR },
   tokens,
@@ -38,6 +48,7 @@ const signer = new Signer({
     maxPriorityLamports: num("SIGNER_MAX_PRIORITY_LAMPORTS", 200_000),
     maxOrderLamports: Math.round(num("SIGNER_MAX_ORDER_SOL", 0.05) * 1e9),
     coinMint: E.COIN_MINT,
+    agentRunwayLamports: Math.round(num("AGENT_RUNWAY_SOL", 0) * 1e9),
   },
   auditFile: path.join(root, "artifacts", "signer-audit.jsonl"),
   killFile: path.join(root, "artifacts", "KILL"),

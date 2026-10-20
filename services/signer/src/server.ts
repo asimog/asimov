@@ -3,6 +3,7 @@
 import net from "node:net";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import type { Signer } from "./signer.ts";
 
 /** loopback and private ranges only (docs/OPS.md: no ingress) */
@@ -17,8 +18,9 @@ export function isPrivateHost(h: string): boolean {
 
 export function app(signer: Signer) {
   const a = new Hono();
-  a.get("/health", (c) => c.json({ ok: true, wallets: signer.wallets }));
-  a.post("/sign/:name", async (c) => {
+  a.get("/health", (c) => c.json({ ok: true }));
+  // a Solana transaction is at most 1232 bytes (4 KiB in base64 plus its context is ample)
+  a.post("/sign/:name", bodyLimit({ maxSize: 16 * 1024, onError: (c) => c.json({ ok: false, reason: "body_too_large" }, 413) }), async (c) => {
     const token = c.req.header("authorization")?.replace(/^Bearer /, "") ?? null;
     const body = await c.req.json().catch(() => null);
     const r = await signer.handle(`/sign/${c.req.param("name")}`, token, body);
@@ -31,6 +33,7 @@ export function app(signer: Signer) {
 export function listen(signer: Signer, host: string, port: number) {
   if (!isPrivateHost(host)) throw new Error(`signer refuses to bind ${host}: private addresses only`);
   const server = serve({ fetch: app(signer).fetch, hostname: host, port });
+  (server as unknown as { requestTimeout: number }).requestTimeout = 10_000;
   server.on("error", (err) => {
     console.error(JSON.stringify({ signer: "refused to start", host, port, error: String(err) })); // a taken port could mean core talks to another process
     process.exit(1);

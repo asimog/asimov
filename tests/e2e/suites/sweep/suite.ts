@@ -13,7 +13,7 @@ export const suite: Suite = {
   covers: ["services/core/src/treasury/sweep.ts"],
   proves: "Three sweeps match chain amounts to the lamport; the 50/50 split and the agent runway cap hold; a half-landed sweep is resumed without a second payment; the books still reconcile.",
   async run() {
-    const w = await world("sweep");
+    const w = await world("sweep", { runwaySol: 0.3 }); // the Signer holds the same runway target as the Treasurer
     const checks: Check[] = [];
     const check = (name: string, pass: boolean, detail: string) => checks.push({ name, pass, detail });
     try {

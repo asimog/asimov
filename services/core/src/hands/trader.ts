@@ -143,7 +143,7 @@ export function trader(d: TraderDeps): Trader {
     }
     const withMemo = appendMemo(built.tx, memo);
     const cap = o.side === "buy" ? Math.ceil(lam(o.size_sol ?? 0) * (1 + o.max_slippage_bps / 10_000)) + HEADROOM() : HEADROOM();
-    const signed = await d.swapSigner.sign("/sign/swap", withMemo, { max_lamports: cap, order_id: o.order_id });
+    const signed = await d.swapSigner.sign("/sign/swap", withMemo, { max_lamports: cap, order_id: o.order_id, mint: o.mint, side: o.side, ...(o.side === "sell" ? { max_tokens: Number(amount) } : {}) });
     if (!signed.ok) return fail(tx, e, o, `signer_refused:${signed.reason}`, false, null, n);
     const sim = await chain.simulate(signed.signed, wallet);
     if (sim.err) return failOrRetry(tx, e, o, `simulation_failed:${sim.err.slice(0, 80)}`, null, n);

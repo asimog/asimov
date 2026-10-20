@@ -9,6 +9,7 @@ import type { SignCtx, SignerClient, SignReply } from "../../../services/core/sr
 import { trader } from "../../../services/core/src/hands/trader.ts";
 import { type Clock, liveClock } from "../../../services/core/src/lib/clock.ts";
 import type { Sql } from "../../../services/core/src/lib/db.ts";
+import { env } from "../../../services/core/src/lib/env.ts";
 import { type Consumer, drain, type Tx } from "../../../services/core/src/tape/consumer.ts";
 import { Tape } from "../../../services/core/src/tape/tape.ts";
 import { books, recordDeposit } from "../../../services/core/src/treasury/books.ts";
@@ -33,7 +34,7 @@ export class LocalSigner implements SignerClient {
  * The live leg as runtime.ts wires it: the real gate, Trader, books and kill, on the mock chain with an in-process Signer.
  * Each consumer gets its own clock stream, as buildConsumers gives the paper side.
  */
-export function liveLeg(sql: Sql, tape: Tape, o: { keys: Keys; dir: string; live?: boolean; strategies: () => Set<string>; confirmMs?: number }) {
+export function liveLeg(sql: Sql, tape: Tape, o: { keys: Keys; dir: string; live?: boolean; strategies: () => Set<string>; confirmMs?: number; runwaySol?: number }) {
   const { keys } = o;
   const wallets = { trade: keys.trade.publicKey.toBase58(), creator: keys.creator.publicKey.toBase58(), agent: keys.agent.publicKey.toBase58(), operator: keys.operator };
   const killFile = path.join(o.dir, "KILL");
@@ -41,7 +42,7 @@ export function liveLeg(sql: Sql, tape: Tape, o: { keys: Keys; dir: string; live
   const signer = new Signer({
     keys: { trade: keys.trade, creator: keys.creator, agent: keys.agent, operator: keys.operator },
     tokens: { "cap:sign.swap": "swap-secret", "cap:sign.treasury": "treasury-secret" },
-    rules: { feeRecipients: [], maxPriorityLamports: 100_000, maxOrderLamports: 0.05 * SOL, coinMint: keys.mint },
+    rules: { feeRecipients: [], maxPriorityLamports: 100_000, maxOrderLamports: 0.05 * SOL, coinMint: keys.mint, agentRunwayLamports: Math.round((o.runwaySol ?? env.num("AGENT_RUNWAY_SOL")) * SOL) },
     auditFile: path.join(o.dir, "audit.jsonl"), killFile, ratePerMin: 10_000, now: () => clock.now(),
   });
   const chain = new MockChain();
@@ -59,13 +60,13 @@ export function liveLeg(sql: Sql, tape: Tape, o: { keys: Keys; dir: string; live
   return { wallets, killFile, signer, chain, builder, swapSigner, treasurySigner, gate, trader: tr, books: bk, kill: kl, consumers };
 }
 
-export async function world(tag: string, o: { live?: boolean; strategies?: string[]; confirmMs?: number } = {}) {
+export async function world(tag: string, o: { live?: boolean; strategies?: string[]; confirmMs?: number; runwaySol?: number } = {}) {
   const db = await freshDb(tag);
   const clock: Clock = liveClock("live");
   const tape = new Tape(db.sql, clock);
   const keys = newKeys();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `world-${tag}-`));
-  const leg = liveLeg(db.sql, tape, { keys, dir, live: o.live, strategies: () => new Set(o.strategies ?? ["sr_live"]), confirmMs: o.confirmMs });
+  const leg = liveLeg(db.sql, tape, { keys, dir, live: o.live, strategies: () => new Set(o.strategies ?? ["sr_live"]), confirmMs: o.confirmMs, runwaySol: o.runwaySol });
   const { wallets, killFile, signer, chain, builder, swapSigner, treasurySigner, gate, trader: tr, books: bk, kill: kl, consumers } = leg;
   chain.prices.set(keys.mint, 4e-8);
 

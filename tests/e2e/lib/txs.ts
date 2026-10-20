@@ -2,7 +2,7 @@
 // Keypairs are generated in memory; nothing here touches a real key.
 import crypto from "node:crypto";
 import { NATIVE_MINT, PROGRAMS } from "../../../services/signer/src/policy.ts";
-import { Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "../../../services/signer/src/web3.ts";
+import { AddressLookupTableAccount, Keypair, PublicKey, TransactionInstruction, TransactionMessage, VersionedTransaction } from "../../../services/signer/src/web3.ts";
 
 export const pk = (s: string) => new PublicKey(s);
 export const disc = (name: string) => crypto.createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
@@ -25,18 +25,23 @@ export const closeAccount = (account: string, dest: string, owner: string, progr
   ix(program, [{ pubkey: account }, { pubkey: dest }, { pubkey: owner, signer: true }], Buffer.from([9]));
 export const tokenTransfer = (src: string, dst: string, owner: string, amount: number) =>
   ix(PROGRAMS.token, [{ pubkey: src }, { pubkey: dst }, { pubkey: owner, signer: true }], Buffer.concat([Buffer.from([3]), u64(amount)]));
-export const pumpBuy = (user: string, mint: string, tokens: number, maxSol: number, program: string = PROGRAMS.pump) =>
-  ix(program, [{ pubkey: user, signer: true }, { pubkey: mint }], Buffer.concat([disc("buy"), u64(tokens), u64(maxSol), Buffer.from([0, 0])]));
-export const pumpSell = (user: string, mint: string, tokens: number, minSol: number) =>
-  ix(PROGRAMS.pump, [{ pubkey: user, signer: true }, { pubkey: mint }], Buffer.concat([disc("sell"), u64(tokens), u64(minSol)]));
+/** the wallet's associated token account for a mint (the account a real swap credits) */
+export const ataOf = (owner: string, mint: string) =>
+  PublicKey.findProgramAddressSync([pk(owner).toBuffer(), pk(PROGRAMS.token).toBuffer(), pk(mint).toBuffer()], pk(PROGRAMS.ata))[0].toBase58();
+export const pumpBuy = (user: string, mint: string, tokens: number, maxSol: number, program: string = PROGRAMS.pump, account = ataOf(user, mint)) =>
+  ix(program, [{ pubkey: user, signer: true }, { pubkey: mint }, { pubkey: account }], Buffer.concat([disc("buy"), u64(tokens), u64(maxSol), Buffer.from([0, 0])]));
+export const pumpSell = (user: string, mint: string, tokens: number, minSol: number, account = ataOf(user, mint)) =>
+  ix(PROGRAMS.pump, [{ pubkey: user, signer: true }, { pubkey: mint }, { pubkey: account }], Buffer.concat([disc("sell"), u64(tokens), u64(minSol)]));
 export const pumpNamed = (program: string, name: string, user: string, args: Buffer = Buffer.alloc(0)) =>
   ix(program, [{ pubkey: user, signer: true }], Buffer.concat([disc(name), args]));
 export const createAta = (payer: string, owner: string, mint: string) =>
   ix(PROGRAMS.ata, [{ pubkey: payer, signer: true }, { pubkey: payer }, { pubkey: owner }, { pubkey: mint }], Buffer.from([1]));
 
-export function build(payer: string, ixs: TransactionInstruction[], extraSigners: string[] = [], blockhash: string = PROGRAMS.system): { tx: VersionedTransaction; b64: string } {
+/** `lookup`: addresses moved into a lookup table, so the message names them by table index instead of as static keys */
+export function build(payer: string, ixs: TransactionInstruction[], extraSigners: string[] = [], blockhash: string = PROGRAMS.system, lookup: string[] = []): { tx: VersionedTransaction; b64: string } {
   void extraSigners;
-  const msg = new TransactionMessage({ payerKey: pk(payer), recentBlockhash: blockhash, instructions: ixs }).compileToV0Message();
+  const tables = lookup.length ? [new AddressLookupTableAccount({ key: pk(PROGRAMS.system), state: { deactivationSlot: BigInt("18446744073709551615"), lastExtendedSlot: 0, lastExtendedSlotStartIndex: 0, addresses: lookup.map(pk) } })] : [];
+  const msg = new TransactionMessage({ payerKey: pk(payer), recentBlockhash: blockhash, instructions: ixs }).compileToV0Message(tables);
   const tx = new VersionedTransaction(msg);
   return { tx, b64: Buffer.from(tx.serialize()).toString("base64") };
 }

@@ -8,7 +8,7 @@ import { isPrivateHost } from "../../../../services/signer/src/server.ts";
 import { Signer, verifyAudit } from "../../../../services/signer/src/signer.ts";
 import { PublicKey } from "../../../../services/signer/src/web3.ts";
 import type { Suite } from "../../lib/suite.ts";
-import { budget, build, closeAccount, createAta, ix, memo, NATIVE_MINT, newKeys, PROGRAMS, pk, pumpBuy, pumpNamed, pumpSell, tokenTransfer, transfer, u64 } from "../../lib/txs.ts";
+import { ataOf, budget, build, closeAccount, createAta, disc, ix, memo, NATIVE_MINT, newKeys, PROGRAMS, pk, pumpBuy, pumpNamed, pumpSell, tokenTransfer, transfer, u64 } from "../../lib/txs.ts";
 
 const SOL = 1e9;
 export const suite: Suite = {
@@ -25,7 +25,7 @@ export const suite: Suite = {
     const signer = new Signer({
       keys: { trade: k.trade, creator: k.creator, agent: k.agent, operator: k.operator },
       tokens: { "cap:sign.swap": "swap-secret", "cap:sign.treasury": "treasury-secret", "cap:sign.login": "login-secret" },
-      rules: { feeRecipients: [k.fee], maxPriorityLamports: 100_000, maxOrderLamports: 0.05 * SOL, coinMint: k.mint },
+      rules: { feeRecipients: [k.fee], maxPriorityLamports: 100_000, maxOrderLamports: 0.05 * SOL, coinMint: k.mint, agentRunwayLamports: SOL },
       auditFile, killFile, ratePerMin: 1000, now: () => t++,
     });
     const T = k.trade.publicKey.toBase58();
@@ -34,7 +34,8 @@ export const suite: Suite = {
     const S = k.stranger.publicKey.toBase58();
     const SWAP = "swap-secret";
     const TREAS = "treasury-secret";
-    const ctx = { max_lamports: 0.02 * SOL, order_id: "or_1" };
+    const ctx = { max_lamports: 0.02 * SOL, order_id: "or_1", mint: k.mint, side: "buy" as const };
+    const sellCtx = { max_lamports: 0.02 * SOL, order_id: "or_2", mint: k.mint, side: "sell" as const, max_tokens: 500_000 };
     const memoIx = memo("asimog:or_1");
     const wsol = PublicKey.findProgramAddressSync([pk(T).toBuffer(), pk(PROGRAMS.token).toBuffer(), pk(NATIVE_MINT).toBuffer()], pk(PROGRAMS.ata))[0].toBase58();
 
@@ -43,13 +44,25 @@ export const suite: Suite = {
     const goodBuy = [...budget(200_000, 100_000), createAta(T, T, k.mint), pumpBuy(T, k.mint, 1_000_000, 0.02 * SOL), memoIx];
     const cases: Case[] = [
       swap("clean pump buy signs", goodBuy, "ok"),
-      swap("clean pump sell signs", [...budget(200_000, 100_000), pumpSell(T, k.mint, 500_000, 1), memoIx], "ok", { max_lamports: 0.02 * SOL, order_id: "or_2" }),
+      swap("clean pump sell signs", [...budget(200_000, 100_000), pumpSell(T, k.mint, 500_000, 1), memo("asimog:or_2")], "ok", sellCtx),
+      swap("a retry carries the order's attempt memo and signs", [pumpBuy(T, k.mint, 1, 1000), memo("asimog:or_1:r2")], "ok"),
+      swap("a swap that names no order", [pumpBuy(T, k.mint, 1, 1000), memoIx], "no_order", { max_lamports: 0.02 * SOL }),
+      swap("a swap that names no side or mint", [pumpBuy(T, k.mint, 1, 1000), memoIx], "no_order", { max_lamports: 0.02 * SOL, order_id: "or_1" }),
+      swap("another order's memo", [pumpBuy(T, k.mint, 1, 1000), memo("asimog:or_9")], "memo_mismatch"),
+      swap("two memos", [pumpBuy(T, k.mint, 1, 1000), memoIx, memoIx], "memo_missing"),
+      swap("a buy of another mint", [pumpBuy(T, k.fee, 1, 1000), memoIx], "wrong_mint"),
+      swap("a buy that credits a stranger's token account", [pumpBuy(T, k.mint, 1, 1000, PROGRAMS.pump, ataOf(S, k.mint)), memoIx], "token_account"),
+      swap("a sell on a buy order", [pumpSell(T, k.mint, 1, 0), memoIx], "wrong_side"),
+      swap("a sell over the order's token bound", [pumpSell(T, k.mint, 600_000, 1), memo("asimog:or_2")], "over_sell_bound", sellCtx),
+      swap("a sell with no token bound", [pumpSell(T, k.mint, 1, 1), memo("asimog:or_2")], "no_sell_bound", { ...sellCtx, max_tokens: undefined }),
+      swap("a memo only, no trade", [memoIx], "no_trade"),
+      { name: "a trade account hidden in a lookup table", endpoint: "/sign/swap", token: SWAP, tx: build(T, [pumpBuy(T, k.mint, 1, 1000), memoIx], [], PROGRAMS.system, [ataOf(T, k.mint)]).b64, ctx, expect: "lookup_table_account" },
       swap("amm buy signs", [pumpBuy(T, k.mint, 1, 0.01 * SOL, PROGRAMS.amm), memoIx], "ok"),
       swap("amm buy that wraps SOL into our own wSOL account counts the order once", [createAta(T, T, NATIVE_MINT), transfer(T, wsol, 0.02 * SOL), pumpBuy(T, k.mint, 1, 0.02 * SOL, PROGRAMS.amm), memoIx], "ok"),
-      swap("buy_exact_sol_in reads its cap at offset 8", [pumpNamed(PROGRAMS.pump, "buy_exact_sol_in", T, u64(0.5 * SOL)), memoIx], "over_cap"),
+      swap("buy_exact_sol_in reads its cap at offset 8", [ix(PROGRAMS.pump, [{ pubkey: T, signer: true }, { pubkey: k.mint }, { pubkey: ataOf(T, k.mint) }], Buffer.concat([disc("buy_exact_sol_in"), u64(0.5 * SOL)])), memoIx], "over_cap"),
       swap("buy spends more than the order cap", [pumpBuy(T, k.mint, 1, 0.03 * SOL), memoIx], "over_cap"),
-      swap("buy over the signer's own cap even when the request lies", [pumpBuy(T, k.mint, 1, 5 * SOL), memoIx], "over_cap", { max_lamports: 100 * SOL, order_id: "or_1" }),
-      swap("request without a cap", [pumpBuy(T, k.mint, 1, 1000), memoIx], "no_cap", { order_id: "or_1" }),
+      swap("buy over the signer's own cap even when the request lies", [pumpBuy(T, k.mint, 1, 5 * SOL), memoIx], "over_cap", { ...ctx, max_lamports: 100 * SOL }),
+      swap("request without a cap", [pumpBuy(T, k.mint, 1, 1000), memoIx], "no_cap", { ...ctx, max_lamports: undefined }),
       swap("drain: transfer to a stranger", [transfer(T, S, 1000), memoIx], "transfer_destination"),
       swap("transfer from someone else needs their signature", [transfer(S, T, 1000), memoIx], "extra_signers"),
       swap("transfer to a fee recipient signs", [transfer(T, k.fee, 5000), pumpBuy(T, k.mint, 1, 0.01 * SOL), memoIx], "ok"),
@@ -63,7 +76,7 @@ export const suite: Suite = {
       swap("ata created for a stranger", [createAta(T, S, k.mint), pumpBuy(T, k.mint, 1, 1000), memoIx], "ata_owner"),
       swap("priority fee over the cap", [...budget(1_400_000, 5_000_000), pumpBuy(T, k.mint, 1, 1000), memoIx], "priority_fee_too_high"),
       swap("order without its memo", [pumpBuy(T, k.mint, 1, 1000)], "memo_missing"),
-      swap("memo without our prefix", [pumpBuy(T, k.mint, 1, 1000), memo("hello")], "memo_prefix"),
+      swap("memo without our prefix", [pumpBuy(T, k.mint, 1, 1000), memo("hello")], "memo_mismatch"),
       swap("system create-account", [ix(PROGRAMS.system, [{ pubkey: T, signer: true }, { pubkey: S }], Buffer.concat([Buffer.from(new Uint32Array([0]).buffer), u64(1)])), memoIx], "system_instruction"),
       { name: "garbage transaction", endpoint: "/sign/swap", token: SWAP, tx: "not-a-transaction", ctx, expect: "bad_transaction" },
       { name: "no token", endpoint: "/sign/swap", token: null, tx: build(T, goodBuy).b64, ctx, expect: "bad_capability" },
@@ -94,6 +107,7 @@ export const suite: Suite = {
       { name: "sweep gives the trade wallet less than half", endpoint: "/sign/sweep-split", token: TREAS, tx: build(C, [transfer(C, T, 0.4 * SOL), transfer(C, k.operator, 0.6 * SOL)]).b64, ctx: { total_lamports: SOL, agent_room_lamports: 0 }, expect: "split_trade" },
       { name: "sweep pays the agent over its room", endpoint: "/sign/sweep-split", token: TREAS, tx: build(C, [transfer(C, T, 0.5 * SOL), transfer(C, A, 0.5 * SOL)]).b64, ctx: { total_lamports: SOL, agent_room_lamports: 0.1 * SOL }, expect: "split_agent" },
       { name: "sweep pays a stranger", endpoint: "/sign/sweep-split", token: TREAS, tx: build(C, [transfer(C, T, 0.5 * SOL), transfer(C, S, 0.5 * SOL)]).b64, ctx: { total_lamports: SOL, agent_room_lamports: 0 }, expect: "transfer_destination" },
+      { name: "sweep room above the Signer's runway target", endpoint: "/sign/sweep-split", token: TREAS, tx: build(C, [transfer(C, T, 0.5 * SOL), transfer(C, A, 0.5 * SOL)]).b64, ctx: { total_lamports: SOL, agent_room_lamports: 2 * SOL }, expect: "room_over_runway" },
       { name: "sweep moves more than the stated total", endpoint: "/sign/sweep-split", token: TREAS, tx: build(C, [transfer(C, T, 0.5 * SOL), transfer(C, k.operator, 5 * SOL)]).b64, ctx: { total_lamports: SOL, agent_room_lamports: 0 }, expect: "split_total" },
     ];
 
@@ -121,9 +135,10 @@ export const suite: Suite = {
     fs.rmSync(killFile);
 
     // rate limit
-    const limited = new Signer({ keys: { trade: k.trade }, tokens: { "cap:sign.swap": SWAP }, rules: { feeRecipients: [], maxPriorityLamports: 1, maxOrderLamports: SOL }, auditFile: path.join(dir, "r.jsonl"), killFile, ratePerMin: 3, now: () => 1 });
+    const limited = new Signer({ keys: { trade: k.trade }, tokens: { "cap:sign.swap": SWAP }, rules: { feeRecipients: [], maxPriorityLamports: 1, maxOrderLamports: SOL, agentRunwayLamports: 0 }, auditFile: path.join(dir, "r.jsonl"), killFile, ratePerMin: 3, now: () => 1 });
     const rl: string[] = [];
-    for (let i = 0; i < 5; i++) rl.push((await limited.handle("/sign/swap", "bad", { tx: "x" })).body.reason ?? "ok");
+    for (let i = 0; i < 3; i++) await limited.handle("/sign/swap", "bad", { tx: "x" }); // refused before the limiter: they spend none of it
+    for (let i = 0; i < 5; i++) rl.push((await limited.handle("/sign/swap", SWAP, { tx: "x" })).body.reason ?? "ok");
 
     // audit: every request has a line; chain verifies; tampering is detected; no secret appears
     const audit = verifyAudit(auditFile);
@@ -135,7 +150,7 @@ export const suite: Suite = {
     const leaks = ["swap-secret", "treasury-secret", "login-secret", Buffer.from(k.trade.secretKey).toString("base64")].filter((s) => text.includes(s));
 
     // restart keeps the chain
-    const again = new Signer({ keys: { trade: k.trade }, tokens: { "cap:sign.swap": SWAP }, rules: { feeRecipients: [], maxPriorityLamports: 1, maxOrderLamports: SOL }, auditFile, killFile });
+    const again = new Signer({ keys: { trade: k.trade }, tokens: { "cap:sign.swap": SWAP }, rules: { feeRecipients: [], maxPriorityLamports: 1, maxOrderLamports: SOL, agentRunwayLamports: 0 }, auditFile, killFile });
     await again.handle("/sign/swap", "bad", { tx: "x" });
     const afterRestart = verifyAudit(auditFile);
 
@@ -147,7 +162,7 @@ export const suite: Suite = {
         { name: "allowed shapes signed with the right key", pass: signedByTrade && good.body.ok === true, detail: `${signedOk} allowed cases; swap signature present: ${signedByTrade}` },
         { name: "exit_only kill file stops buys, not close-account", pass: killed.body.reason === "kill_switch" && closeWhileKilled.body.ok === true, detail: `swap ${killed.body.reason}, close ${closeWhileKilled.body.ok}` },
         { name: "any other kill file content halts every endpoint", pass: closeWhileHalted.body.reason === "kill_switch", detail: `close ${closeWhileHalted.body.reason ?? "signed"}` },
-        { name: "rate limit per endpoint", pass: rl.slice(0, 3).every((x) => x === "bad_capability") && rl.slice(3).every((x) => x === "rate_limited"), detail: rl.join(",") },
+        { name: "rate limit per endpoint, counted only after the capability check", pass: rl.slice(0, 3).every((x) => x === "bad_transaction") && rl.slice(3).every((x) => x === "rate_limited"), detail: rl.join(",") },
         { name: "every request has an audit line", pass: lines.length >= cases.length, detail: `${lines.length} lines for ${cases.length} cases` },
         { name: "audit chain verifies", pass: audit.ok, detail: `${audit.lines} lines` },
         { name: "audit tampering is detected", pass: !tampered.ok && tampered.bad === tamperAt, detail: `bad line ${tampered.bad}, tampered line ${tamperAt}` },

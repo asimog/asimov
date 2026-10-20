@@ -30,7 +30,8 @@ export const suite: Suite = {
     const w = await world("kill");
     const directBuy = async () => {
       const built = await w.builder.swap({ side: "buy", mint: w.mint, wallet: w.wallets.trade, amount: "10000000", slippagePct: 3 });
-      return w.swapSigner.sign("/sign/swap", appendMemo(built.tx, `asimog:direct${w.chain.next()}`), { max_lamports: 20_000_000, order_id: "direct" });
+      const id = `direct${w.chain.next()}`;
+      return w.swapSigner.sign("/sign/swap", appendMemo(built.tx, `asimog:${id}`), { max_lamports: 20_000_000, order_id: id, mint: w.mint, side: "buy" });
     };
     const fills = async () => (await w.topic("order.filled")).map((e) => e.body.side).join();
     check("the paper fill model charges the same token account rent as the chain", Math.round(F.rentSol * 1e9) === ATA_RENT, `${F.rentSol} SOL vs ${ATA_RENT} lamports`);

@@ -1,7 +1,7 @@
 // How the core asks the Signer (docs/EXECUTION.md). One client per capability token; the tests use an in-process implementation.
 import { env } from "../lib/env.ts";
 
-export type SignCtx = { max_lamports?: number; order_id?: string; total_lamports?: number; agent_room_lamports?: number; mint?: string };
+export type SignCtx = { max_lamports?: number; order_id?: string; side?: "buy" | "sell"; max_tokens?: number; total_lamports?: number; agent_room_lamports?: number; mint?: string };
 export type SignReply = { ok: true; signed: string; signature: string } | { ok: false; reason: string; detail?: string };
 
 export interface SignerClient {

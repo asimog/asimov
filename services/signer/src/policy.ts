@@ -31,8 +31,14 @@ export type Verdict = { ok: true; detail?: Record<string, unknown> } | { ok: fal
 const no = (reason: string, detail?: string): Verdict => ({ ok: false, reason, detail });
 
 export type Wallets = { trade?: string; creator?: string; agent?: string; operator?: string };
-export type Rules = { feeRecipients: string[]; maxPriorityLamports: number; maxOrderLamports: number; coinMint?: string };
-export type Ctx = { killed?: boolean; max_lamports?: number; order_id?: string; total_lamports?: number; agent_room_lamports?: number; mint?: string };
+export type Rules = { feeRecipients: string[]; maxPriorityLamports: number; maxOrderLamports: number; coinMint?: string; agentRunwayLamports: number };
+export type Ctx = {
+  killed?: boolean; max_lamports?: number; total_lamports?: number; agent_room_lamports?: number; mint?: string;
+  /** a swap names the order it executes: the memo must be that order's, the swap must trade its mint on its side */
+  order_id?: string; side?: "buy" | "sell";
+  /** a sell's token ceiling in base units: the most the order may sell */
+  max_tokens?: number;
+};
 
 export function parse(b64: string): VersionedTransaction | null {
   try {
@@ -53,7 +59,7 @@ function instructions(tx: VersionedTransaction): { keys: string[]; ixs: Ix[] } {
   return { keys, ixs };
 }
 
-const ata = (owner: string, mint: string) => PublicKey.findProgramAddressSync([new PublicKey(owner).toBuffer(), new PublicKey(PROGRAMS.token).toBuffer(), new PublicKey(mint).toBuffer()], new PublicKey(PROGRAMS.ata))[0].toBase58();
+const ata = (owner: string, mint: string, program: string = PROGRAMS.token) => PublicKey.findProgramAddressSync([new PublicKey(owner).toBuffer(), new PublicKey(program).toBuffer(), new PublicKey(mint).toBuffer()], new PublicKey(PROGRAMS.ata))[0].toBase58();
 
 /** shared pass: one signer, who is the fee payer; every program on the endpoint's list; compute budget within the cap */
 function walk(tx: VersionedTransaction, who: string, allowed: string[], rules: Rules, each: (ix: Ix) => Verdict | null): Verdict {
@@ -97,15 +103,23 @@ function named(ix: Ix, t: Map<string, { name: string; off: number | null }>): { 
 }
 const isVerdict = (x: unknown): x is Verdict => typeof x === "object" && x !== null && "ok" in x;
 
+const ORDER_ID = /^[A-Za-z0-9_]{4,64}$/;
+
 export function checkSwap(tx: VersionedTransaction, w: Wallets, ctx: Ctx, rules: Rules): Verdict {
   if (!w.trade) return no("endpoint_not_enabled", "no trade key");
   const cap = Math.min(ctx.max_lamports ?? 0, rules.maxOrderLamports);
   if (!(cap > 0)) return no("no_cap", "request carries no spend cap");
+  if (!ctx.order_id || !ORDER_ID.test(ctx.order_id)) return no("no_order", "a swap names the order it executes");
+  if (!ctx.mint || (ctx.side !== "buy" && ctx.side !== "sell")) return no("no_order", "a swap names its order's mint and side");
+  if (ctx.side === "sell" && !(Number.isSafeInteger(ctx.max_tokens) && ctx.max_tokens! > 0)) return no("no_sell_bound", "a sell names the most tokens it may sell");
+  const memoRe = new RegExp(`^asimog:${ctx.order_id}(:r\\d+)?$`);
+  const ours = new Set([ata(w.trade, ctx.mint), ata(w.trade, ctx.mint, PROGRAMS.token22)]);
   const allowed = [PROGRAMS.pump, PROGRAMS.amm, PROGRAMS.fees, PROGRAMS.budget, PROGRAMS.ata, PROGRAMS.system, PROGRAMS.token, PROGRAMS.token22, PROGRAMS.memo];
   const dests = new Set([w.trade, ata(w.trade, NATIVE_MINT), ...rules.feeRecipients]);
   let spend = 0;
   let buys = 0;
-  let memo = false;
+  let sells = 0;
+  let memos = 0;
   const v = walk(tx, w.trade, allowed, rules, (ix) => {
     if (ix.program === PROGRAMS.system) {
       const t = sysTransfer(ix);
@@ -116,13 +130,26 @@ export function checkSwap(tx: VersionedTransaction, w: Wallets, ctx: Ctx, rules:
     } else if (ix.program === PROGRAMS.token || ix.program === PROGRAMS.token22) return tokenIx(ix, w.trade!);
     else if (ix.program === PROGRAMS.ata) return ataIx(ix, w.trade!);
     else if (ix.program === PROGRAMS.memo) {
-      if (!ix.data.toString("utf8").startsWith("asimog:")) return no("memo_prefix", "memo must start with asimog:");
-      memo = true;
+      if (!memoRe.test(ix.data.toString("utf8"))) return no("memo_mismatch", "memo must be the order's own");
+      memos++;
     } else {
       const t = ix.program === PROGRAMS.pump ? T.pump : ix.program === PROGRAMS.amm ? T.amm : T.fees;
       const n = named(ix, t);
       if (isVerdict(n)) return n;
+      const trade = n.name.startsWith("buy") || n.name.startsWith("sell");
+      if (trade) {
+        // an account from a lookup table is invisible here, so a trade instruction must name every account itself
+        if (ix.accounts.includes(null)) return no("lookup_table_account", n.name);
+        if (!ix.accounts.includes(ctx.mint!)) return no("wrong_mint", `${n.name} does not trade the order's mint`);
+        if (!ix.accounts.some((a) => a !== null && ours.has(a))) return no("token_account", `${n.name} does not use the trade wallet's token account`);
+        if (!n.name.startsWith(ctx.side!)) return no("wrong_side", `${n.name} on a ${ctx.side} order`);
+      }
       if (n.name.startsWith("buy")) buys++;
+      if (n.name.startsWith("sell")) {
+        sells++;
+        const amount = Number(ix.data.readBigUInt64LE(8));
+        if (amount > ctx.max_tokens!) return no("over_sell_bound", `${amount} tokens over ${ctx.max_tokens}`);
+      }
       if (n.off != null) spend += Number(ix.data.readBigUInt64LE(n.off));
     }
     return null;
@@ -130,7 +157,8 @@ export function checkSwap(tx: VersionedTransaction, w: Wallets, ctx: Ctx, rules:
   if (!v.ok) return v;
   if (ctx.killed && buys > 0) return no("kill_switch", "the kill switch allows exits only");
   if (spend > cap) return no("over_cap", `${spend} lamports over ${cap}`);
-  if (ctx.order_id && !memo) return no("memo_missing", "order memo is required");
+  if (memos !== 1) return no("memo_missing", "exactly one order memo is required");
+  if (buys + sells === 0) return no("no_trade", "a swap trades");
   return { ok: true, detail: { spend_lamports: spend } };
 }
 
@@ -198,6 +226,8 @@ export function checkSweepSplit(tx: VersionedTransaction, w: Wallets, ctx: Ctx, 
   const toOp = got.get(w.operator) ?? 0;
   if (toTrade !== Math.floor(total / 2)) return no("split_trade", `${toTrade} is not half of ${total}`);
   const rest = total - toTrade;
+  // the room is the caller's number, so the Signer bounds it by its own runway target: the agent wallet never gets more
+  if ((ctx.agent_room_lamports ?? 0) > rules.agentRunwayLamports) return no("room_over_runway", `${ctx.agent_room_lamports} over the runway ${rules.agentRunwayLamports}`);
   const wantAgent = Math.min(rest, Math.max(0, ctx.agent_room_lamports ?? 0));
   if (toAgent !== wantAgent) return no("split_agent", `${toAgent} to the agent wallet, want ${wantAgent} (its room up to the runway target)`);
   if (toTrade + toAgent + toOp !== total) return no("split_total", "legs do not add up to the total");

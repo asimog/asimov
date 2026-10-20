@@ -87,9 +87,9 @@ export class Signer {
       return { status, body: { ok: false, reason, detail } };
     };
     if (!(ENDPOINTS as readonly string[]).includes(endpoint)) return refuse(404, "unknown_endpoint");
-    if (this.limited(endpoint)) return refuse(429, "rate_limited");
     const cap = this.capOf(endpoint, token);
-    if (!cap) return refuse(401, "bad_capability");
+    if (!cap) return refuse(401, "bad_capability"); // before the limiter, so an unauthenticated caller cannot spend the real caller's rate
+    if (this.limited(endpoint)) return refuse(429, "rate_limited", undefined, cap);
     if (endpoint === "/sign/login" || endpoint === "/sign/bounty" || endpoint === "/sign/x402") return refuse(501, "endpoint_not_enabled", "arrives with S8 and S9", cap);
     const kill = this.killState();
     if (kill === "halted") return refuse(403, "kill_switch", "halted", cap);

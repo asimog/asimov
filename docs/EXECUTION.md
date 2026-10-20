@@ -36,12 +36,12 @@ A tiny HTTP service bound to a private address. It refuses to start on a public 
 
 | Endpoint | Token | Signs only if |
 |---|---|---|
-| `/sign/swap` | `cap:sign.swap` | Fee payer and only signer is W_trade; programs on the allowlist (Pump, Pump AMM, Pump Fees, Compute Budget, Associated Token, System, Token, Token-2022, Memo); pump and AMM instructions on a named list with the base and quote token accounts pinned; buy SOL at most the order cap and `SIGNER_MAX_ORDER_SOL`; sell size bounded; memo starts with `asimog:` |
+| `/sign/swap` | `cap:sign.swap` | Fee payer and only signer is W_trade; programs on the allowlist (Pump, Pump AMM, Pump Fees, Compute Budget, Associated Token, System, Token, Token-2022, Memo); pump and AMM instructions on a named list; the request names its order (`order_id`, `mint`, `side`, and for a sell `max_tokens`) and the transaction must match it: exactly one memo `asimog:<order_id>` (or its retry `:rN`), every trade instruction trades that mint on that side through W_trade's own token account and names no account through a lookup table; buy SOL at most the order cap and `SIGNER_MAX_ORDER_SOL`; sell tokens at most `max_tokens`. The caller still states the order, so this binds a transaction to its stated intent and catches a wrong build; it does not stop a fully compromised core, which the per-order cap and the kill file bound |
 | `/sign/close-account` | `cap:sign.swap` | Closes an empty W_trade token account, rent to W_trade |
-| `/sign/collect-fees`, `/sign/sweep-split`, `/sign/memo` | `cap:sign.treasury` | Our coin, W_creator, the split rule, the proof memo |
+| `/sign/collect-fees`, `/sign/sweep-split`, `/sign/memo` | `cap:sign.treasury` | Our coin, W_creator, the split rule (the agent's room is refused above the Signer's own `AGENT_RUNWAY_SOL`), the proof memo |
 | `/sign/login` | `cap:sign.login` | A message matching the pump.fun login pattern; never a transaction |
 
-The Signer reads the kill file on every request: no file means running, `exit_only` refuses buys, anything else refuses everything. Its audit log is append-only and hash-chained, mirrored to the Tape. Three refusals in 10 minutes move the kill state to `exit_only`. It authenticates before rate-limiting and `/health` returns only `{ok: true}`.
+The Signer reads the kill file on every request: no file means running, `exit_only` refuses buys, anything else refuses everything. Its audit log is append-only and hash-chained, mirrored to the Tape. Three refusals in 10 minutes move the kill state to `exit_only`. It authenticates before rate-limiting and `/health` returns only `{ok: true}`. A body over 16 KiB is refused, a request times out after 10 s, and on POSIX a key file readable by group or others stops boot.
 
 ## 4. Thesis
 
