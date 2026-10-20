@@ -27,6 +27,7 @@ export default function WikiPage() {
         </dl>
       </header>
       {error && !data ? <p className="empty">The relay is unreachable ({error}).</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       <WikiSearch />
       {groups.map((g) => {
         const rows = pages.filter((p) => p.kind === g.kind);

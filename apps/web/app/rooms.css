@@ -48,7 +48,7 @@
   margin: 0;
   font-family: var(--font-cond), var(--font-sans), sans-serif;
   font-weight: 500;
-  font-size: clamp(2rem, 1.2rem + 2.6vw, 3.6rem);
+  font-size: var(--step-5);
   line-height: 0.96;
   letter-spacing: -0.03em;
   text-wrap: balance;

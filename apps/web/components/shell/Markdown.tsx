@@ -15,7 +15,7 @@ function inline(s: string): ReactNode[] {
 }
 
 export function Markdown({ text }: { text: string }) {
-  const body = text.replace(/^---\n[\s\S]*?\n---\n/, ""); // front matter is shown separately
+  const body = text.replace(/\r\n/g, "\n").replace(/^---\n[\s\S]*?\n---\n/, ""); // front matter is shown separately
   const out: ReactNode[] = [];
   let list: string[] = [];
   const flush = () => {
@@ -23,7 +23,18 @@ export function Markdown({ text }: { text: string }) {
     if (list.length) out.push(<ul key={out.length}>{list.map((l, i) => <li key={i}>{inline(l)}</li>)}</ul>);
     list = [];
   };
-  for (const block of body.split(/\n\s*\n/)) {
+  // a fenced block is kept whole, its blank lines included, and shown as written
+  const blocks = body.split(/(```[\s\S]*?```)/).flatMap((part) => (part.startsWith("```") ? [part] : part.split(/\n\s*\n/)));
+  for (const block of blocks) {
+    if (block.startsWith("```")) {
+      flush();
+      out.push(
+        <pre key={out.length}>
+          <code>{block.replace(/^```[^\n]*\n?/, "").replace(/```$/, "")}</code>
+        </pre>,
+      );
+      continue;
+    }
     const lines = block.trim().split("\n");
     if (!lines[0]) continue;
     if (lines.every((l) => /^[-*] /.test(l))) {

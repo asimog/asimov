@@ -8,6 +8,7 @@
     "start": "next start -p 7402"
   },
   "dependencies": {
+    "@asimog/contracts": "workspace:*",
     "@react-three/fiber": "9.8.2",
     "next": "16.4.2",
     "react": "19.3.1",

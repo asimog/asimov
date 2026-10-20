@@ -50,6 +50,7 @@ export default function WikiSlugPage({ params }: { params: Promise<{ slug: strin
         </dl>
       </header>
       {error && !data ? <p className="empty">No such page ({error}).</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       {data ? (
         <>
           <section className="room-section case-section" data-class="statistics" aria-label="Numbers">

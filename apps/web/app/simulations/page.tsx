@@ -45,6 +45,7 @@ export default function SimulationsPage() {
         </dl>
       </header>
       {error && !data ? <p className="empty">The relay is unreachable ({error}).</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       {!data ? <p className="empty">Loading the runs.</p> : !data.runs.length ? <p className="empty">No swarm yet. A swarm runs when a coin is escalated.</p> : data.runs.map((r) => (
         <section key={r.id} className="room-section" aria-label={`Swarm on ${r.sym}`}>
           <h2 className="micro"><span className="chip" data-tone="stress">SIMULATED</span> {r.sym} · {r.preset} · {fmt.ago(now - r.t)}{r.truncated ? " · stopped at its budget" : ""}</h2>

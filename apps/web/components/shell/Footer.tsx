@@ -7,7 +7,7 @@ export function Footer() {
         <Link href="/terms">Terms</Link>
         <Link href="/privacy">Privacy</Link>
         <Link href="/disclosures">Disclosures</Link>
-        <Link href="/lab">Proofs</Link>
+        <Link href="/treasury">Proofs</Link>
         <Link href="/charter">Constitution</Link>
       </nav>
       <p>Paper trading. No live money yet. Not financial advice.</p>

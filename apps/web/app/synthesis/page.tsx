@@ -44,6 +44,7 @@ export default function SynthesisPage() {
         </dl>
       </header>
       {error && !data ? <p className="empty">The relay is unreachable ({error}).</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       <div className="room-grid">
         <section className="room-section" aria-label="Forum">
           <h2 className="micro">Forum, newest last</h2>

@@ -2,7 +2,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { Hud } from "@/components/hud/Hud";
-import { graduatedLive, useLive } from "@/lib/live";
+import { graduatedLive, liveEdges, useLive } from "@/lib/live";
 import type { Overlay } from "./FieldScene";
 
 // The WebGL chunk loads after first paint (docs/UI.md budget); the HUD and strip are real data from the first frame.
@@ -16,7 +16,8 @@ export function FieldInstrument() {
   const [webgl, setWebgl] = useState(true);
   const coins = useLive((s) => s.coins);
   const snap = useLive((s) => s.snap);
-  const lines = useLive((s) => s.lines);
+  const connected = useLive((s) => s.connected);
+  const calls = useLive((s) => s.callouts);
 
   useEffect(() => {
     setMobile(window.matchMedia("(max-width: 760px)").matches);
@@ -27,13 +28,12 @@ export function FieldInstrument() {
   const grads = new Set([...(snap?.graduated ?? []), ...graduatedLive]);
   const onCurve = [...coins.keys()].filter((m) => !grads.has(m)).length;
   const graduated = [...coins.keys()].filter((m) => grads.has(m)).length;
-  const links = snap?.edges.length ?? 0;
-  const calls = lines.filter((l) => l.topic === "callout.created").length;
+  const links = (snap?.edges.length ?? 0) + liveEdges.length; // the snapshot's strands plus the ones learned live
 
   return (
     <section className="field" aria-label="The Field: every watched coin as a cloud of light, the firm at the centre">
       <div className="field-stage">
-        {webgl ? <FieldScene overlay={overlay} mobile={mobile} /> : <p className="empty field-fallback">This browser has no WebGL. Every number below is still live.</p>}
+        {webgl ? <FieldScene overlay={overlay} mobile={mobile} onLost={() => setWebgl(false)} /> : <p className="empty field-fallback">The Field's WebGL is not available here. Every number below is still live.</p>}
         <svg className="field-leaders" aria-hidden="true">
           {overlay.current.boxes.map((b, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: boxes are a fixed pool bound to refs by position
@@ -65,7 +65,7 @@ export function FieldInstrument() {
         </div>
         <Hud />
         <dl className="field-legend micro" aria-label="Field legend">
-          <div><dt>Field</dt><dd>{snap ? "live" : "loading"}</dd></div>
+          <div><dt>Field</dt><dd>{connected ? "live" : snap ? "snapshot only" : "loading"}</dd></div>
           <div><dt>Caller links</dt><dd className="num">{links}</dd></div>
           <div><dt>Callouts this visit</dt><dd className="num">{calls}</dd></div>
           <div><dt>Mode</dt><dd>{snap?.mode ?? "·"}</dd></div>

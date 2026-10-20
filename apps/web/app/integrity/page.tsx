@@ -18,6 +18,7 @@ function RugFeedSection() {
   return (
     <section className="room-section" aria-label="Rug feed" data-rugfeed={data ? data.coins.length : undefined}>
       <h2 className="micro">Rug feed, 24 h · indicators, not proof · scanned {data?.reports_scanned ?? "·"} replies, {data?.risk_coins ?? "·"} risk reads</h2>
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       {error && !data ? <p className="empty">The relay is unreachable ({error}).</p> : !data ? <p className="empty">Loading the rug feed.</p> : !data.coins.length ? (
         <p className="empty">No coin at or past a risk floor, and no reply reporting a rug, in 24 hours. A coin appears here when its risk read breaches a floor or a scraped reply reports a rug or a dev dump.</p>
       ) : data.coins.map((c) => (

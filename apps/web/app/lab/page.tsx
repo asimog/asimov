@@ -85,6 +85,7 @@ export default function LabPage() {
         </dl>
       </header>
       {error && !data ? <p className="empty">The relay is unreachable ({error}). The arc returns when it answers.</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       {data ? <Arc items={data.items} /> : <div className="lab-arc lab-arc-loading" aria-hidden="true" />}
       <section className="room-section" aria-label="Latest theses">
         <h2 className="micro">Latest theses</h2>

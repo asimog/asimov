@@ -1,7 +1,8 @@
 "use client";
 // Treasury (docs/UI.md): the PAPER balance, the reconciliation, and the Tape proof chain. Each chain link is recomputed
 // here in the browser: sha256(prev | hour | count | ids_hash). A link that does not recompute shows BROKEN in crimson.
-import { useEffect, useState } from "react";
+import { canonical } from "@asimog/contracts/canonical"; // the one canonical form: the segment hash is sha256(canonical(body))
+import { useEffect, useRef, useState } from "react";
 import { fmt, useRoom } from "@/lib/live";
 
 type Link = { hour: string; prev: string; events: number; ids_hash: string; hash: string; open: boolean };
@@ -17,13 +18,7 @@ type Treasury = {
 };
 type Proof = { n: number; hour: string; sha256: string; prev_sha256: string; memo_sig: string | null; body: unknown };
 
-/** Same as packages/contracts canonical(): sorted keys, no spaces. The segment hash is sha256(canonical(body)). */
-function canonical(x: unknown): string {
-  if (Array.isArray(x)) return `[${x.map(canonical).join(",")}]`;
-  if (x && typeof x === "object")
-    return `{${Object.keys(x).filter((k) => (x as Record<string, unknown>)[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canonical((x as Record<string, unknown>)[k])}`).join(",")}}`;
-  return JSON.stringify(x);
-}
+
 const EXPLORER = process.env.NEXT_PUBLIC_EXPLORER_TX_URL; // a transaction explorer chosen by env, never hard-coded
 const sol = (lamports: string | number) => (Number(lamports) / 1e9).toFixed(6);
 
@@ -57,13 +52,16 @@ async function sha256(s: string) {
 /** "verified" when the link recomputes and points at the one before it; "open" for the hour still filling. */
 function useVerified(chain: Link[] | undefined) {
   const [state, set] = useState<string[]>([]);
+  const done = useRef(new Map<string, string>()); // a link's inputs never change: each is hashed once, not on every poll
   useEffect(() => {
     if (!chain) return;
     let alive = true;
     void (async () => {
       const out: string[] = [];
       for (const [i, l] of chain.entries()) {
-        const again = await sha256(`${l.prev}|${l.hour}|${l.events}|${l.ids_hash}`);
+        const input = `${l.prev}|${l.hour}|${l.events}|${l.ids_hash}`;
+        const again = done.current.get(input) ?? (await sha256(input));
+        done.current.set(input, again);
         const linked = i === 0 || chain[i - 1]!.hash === l.prev;
         out.push(again !== l.hash || !linked ? "broken" : l.open ? "open" : "verified");
       }
@@ -95,6 +93,7 @@ export default function TreasuryPage() {
         </dl>
       </header>
       {error && !data ? <p className="empty">The relay is unreachable ({error}).</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       <div className="room-grid">
         <section className="room-section" aria-label="Reconciliation">
           <h2 className="micro">Reconciliation</h2>

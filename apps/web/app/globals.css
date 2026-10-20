@@ -21,6 +21,9 @@
   --step--1: clamp(0.72rem, 0.7rem + 0.1vw, 0.8rem);
   --step-0: clamp(0.84rem, 0.8rem + 0.18vw, 0.95rem);
   --step-3: clamp(1.6rem, 1.2rem + 1.6vw, 2.6rem);
+  --step-4: clamp(1.6rem, 1rem + 2.2vw, 2.9rem);
+  --step-5: clamp(2rem, 1.2rem + 2.6vw, 3.6rem);
+  --step-6: clamp(2.2rem, 1.2rem + 3.4vw, 4.6rem);
   --gap: 4px;
   --fast: 120ms;
   --med: 200ms;

@@ -8,7 +8,7 @@ export function Hud() {
   const viewers = snap?.viewers;
   const net = snap?.pool.net ?? null;
   const kpis: { k: string; v: string; hot?: boolean; title: string }[] = [
-    { k: "Mode", v: snap ? snap.mode.toUpperCase() : "·", title: "PAPER: every trade is simulated through the fill model; no money moves" },
+    { k: "Mode", v: snap ? snap.mode.toUpperCase() : "·", title: snap?.mode === "live" ? "LIVE: trades go through the Risk Gate and the Signer with real money" : "PAPER: every trade is simulated through the fill model; no money moves" },
     { k: "Mandate", v: snap ? `${snap.mandate_sol} SOL` : "·", title: "Capital the owner gave the firm" },
     { k: "Floor", v: snap ? `${Math.round(snap.floor_frac * 100)}%` : "·", title: "Daily loss stop: trading halts after this share is lost in a day" },
     { k: "Milestone", v: snap?.milestone ?? "·", title: "Financial milestone reached (docs/SYSTEM.md)" },

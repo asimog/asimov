@@ -47,6 +47,7 @@ export default function CasePage({ params }: { params: Promise<{ id: string }> }
         </dl>
       </header>
       {error && !data ? <p className="empty">No case file ({error}).</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       {data
         ? SECTIONS.map((s) => (
             <section key={s.cls} className="room-section case-section" data-class={s.cls} aria-label={s.title}>

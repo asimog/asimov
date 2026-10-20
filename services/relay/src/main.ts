@@ -30,7 +30,7 @@ const familyOf = (sid: string) => sid.replace(/^sr_seed_\d+_/, "").replace(/_(fa
 
 // ---------- event -> plain line (terse voice: facts, numbers, no adjectives) ----------
 type Row = { id: string; topic: string; seen_time: Date; subject: string | null; body: Record<string, any>; causes: string[] };
-export type Line = { id: string; t: number; topic: string; mint: string | null; text: string; v?: number; side?: string; family?: string; who?: string };
+export type Line = { id: string; t: number; topic: string; mint: string | null; text: string; v?: number; side?: string; family?: string; who?: string; sym?: string };
 
 function line(r: Row): Line | null {
   const b = r.body;
@@ -39,7 +39,7 @@ function line(r: Row): Line | null {
     case "callout.created":
       if (b.symbol) symbols.set(b.mint, b.symbol);
       if (b.via === "history") return null; // the Index's backfill is memory, not news
-      return { ...base, mint: b.mint, text: `callout ${sym(b.mint)} by ${b.author_handle ?? b.author_wallet.slice(0, 4)}${b.mcap_at_call_usd ? ` at $${Math.round(b.mcap_at_call_usd / 1000)}k` : ""}`, v: b.author_followers ?? 0, who: b.author_wallet };
+      return { ...base, mint: b.mint, sym: sym(b.mint).replace(/^\$/, ""), text: `callout ${sym(b.mint)} by ${b.author_handle ?? b.author_wallet.slice(0, 4)}${b.mcap_at_call_usd ? ` at $${Math.round(b.mcap_at_call_usd / 1000)}k` : ""}`, v: b.author_followers ?? 0, who: b.author_wallet };
     case "trade.curve":
     case "trade.amm":
       return { ...base, mint: b.mint, text: `${b.side} ${b.sol.toFixed(3)} SOL ${sym(b.mint)}`, v: b.sol, side: b.side };

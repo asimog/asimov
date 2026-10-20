@@ -5,10 +5,15 @@ import type { ReactNode } from "react";
 import { fmt, type Line, useLive } from "@/lib/live";
 
 export function Panel({ title, figure, children, state }: { title: string; figure?: ReactNode; children: ReactNode; state?: "loading" | "empty" | "error" }) {
+  // the relay's error, shown on every panel: unreachable before any data, stale once the numbers stop moving
+  const error = useLive((s) => s.error);
+  const snap = useLive((s) => s.snap);
+  const shown = error ? (snap ? "stale" : "error") : state;
   return (
-    <section className="panel" data-state={state} aria-label={title}>
+    <section className="panel" data-state={shown} aria-label={title}>
       <header>
         <h2 className="micro">{title}</h2>
+        {shown === "stale" ? <span className="micro">stale</span> : shown === "error" ? <span className="micro">relay unreachable</span> : null}
         {figure != null ? <span className="num panel-figure">{figure}</span> : null}
       </header>
       <div className="panel-body">{children}</div>

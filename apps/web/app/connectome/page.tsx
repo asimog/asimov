@@ -45,6 +45,7 @@ export default function ConnectomePage() {
         </dl>
       </header>
       {error && !data ? <p className="empty">The relay is unreachable ({error}).</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       <section className="room-section" aria-label="Stand-in cloud">
         <h2 className="micro"><span className="chip" data-tone="stress">SIMULATED</span> stand-in shape, not the real connectome</h2>
         <Cloud />

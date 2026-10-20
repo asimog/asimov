@@ -4,9 +4,11 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 
-export const RELAY = process.env.NEXT_PUBLIC_RELAY_URL ?? "http://localhost:7401";
+import { RELAY } from "./relay";
 
-export type Line = { id: string; t: number; topic: string; mint: string | null; text: string; v?: number; side?: string; family?: string; who?: string };
+export { RELAY };
+
+export type Line = { id: string; t: number; topic: string; mint: string | null; text: string; v?: number; side?: string; family?: string; who?: string; sym?: string };
 export type Coin = { mint: string; sym: string; callout_count: number; mcap: number | null; progress: number | null; wave_p: number | null; last_trade_at: string | null; first_callout_at: string | null };
 export type Position = { id: string; strategy_id: string; mint: string; cost_sol: number; entry_price: number; opened_at: string; family: string; left_frac: number };
 export type Snapshot = {
@@ -65,13 +67,15 @@ type State = {
   coins: Map<string, Coin>;
   lastEventAt: number;
   connected: boolean;
+  /** callouts received on the stream this visit, uncapped (lines keeps only the last 120) */
+  callouts: number;
   error: string | null;
   price: Map<string, number>;
   lanes: Record<Lane, { at: number; n: number; text: string }>;
 };
 
 const emptyLanes = () => Object.fromEntries(LANES.map((l) => [l, { at: 0, n: 0, text: "" }])) as State["lanes"];
-export const useLive = create<State>(() => ({ snap: null, lines: [], coins: new Map(), lastEventAt: 0, connected: false, error: null, price: new Map(), lanes: emptyLanes() }));
+export const useLive = create<State>(() => ({ snap: null, lines: [], coins: new Map(), lastEventAt: 0, connected: false, callouts: 0, error: null, price: new Map(), lanes: emptyLanes() }));
 
 const QUIET = new Set(["trade.curve", "trade.amm"]);
 const lastCoinOf = new Map<string, string>(); // caller wallet -> the last coin they called (this session)
@@ -87,7 +91,7 @@ function ingest(lines: Line[]) {
     const mint = l.mint;
     if (l.topic === "callout.created" && mint) {
       const c = coins.get(mint);
-      const sym = l.text.match(/\$(\S+)/)?.[1] ?? mint.slice(0, 4);
+      const sym = l.sym ?? mint.slice(0, 4);
       coins.set(mint, c ? { ...c, callout_count: c.callout_count + 1 } : { mint, sym, callout_count: 1, mcap: null, progress: null, wave_p: null, last_trade_at: null, first_callout_at: new Date(l.t).toISOString() });
       // the caller moved: if they called another coin recently, the Field links the two (from = that coin)
       const prev = l.who ? lastCoinOf.get(l.who) : undefined;
@@ -115,11 +119,19 @@ function ingest(lines: Line[]) {
   if (cues.length > 4000) cues.splice(0, cues.length - 4000);
   const shown = lines.filter((l) => !QUIET.has(l.topic));
   useLive.setState({
+    callouts: s.callouts + lines.filter((l) => l.topic === "callout.created").length,
     lanes,
     coins,
     lines: shown.length ? [...s.lines, ...shown].slice(-120) : s.lines,
     lastEventAt: lines.length ? lines[lines.length - 1]!.t : s.lastEventAt,
   });
+}
+
+/** Put a snapshot in the store: the server's first one (seeded before paint) and every later poll. */
+export function applySnapshot(snap: Snapshot) {
+  const coins = new Map(useLive.getState().coins);
+  for (const c of snap.coins) coins.set(c.mint, { ...coins.get(c.mint), ...c });
+  useLive.setState((s) => ({ snap, coins, lines: s.lines.length ? s.lines : snap.tape, lastEventAt: Math.max(s.lastEventAt, snap.now), error: null }));
 }
 
 let started = false;
@@ -130,10 +142,7 @@ export function startLive() {
     try {
       const r = await fetch(`${RELAY}/v1/snapshot`, { cache: "no-store" });
       if (!r.ok) throw new Error(`relay ${r.status}`);
-      const snap = (await r.json()) as Snapshot;
-      const coins = new Map(useLive.getState().coins);
-      for (const c of snap.coins) coins.set(c.mint, { ...coins.get(c.mint), ...c });
-      useLive.setState((s) => ({ snap, coins, lines: s.lines.length ? s.lines : snap.tape, lastEventAt: Math.max(s.lastEventAt, snap.now), error: null }));
+      applySnapshot((await r.json()) as Snapshot);
     } catch (e) {
       useLive.setState({ error: String((e as Error).message ?? e) });
     }

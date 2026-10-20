@@ -34,7 +34,8 @@ export function Nav() {
   }, []);
 
   const age = last ? now - last : null;
-  const state = error && !connected ? "relay unreachable" : !connected ? "connecting" : age == null ? "waiting for the first event" : `last event ${fmt.ago(age)} ago`;
+  // a screen reader hears the connection state when it changes, not the age ticking every second
+  const status = error && !connected ? "relay unreachable" : !connected ? "connecting" : age == null ? "waiting for the first event" : "live";
 
   return (
     <header className="nav">
@@ -53,9 +54,10 @@ export function Nav() {
           ))}
         </ul>
       </nav>
-      <p className="live micro" role="status" aria-live="polite">
+      <p className="live micro">
         <span className="live-mark" data-on={connected && age != null && age < 10_000 ? "yes" : "no"} aria-hidden="true" />
-        {state}
+        <span role="status" aria-live="polite">{status === "live" ? "" : status}</span>
+        {status === "live" ? <span aria-hidden="true">last event {fmt.ago(age!)} ago</span> : null}
       </p>
     </header>
   );

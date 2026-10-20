@@ -25,6 +25,7 @@ export default function LedgerPage() {
         </dl>
       </header>
       {error && !data ? <p className="empty">The relay is unreachable ({error}).</p> : null}
+      {error && data ? <p className="micro">Stale: the relay stopped answering ({error}); these numbers are from its last answer.</p> : null}
       <section className="room-section" aria-label="House posts">
         <h2 className="micro">House posts, paper</h2>
         {!data ? <p className="empty">Loading posts.</p> : !data.posts.length ? <p className="empty">No posts yet. The house posts after its first paper buy of a calling strategy.</p> : (

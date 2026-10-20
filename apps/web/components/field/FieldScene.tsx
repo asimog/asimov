@@ -269,9 +269,9 @@ function Field({ points, overlay }: { points: number; overlay: React.MutableRefO
         if (cu.side === "sell") send(c, rim, 0.9, 0.5, Math.min(1, cu.v * 2) * 0.4);
         else send(rim, c, 0.9, 0.5, Math.min(1, cu.v * 2) * 0.6);
       } else if (cu.kind === "watch" && c) slots.current[i]!.flare = Math.max(slots.current[i]!.flare, 0.6);
+      // a Jev answer shimmers only a coin a callout lit in this frame, never an arbitrary one
       else if (cu.kind === "jev") {
-        const j = lastCalled >= 0 ? lastCalled : [...bySlot.current.values()].at(-1);
-        if (j !== undefined) slots.current[j]!.shimmer = 1;
+        if (lastCalled >= 0) slots.current[lastCalled]!.shimmer = 1;
       } else if (cu.kind === "fill" && c) send(cu.side === "sell" ? c : CORE_AT, cu.side === "sell" ? CORE_AT : c, 1.4, CORE_AT.distanceTo(c) * 0.25 + 2, 1);
       else if (cu.kind === "close" && c) send(c, CORE_AT, 1.4, CORE_AT.distanceTo(c) * 0.25 + 2, 0.8);
       else if (cu.kind === "post" && c) send(CORE_AT, c, 1.1, CORE_AT.distanceTo(c) * 0.25 + 2, 1);
@@ -453,13 +453,16 @@ function DragRig({ children }: { children: React.ReactNode }) {
   return <group ref={g}>{children}</group>;
 }
 
-export default function FieldScene({ overlay, mobile }: { overlay: React.MutableRefObject<Overlay>; mobile: boolean }) {
+export default function FieldScene({ overlay, mobile, onLost }: { overlay: React.MutableRefObject<Overlay>; mobile: boolean; onLost: () => void }) {
   return (
     <Canvas
       dpr={[1, mobile ? 1.5 : 2]}
       camera={{ position: mobile ? [4, 30, 82] : [-8, 24, 58], fov: mobile ? 56 : 46, near: 0.1, far: 500 }}
       gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
-      onCreated={({ camera }) => camera.lookAt(mobile ? 6 : -9, 3, 0)} // the field sits right, the statement left
+      onCreated={({ camera, gl }) => {
+        camera.lookAt(mobile ? 6 : -9, 3, 0); // the field sits right, the statement left
+        gl.domElement.addEventListener("webglcontextlost", (ev) => (ev.preventDefault(), onLost())); // a lost GPU context shows the fallback, not a frozen frame
+      }}
       aria-hidden="true"
     >
       <DragRig>
