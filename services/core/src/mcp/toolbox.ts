@@ -507,9 +507,10 @@ export const TOOLS: Tool[] = [
     return { report_id: a.report_id, sha256, cites_kept: cites.length, cites_dropped: a.cites.length - cites.length };
   }),
 
-  tool("reports_for", [CAP.synth, CAP.swarm, CAP.swarmRead, CAP.exchange, CAP.report], "The newest published reports for a subject (a mint or global), optionally from one producer family.", { subject: z.string(), producer_prefix: z.string().max(20).optional(), limit: z.number().int().min(1).max(10).default(3) }, async (a, c) => ({
+  tool("reports_for", [CAP.synth, CAP.swarm, CAP.swarmRead, CAP.exchange, CAP.report], "The newest published reports for a subject (a mint or global), optionally from one producer family.", { subject: z.string(), producer_prefix: z.string().max(20).optional(), limit: z.number().int().min(1).max(10).default(3), as_of: iso.optional() }, async (a, c) => ({
+    // as_of: a run at an old slot sees only reports published by then, so its parents never come from its future
     reports: await c.sql`select report_id, producer, kind, subject, preset, sha256, summary, cites, parent_reports, ir, markdown, published_at from slow.reports
-      where subject = ${a.subject} and published_at <= ${c.clock.iso()} and (${a.producer_prefix ?? ""} = '' or producer like ${`${a.producer_prefix ?? ""}%`})
+      where subject = ${a.subject} and published_at <= ${c.clock.iso()} and published_at <= ${a.as_of ?? c.clock.iso()} and (${a.producer_prefix ?? ""} = '' or producer like ${`${a.producer_prefix ?? ""}%`})
       order by published_at desc limit ${a.limit}`,
   })),
 

@@ -14,13 +14,14 @@ export async function enqueue(sql: Sql, j: { engine: Engine; kind: Kind; subject
 /** The oldest queued job, marked running; null when none. Safe with several Bridge processes (skip locked). */
 export async function claim(sql: Sql, at: string): Promise<Job | null> {
   const [r] = await sql`update slow.jobs set state = 'running', started_at = ${at}
-    where id = (select id from slow.jobs where state = 'queued' order by slot, id for update skip locked limit 1) returning id, engine, kind, subject, preset, slot, stage, usd_cap`;
-  return (r as Job | undefined) ?? null;
+    where id = (select id from slow.jobs where state = 'queued' order by slot, id for update skip locked limit 1) returning id, engine, kind, subject, preset, slot, stage, usd_cap, started_at`;
+  return r ? ({ ...r, started_at: (r.started_at as Date).toISOString() } as Job) : null;
 }
 
-export async function finish(sql: Sql, id: string, at: string, o: { ok: boolean; cost_usd: number; result?: unknown; error?: string }) {
+export async function finish(sql: Sql, job: Job, at: string, o: { ok: boolean; cost_usd: number; result?: unknown; error?: string }) {
   await sql`update slow.jobs set state = ${o.ok ? "done" : "failed"}, finished_at = ${at}, cost_usd = ${o.cost_usd},
-    result = ${o.result === undefined ? null : sql.json(o.result as never)}, error = ${o.error ?? null} where id = ${id}`;
+    result = ${o.result === undefined ? null : sql.json(o.result as never)}, error = ${o.error ?? null}
+    where id = ${job.id} and state = 'running' and started_at = ${job.started_at}`;
 }
 
 /** Jobs whose engine died mid-run go back to the queue after `staleMs` (restart-safe). */

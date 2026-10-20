@@ -111,10 +111,10 @@ export class Bridge {
     return this.stats.queued - before;
   }
 
-  /** Parents for a run: the newest reports of the other engine on this subject (docs/SLOW-MIND.md section 6), published before now. */
+  /** Parents for a run: the newest reports of the other engine on this subject (docs/SLOW-MIND.md section 6), published by the run's slot. */
   private async parents(job: Job): Promise<string[]> {
     const other = job.engine === "bettafish" ? "miroshark." : "bettafish.";
-    const { reports } = await this.d.cores.exchange.call<{ reports: { report_id: string }[] }>("reports_for", { subject: job.subject, producer_prefix: other, limit: 3 });
+    const { reports } = await this.d.cores.exchange.call<{ reports: { report_id: string }[] }>("reports_for", { subject: job.subject, producer_prefix: other, limit: 3, as_of: job.slot });
     return reports.map((r) => r.report_id);
   }
 
@@ -165,7 +165,7 @@ export class Bridge {
       const windowMin = job.kind === "feed" ? this.d.cfg.feedWindowMin : this.d.cfg.coinWindowMin;
       // MiroShark reads no database: the swarm's seed (the coin dossier, the parent reports' text) comes in the request
       const extra = job.engine === "miroshark"
-        ? { dossier: await this.d.cores.swarm.call("coin_dossier", { mint: job.subject }), parent_texts: (await this.d.cores.exchange.call<{ reports: { report_id: string; producer: string; summary: string; markdown: string | null }[] }>("reports_for", { subject: job.subject, producer_prefix: "bettafish.", limit: 3 })).reports }
+        ? { dossier: await this.d.cores.swarm.call("coin_dossier", { mint: job.subject }), parent_texts: (await this.d.cores.exchange.call<{ reports: { report_id: string; producer: string; summary: string; markdown: string | null }[] }>("reports_for", { subject: job.subject, producer_prefix: "bettafish.", limit: 3, as_of: job.slot })).reports }
         : job.kind === "coin"
           ? { narrative: await this.d.cores.exchange.call<{ size: number; first_text: string | null }>("narrative_for", { mint: job.subject, at: job.slot }).then((n) => ({ size: n.size, first_text: n.first_text })) } // E7
           : {};
@@ -181,7 +181,7 @@ export class Bridge {
           this.stats.reports += m.reports.length;
           this.stats.writes += m.writes.length;
           this.stats.refused += m.refused.length;
-          await finish(this.d.sql, job.id, this.iso(), { ok: !m.failed, cost_usd: spent, result: { ...m, truncated: s.output?.truncated === true }, error: m.failed });
+          await finish(this.d.sql, job, this.iso(), { ok: !m.failed, cost_usd: spent, result: { ...m, truncated: s.output?.truncated === true }, error: m.failed });
           this.stats[m.failed ? "failed" : "done"]++;
           return true;
         }
@@ -192,7 +192,7 @@ export class Bridge {
         await new Promise((r) => setTimeout(r, this.d.cfg.pollMs));
       }
     } catch (err) {
-      await finish(this.d.sql, job.id, this.iso(), { ok: false, cost_usd: spent, error: String((err as Error).message ?? err).slice(0, 300) });
+      await finish(this.d.sql, job, this.iso(), { ok: false, cost_usd: spent, error: String((err as Error).message ?? err).slice(0, 300) });
       this.stats.failed++;
       return true;
     }

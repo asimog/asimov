@@ -36,6 +36,7 @@ import os
 import re
 import sqlite3
 import sys
+import shutil
 import tempfile
 import threading
 import time
@@ -307,7 +308,7 @@ async def one_run(req: dict, branch: str, sample: int, profiles: list[dict], mdl
     coin = d.get("coin") or {}
     mint, symbol = req["subject"], (coin.get("symbol") or req["subject"][:4])
     price = float(d.get("last_price_sol") or 2.8e-8)
-    tmp = tempfile.mkdtemp(prefix="pumpfun-")
+    tmp = tempfile.mkdtemp(prefix="pumpfun-", dir=req["tmp_root"])
     db, tw_db = os.path.join(tmp, f"{branch}{sample}.db"), os.path.join(tmp, f"{branch}{sample}-twitter.db")
     g, tg, everyone = graphs_for(profiles, mdl, with_house=branch == "B")
     sem = env_int("SWARM_CONCURRENCY", 16)
@@ -469,11 +470,15 @@ def fenced(dossier: dict, parents: list) -> tuple[dict, list]:
 def execute(run_id: str, req: dict) -> None:
     meter = METERS[run_id]
     METER.set(meter)
+    # Patch F11: every sample's simulation files live under one folder per run, and the run's graph is dropped at the end;
+    # the report keeps the graph's counts in its ir
+    tmp_root = tempfile.mkdtemp(prefix=f"swarm-{run_id[:16]}-")
+    store = gid = None
     try:
         import asimog_graph
         mdl = model()
         dossier, parents = fenced(req.get("dossier") or {}, req.get("parent_texts") or [])
-        req = {**req, "dossier": dossier}  # one_run reads the fenced dossier
+        req = {**req, "dossier": dossier, "tmp_root": tmp_root}  # one_run reads the fenced dossier
         profiles = personas(dossier)
         samples = env_int("SWARM_SAMPLES", 3)
         branches = [b.strip() for b in os.getenv("SWARM_BRANCHES", "A,B").split(",") if b.strip()]
@@ -523,6 +528,13 @@ def execute(run_id: str, req: dict) -> None:
         traceback.print_exc()
         with LOCK:
             RUNS[run_id] = {"state": "failed", "error": f"{type(err).__name__}: {err}"[:300]}
+    finally:
+        shutil.rmtree(tmp_root, ignore_errors=True)
+        if store is not None and gid is not None:
+            try:
+                store.delete_graph(gid)
+            except Exception:  # noqa: BLE001 - a graph left behind is logged, never a failed run
+                traceback.print_exc()
 
 
 def bad_request(req) -> str | None:

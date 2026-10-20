@@ -55,7 +55,7 @@ export const suite: Suite = {
         reports: [{ producer: "bettafish.report", kind: r.kind, subject: r.subject, summary: "PEPE callers early and bullish; DOGE flagged as a likely rug by two callers.", cites: ["co_a1", "co_b1", "co_FAKE"], ir: { sections: ["narratives"] }, markdown: "# Feed" }],
         ...(r.kind === "feed"
           ? { synthesis_feed: { window_min: r.window_min, narratives: [{ title: "PEPE early", summary: "Two callers early on PEPE.", cites: ["co_a1", "co_a2"] }, { title: "made up", summary: "Invented.", cites: ["co_FAKE"] }], coin_stances: [], suspicious: [] } }
-          : { synthesis_coin: { stance: "bullish", narrative: "Early callers buying.", claims: [{ text: "Callers early", cites: ["co_a1"] }] } }),
+          : { synthesis_coin: { synthesis_id: "sj_spoofed", mint: MINT_B, stance: "bullish", narrative: "Early callers buying.", claims: [{ text: "Callers early", cites: ["co_a1"] }] } }), // engine text naming another run and coin
         cost_usd: 0.01,
       } }));
       const ms = await fakeEngine((r) => ({ state: "done", output: {
@@ -100,6 +100,14 @@ export const suite: Suite = {
       add("the swarm result reaches the Tape", Math.abs(Number((wave?.body as { wave_p?: number } | undefined)?.wave_p) - 2 / 3) < 1e-9, `wave_p ${(wave?.body as { wave_p?: number } | undefined)?.wave_p} (core's recompute: 2 of 3 samples)`);
       const [msRep] = await w.sql`select e.body from tape.events e where e.topic = 'report.published' and e.body->>'producer' = 'miroshark.report'`;
       add("the MiroShark report is published and marked simulated", (msRep?.body as { simulated?: boolean } | undefined)?.simulated === true);
+
+      const coinSyn = await w.sql`select body from tape.events where topic = 'synthesis.coin'`;
+      const ids = coinSyn.map((r) => r.body as { synthesis_id: string; mint: string });
+      add("engine output cannot rename its run or its coin", ids.length > 0 && ids.every((b) => b.synthesis_id !== "sj_spoofed" && b.mint === MINT_A), JSON.stringify(ids));
+      const [firstMs] = await w.sql`select published_at from slow.reports where producer like 'miroshark.%' order by published_at limit 1`;
+      const beforeMs = new Date((firstMs!.published_at as Date).getTime() - 1).toISOString();
+      const early = await cores.exchange.call<{ reports: unknown[] }>("reports_for", { subject: MINT_A, producer_prefix: "miroshark.", as_of: beforeMs });
+      add("a run's parents are reports published by its slot, never after", early.reports.length === 0, `${early.reports.length} reports as of ${beforeMs}`);
 
       // 3. a later BettaFish coin run gets the MiroShark report as a parent: reports flow both ways
       t += 120_000;

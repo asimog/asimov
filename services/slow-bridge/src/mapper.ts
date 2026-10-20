@@ -21,18 +21,18 @@ export async function mapOutput(c: Cores, job: Job, out: RunOutput, parents: str
   for (const [i, r] of (out.reports ?? []).entries()) {
     const report_id = `${job.id}_${i}`;
     try {
-      await c.exchange.call("report_publish", { report_id, producer: r.producer, kind: r.kind, subject: r.subject, window_from: window.from, window_to: window.to, preset: job.preset, summary: r.summary, cites: r.cites, parent_reports: parents, ir: r.ir ?? null, markdown: r.markdown ?? null, simulated: r.simulated ?? job.engine === "miroshark" });
+      await c.exchange.call("report_publish", { report_id, producer: r.producer, kind: r.kind, subject: job.subject, window_from: window.from, window_to: window.to, preset: job.preset, summary: r.summary, cites: r.cites, parent_reports: parents, ir: r.ir ?? null, markdown: r.markdown ?? null, simulated: r.simulated ?? job.engine === "miroshark" });
       m.reports.push(report_id);
     } catch (err) {
       m.refused.push({ tool: "report_publish", reason: String((err as Error).message ?? err).slice(0, 200) });
     }
   }
-  // the run's window bounds its citations (core drops a borrowed id): the Bridge's values, never the engine's
+  // the run's window bounds its citations (core drops a borrowed id): the Bridge's ids and window come last, so engine text never overrides them
   const run = { as_of: window.to, window_min: Math.round((Date.parse(window.to ?? "") - Date.parse(window.from ?? "")) / 60_000) };
-  if (out.synthesis_feed) await write(c.synth, "emit_synthesis_feed", { synthesis_id: job.id, preset: job.preset, ...out.synthesis_feed, ...run });
-  if (out.synthesis_coin) await write(c.synth, "emit_synthesis_coin", { synthesis_id: job.id, mint: job.subject, preset: job.preset, ...out.synthesis_coin, ...run });
-  for (const f of out.forum_lines ?? []) await write(c.synth, "emit_forum_line", { synthesis_id: job.id, ...f, ...run }); // the engine's own round
-  if (out.swarm) await write(c.swarm, "emit_swarm_result", { swarm_id: job.id, mint: job.subject, preset: job.preset, ...out.swarm });
-  if (out.beliefs) await write(c.swarm, "emit_swarm_beliefs", { swarm_id: job.id, mint: job.subject, ...out.beliefs });
+  if (out.synthesis_feed) await write(c.synth, "emit_synthesis_feed", { ...out.synthesis_feed, synthesis_id: job.id, preset: job.preset, ...run });
+  if (out.synthesis_coin) await write(c.synth, "emit_synthesis_coin", { ...out.synthesis_coin, synthesis_id: job.id, mint: job.subject, preset: job.preset, ...run });
+  for (const f of out.forum_lines ?? []) await write(c.synth, "emit_forum_line", { ...f, synthesis_id: job.id, ...run }); // the engine's own round
+  if (out.swarm) await write(c.swarm, "emit_swarm_result", { ...out.swarm, swarm_id: job.id, mint: job.subject, preset: job.preset });
+  if (out.beliefs) await write(c.swarm, "emit_swarm_beliefs", { ...out.beliefs, swarm_id: job.id, mint: job.subject });
   return m;
 }

@@ -22,7 +22,7 @@ import os
 import re
 import threading
 import traceback
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -312,8 +312,16 @@ def execute(run_id: str, req: dict) -> None:
         import importlib
         for e in engines:  # import once, in this thread: parallel first imports of the same package race
             importlib.import_module({"insight": "InsightEngine.agent", "query": "QueryEngine.agent", "media": "MediaEngine.agent"}[e])
-        with ThreadPoolExecutor(max_workers=len(engines)) as pool:
-            results = list(pool.map(lambda e: ctx.copy().run(run_engine, e, query, forum), engines))
+        # Patch F11: one deadline for the whole run. A hung engine thread is left behind (Python cannot kill it), told to stop at its
+        # next model call, and the run fails, so its MAX_CONCURRENT slot is free again
+        pool = ThreadPoolExecutor(max_workers=len(engines))
+        futures = [pool.submit(ctx.copy().run, run_engine, e, query, forum) for e in engines]
+        _, late = wait(futures, timeout=int(os.getenv("BETTAFISH_RUN_DEADLINE_S", "1500")))
+        pool.shutdown(wait=False, cancel_futures=True)
+        if late:
+            meter.cancelled = True
+            raise TimeoutError(f"run deadline: {len(late)} of {len(engines)} engines still running")
+        results = [f.result() for f in futures]
         if meter.cancelled:
             raise SpendCap("cancelled")
         out = to_output(req, results)
