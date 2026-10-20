@@ -1,7 +1,7 @@
 // A row stamped earlier can commit after a row stamped later. A live reader that stops below the low watermark still reads it;
 // one that reads to the head skips it for good. Dedupe repeats return the id that is on the Tape. A full queue refuses and counts.
 import { liveClock } from "../../../../services/core/src/lib/clock.ts";
-import type { Sql } from "../../../../services/core/src/lib/db.ts";
+import { connect, type Sql } from "../../../../services/core/src/lib/db.ts";
 import { type Consumer, drain } from "../../../../services/core/src/tape/consumer.ts";
 import { lowWater, release, Tape } from "../../../../services/core/src/tape/tape.ts";
 import type { Check } from "../../lib/checks.ts";
@@ -14,7 +14,7 @@ export const suite: Suite = {
   name: "tape-order",
   tier: "fast",
   covers: ["services/core/src/tape/tape.ts", "services/core/src/tape/consumer.ts"],
-  proves: "Two writers: an emitIn row stamped first commits after a buffered row stamped later. A reader bounded by the low watermark reads both; an unbounded reader skips the late commit. Dedupe repeats return the stored id; a full queue refuses and counts.",
+  proves: "Two writers: an emitIn row stamped first commits after a buffered row stamped later. A reader bounded by the low watermark reads both; an unbounded reader skips the late commit. Dedupe repeats return the stored id; a full queue refuses and counts; TRUNCATE is refused and the read role cannot write.",
   async run() {
     const db = await freshDb("tapeorder");
     const tape = new Tape(db.sql, liveClock("live"));
@@ -66,6 +66,15 @@ export const suite: Suite = {
       const rows = await db.sql`select id from tape.events where body->>'finding' = 'dup'`;
       add("a dedupe repeat returns the id that is on the Tape", rows.length === 1 && first.id === rows[0]!.id && again.id === rows[0]!.id && buffered.id === rows[0]!.id, `${rows.length} rows, ${first.id} ${again.id} ${buffered.id}`);
 
+      const truncated = await db.sql`truncate tape.events`.then(() => "truncated", (err: Error) => err.message);
+      add("TRUNCATE on the Tape is refused", truncated.includes("append-only"), truncated);
+      const url = new URL(db.url);
+      url.username = "asimog_reader";
+      const ro = connect(url.toString(), 1);
+      const wrote = await ro`insert into tape.dedupe (key, event_id) values ('reader', 'x')`.then(() => "written", (err: Error) => err.message);
+      const read = await ro`select count(*)::int n from tape.events`.then((r) => r[0]!.n as number, () => -1);
+      await ro.end();
+      add("the read role reads the Tape and cannot write", read > 0 && wrote.includes("permission denied"), `read ${read} rows; write: ${wrote}`);
       const refuse = () => Promise.reject(new Error("connection refused"));
       const down = { begin: refuse, unsafe: refuse } as unknown as Sql; // no real connection, so its retries never hold the database
       const stuck = new Tape(down, liveClock("live"));

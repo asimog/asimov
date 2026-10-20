@@ -15,7 +15,8 @@ import { ReadSpend, searchRoom } from "./search.ts";
 import { slowRooms } from "./slow-rooms.ts";
 import { wikiRoom } from "./wiki.ts";
 
-const sql = postgres(env.str("DATABASE_URL"), { max: env.int("RELAY_DB_POOL"), idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } });
+// the read role (schema.sql): this process can select and nothing else, whatever a request does to its session
+const sql = postgres(env.str("RELAY_DATABASE_URL"), { max: env.int("RELAY_DB_POOL"), idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } });
 const PORT = env.int("RELAY_PORT");
 const MANDATE_SOL = env.num("MANDATE_SOL");
 
@@ -269,7 +270,7 @@ app.get("/v1/rugfeed", async (c) => c.json(await rugs()));
 const wiki = wikiRoom({ sql, cached });
 app.get("/v1/wiki", async (c) => c.json(await wiki.list()));
 // E7c: the agents' memory, read only (its own database when AGENTS_DATABASE_URL is set); search embeds on the EMBED lane
-const memSql = env.opt("AGENTS_DATABASE_URL") ? postgres(env.str("AGENTS_DATABASE_URL"), { max: 2, idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } }) : sql;
+const memSql = postgres(env.opt("AGENTS_DATABASE_URL") ?? env.str("DATABASE_URL"), { max: 2, idle_timeout: 30, onnotice: () => {}, connection: { default_transaction_read_only: true } }); // the agents' tables are outside the read role
 const search = searchRoom({ sql: memSql, cached, embedder: env.opt("EMBEDDING_MODEL") || env.bool("LLM_STUB") ? new Embedder({ spend: new ReadSpend(memSql) }) : null });
 app.get("/v1/search", async (c) => {
   const r = await search(c.req.query());

@@ -33,10 +33,13 @@ create table if not exists tape.events_default_derived partition of tape.events_
 -- append-only (docs/SYSTEM.md): no row is ever edited or deleted; only the archiver drops a whole partition
 create or replace function tape.refuse_mutation() returns trigger language plpgsql as $$
 begin
-  raise exception 'tape.events is append-only: no update or delete';
+  raise exception 'tape.events is append-only: no update, delete or truncate';
 end $$;
 drop trigger if exists events_append_only on tape.events;
 create trigger events_append_only before update or delete on tape.events for each row execute function tape.refuse_mutation();
+-- a row trigger never sees TRUNCATE: a statement trigger refuses it on the whole Tape (only the archiver drops a partition)
+drop trigger if exists events_no_truncate on tape.events;
+create trigger events_no_truncate before truncate on tape.events for each statement execute function tape.refuse_mutation();
 create index if not exists events_topic_seen on tape.events (topic, seen_time);
 create index if not exists events_subject_seen on tape.events (subject, seen_time);
 create index if not exists events_id on tape.events (id);
@@ -683,3 +686,12 @@ create table if not exists wiki.prose (
   written_at timestamptz not null,
   primary key (slug, version)
 );
+
+-- ===== the read role (docs/OPS.md): the relay and anything public read through it; it can select and nothing else, so a
+-- compromised reader cannot write, and `default_transaction_read_only` is no longer the only guard
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'asimog_reader') then create role asimog_reader login; end if;
+end $$;
+grant usage on schema tape, mem, board, mind, ops, idx, hands, books, wiki, slow to asimog_reader;
+grant select on all tables in schema tape, mem, board, mind, ops, idx, hands, books, wiki, slow to asimog_reader;
+grant execute on function slow.as_of() to asimog_reader;

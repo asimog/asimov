@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-315 keys. Secrets live only in `.env.local` and are not listed here.
+316 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -31,6 +31,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `PUMP_NATS_FEED_URL` | `wss://prod-v2.nats.realtime.pump.fun` | pump.fun realtime (public web-client subscriber credentials, docs/research/pumpfun-endpoints.md) |
 | `ASIMOG_MODE` | `paper` | runtime |
 | `DATABASE_URL` | `postgres://asimog@127.0.0.1:54329/asimog` | runtime |
+| `RELAY_DATABASE_URL` | `postgres://asimog_reader@127.0.0.1:54329/asimog` | runtime |
 | `CORE_PORT` | `7400` | runtime |
 | `RELAY_PORT` | `7401` | runtime |
 | `SESSIONS` | `3` | scale knobs: sized for a small VM by default |

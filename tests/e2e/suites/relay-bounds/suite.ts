@@ -13,6 +13,7 @@ const MINT = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 const ROUNDS = 25;
 const PER_ROUND = 2000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const reader = (url: string) => Object.assign(new URL(url), { username: "asimog_reader", password: "" }).toString();
 
 export const suite: Suite = {
   name: "relay-bounds",
@@ -25,7 +26,7 @@ export const suite: Suite = {
     const db = await freshDb("relaybounds");
     const port = 7700 + Math.floor(Math.random() * 200);
     const base = `http://127.0.0.1:${port}`;
-    const relay = spawn(process.execPath, ["--import", "tsx", "services/relay/src/main.ts"], { cwd: env.root, env: { ...process.env, DATABASE_URL: db.url, RELAY_PORT: String(port), AGENTS_DATABASE_URL: "" }, stdio: "ignore" });
+    const relay = spawn(process.execPath, ["--import", "tsx", "services/relay/src/main.ts"], { cwd: env.root, env: { ...process.env, DATABASE_URL: db.url, RELAY_DATABASE_URL: reader(db.url), RELAY_PORT: String(port), AGENTS_DATABASE_URL: "" }, stdio: "ignore" });
     const tape = new Tape(db.sql, liveClock("live"));
     const reqs: http.ClientRequest[] = [];
     try {
