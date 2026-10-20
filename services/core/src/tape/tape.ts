@@ -204,7 +204,8 @@ export class Tape {
 
   private async write(batch: Pending[]) {
     const keyed = batch.filter((p) => p.dedupe).sort((a, b) => (a.dedupe! < b.dedupe! ? -1 : 1));
-    let allowed = new Set(batch.filter((p) => !p.dedupe).map((p) => p.env.id));
+    const allowed = new Set(batch.filter((p) => !p.dedupe).map((p) => p.env.id));
+    let out: Envelope[] = [];
     await this.sql.begin(async (tx) => {
       if (keyed.length) {
         const rows = await tx`
@@ -213,18 +214,20 @@ export class Tape {
           on conflict do nothing returning event_id`;
         for (const r of rows) allowed.add(r.event_id as string);
       }
-      const rows = batch.filter((p) => allowed.has(p.env.id)).map((p) => p.env);
-      this.deduped += batch.length - rows.length;
+      // a repeat in the same batch has the same id (it comes from the key): only its first copy is written
+      const taken = new Set<string>();
+      const rows = batch.filter((p) => allowed.has(p.env.id) && !taken.has(p.env.id) && taken.add(p.env.id)).map((p) => p.env);
+      out = rows;
       if (!rows.length) return;
       await tx`insert into tape.events ${tx(
         rows.map((e) => ({ ...e, class: TOPIC_CLASS[e.topic as Topic], body: tx.json(e.body as never) })) as never,
         "id", "topic", "v", "class", "event_time", "seen_time", "source", "subject", "causes", "mode", "body",
       )} on conflict do nothing`;
       await tx`select pg_notify('tape', ${rows[rows.length - 1]!.seen_time})`;
-      this.written += rows.length;
-      allowed = new Set(rows.map((r) => r.id));
     });
-    const out = batch.filter((p) => allowed.has(p.env.id)).map((p) => p.env);
+    // counted once the batch commits: a rolled-back attempt counts nothing
+    this.written += out.length;
+    this.deduped += batch.length - out.length;
     if (out.length)
       for (const fn of this.listeners) {
         try {
