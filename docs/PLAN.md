@@ -99,7 +99,7 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 
 ### F. Hardening and truth (fix plan Phase 6)
 
-Findings and their verification: `docs/audit/REVIEW_AND_FIX_PLAN_2026-10-20.md`. Order and rules: `docs/tasks/F-phase.md`. Build order: F0, F7, F8, F3, F9, F10, F2, F11, F12, F1, F4, F5, F6, F13.
+Findings and their verification: `docs/.archive/audit/REVIEW_AND_FIX_PLAN_2026-10-20.md` (private). Order and rules: `docs/tasks/F-phase.md`. Build order: F0, F7, F8, F3, F9, F10, F2, F11, F12, F1, F4, F5, F6, F13.
 
 | # | Work | Check |
 |---|---|---|

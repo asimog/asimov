@@ -1,6 +1,6 @@
 # F phase: hardening and truth (kickoff brief)
 
-The brief for the session that builds PLAN section F. Findings, line citations and my verification are in `docs/audit/REVIEW_AND_FIX_PLAN_2026-10-20.md`; the full evidence for each ID is in `docs/audit/LINE_BY_LINE_AUDIT_2026-10-20.md`. Write a task file from `_template.md` for each row before building it.
+The brief for the session that builds PLAN section F. Findings, line citations and my verification are in `docs/.archive/audit/REVIEW_AND_FIX_PLAN_2026-10-20.md` (private); the full evidence for each ID is in `docs/.archive/audit/LINE_BY_LINE_AUDIT_2026-10-20.md` (private). Write a task file from `_template.md` for each row before building it.
 
 ## What the F phase fixes, in one line each
 - F0: a test can pass while a consumer throws, with no checks, or with the wrong Signer key.
@@ -35,8 +35,7 @@ Lanes may run as subagents with disjoint write lists (`docs/WORKFLOW.md` section
 1. **F3:** Signer option A (it reads the order row, read-only, from the database) or option B (core signs an intent the Signer verifies, so the Signer stays stateless)? See `FIRST_PRINCIPLES_2026-10-20.md` section 4.2.
 2. **F7:** the commit watermark slack (proposed `TAPE_COMMIT_SLACK_MS=2000`), or a single `seen_time` stamper instead?
 3. **F2:** public search behind a token, or open with its own small persisted budget?
-4. **Privacy:** the audit files name attack paths and the repo is public. Move `docs/audit/` to `docs/.archive/` (private) before any commit?
-Record each answer as a row in `docs/DECISIONS.md`.
+Record each answer as a row in `docs/DECISIONS.md`. (The audit files moved to `docs/.archive/audit/` on 2026-10-21 by the owner's decision.)
 
 ## Done means
 Every F row in `docs/PLAN.md` is marked done with its suite and commit, each task file's State is filled, and `npm run checks:status` shows the F suites passed on one commit. End with the report in `docs/WORKFLOW.md` section 7.
