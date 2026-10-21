@@ -11,6 +11,7 @@ services:
     command: ["postgres", "-c", "synchronous_commit=off"]
     ports: ["127.0.0.1:54329:5432"]
     volumes: ["asimog-pg:/var/lib/postgresql"]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "asimog"], interval: 5s, timeout: 5s, retries: 20 }
   neo4j:
     image: neo4j:5.26-community
     container_name: asimog-neo4j
@@ -21,6 +22,7 @@ services:
       NEO4J_server_memory_pagecache_size: "256m"
     ports: ["127.0.0.1:7687:7687", "127.0.0.1:7474:7474"]
     volumes: ["asimog-neo4j:/data"]
+    healthcheck: { test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/7687' || exit 1"], interval: 10s, timeout: 5s, retries: 30 }
   slow-workers:
     build: { context: ., dockerfile: deploy/slow-workers/Dockerfile }
     container_name: asimog-slow-workers
@@ -42,7 +44,7 @@ services:
       BETTAFISH_DB_URL: postgresql://slow_reader@pg:5432/asimog
       CORE_MCP_URL: http://host.docker.internal:${MCP_PORT:-7403}/mcp
       ASIMOG_FORK: "1"
-    depends_on: [pg, neo4j]
+    depends_on: { pg: { condition: service_healthy }, neo4j: { condition: service_healthy } } # never before the databases answer
     extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["127.0.0.1:7412:7412", "127.0.0.1:7411:7411"]
     volumes: ["asimog-slow:/data"]
