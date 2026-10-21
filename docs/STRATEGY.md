@@ -140,6 +140,8 @@ Owner limits (defaults in `config/limits.default.json`, changed only by `ctl lim
 | `max_consecutive_losses`, `loss_cooldown_min` | 5, 30 |
 | `max_impact_bps`, `min_real_sol`, `max_quote_age_ms`, `max_slippage_bps` | 300, 3, 3000, 300 |
 | `max_bundle_share`, `max_top10_share`, `max_creator_sold` | 0.2, 0.3, 0.5 |
+
+Two rules share the name `max_bundle_share` on purpose: `config/filters.json` `launch.max_bundle_share` (0.3) is the launch door, which decides what we watch at all; `limits.default.json` `max_bundle_share` (0.2) is the Risk Gate's, which decides what we buy. The door is looser than the gate, so a coin can be watched and still never bought.
 | `max_creator_launches_7d`, `require_risk_state` | 10, true |
 
 Reason codes are listed in `mind/risk.ts` and appear on every rejection: quote, impact, liquidity, caps, loss stops, risk floors (and `no_risk_state` when a coin has no `risk.state`), lists, kill state, mode, duplicates, balance, strategy stage.

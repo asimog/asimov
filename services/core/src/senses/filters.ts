@@ -52,6 +52,6 @@ export function passesLaunch(f: LaunchFacts, lf: LaunchFilters, watchReason: "ca
   if (f.dev_buy_sol !== null && f.dev_buy_sol > lf.max_dev_buy_sol) return { reason: "dev_buy", unknown };
   if (f.block0_sniper_share !== null && f.block0_sniper_share > lf.max_block0_sniper_share) return { reason: "block0_snipers", unknown };
   if (f.bundle_share !== null && f.bundle_share > lf.max_bundle_share) return { reason: "bundle", unknown };
-  if (unknown.length && lf.on_unknown[watchReason] === "refuse") return { reason: `unknown_${unknown[0]!}` as LaunchVerdict["reason"], unknown };
+  if (unknown.length && (lf.on_unknown[watchReason] ?? "refuse") === "refuse") return { reason: `unknown_${unknown[0]!}` as LaunchVerdict["reason"], unknown };
   return { reason: null, unknown };
 }

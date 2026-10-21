@@ -2,7 +2,7 @@
 
 Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 
-317 keys. Secrets live only in `.env.local` and are not listed here.
+318 keys. Secrets live only in `.env.local` and are not listed here.
 
 | Key | Default | Section |
 |---|---|---|
@@ -137,6 +137,7 @@ Generated from `.env.example` by `npm run docs:gen`. Do not edit by hand.
 | `SEARCH_TOOL_TYPE` | `AsimogMedia` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `QUERY_SEARCH` | `tavily,x` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `TAVILY_API_KEY` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
+| `X_SEARCH_URL` | `https://api.x.com/2/tweets/search/recent` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `X_BEARER_TOKEN` | ` ` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `MAX_PARAGRAPHS` | `4` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |
 | `MAX_REFLECTIONS` | `1` | slow mind (docs/SLOW-MIND.md): BettaFish and MiroShark engines in services/*/engine, Slow Bridge, stack in docker-compose.yml |

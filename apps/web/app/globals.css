@@ -109,10 +109,6 @@ a {
   white-space: nowrap;
 }
 
-@view-transition {
-  navigation: auto;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

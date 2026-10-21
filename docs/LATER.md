@@ -30,3 +30,4 @@ Growth unlocks by firm NAV, with one health condition: the books reconcile and n
 | Question bank autoresearch | Weekly new Jev questions in shadow, promoted by measured lift |
 | Frontends | cancerhawk.org rebuild, polymyths.com, hyperkaon.com |
 | Child units, studios, reserve domains | Not planned |
+| Publisher login and posting (EXECUTION.md section 5) | `/sign/login` answers 501 and no Publisher client exists: posts are Tape events only. Built when the owner moves live posting into the plan |

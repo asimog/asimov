@@ -99,14 +99,24 @@ Order: B1 first (every filter and window reads its config). Then B2, B3, B4 in a
 
 ### F. Hardening and truth (fix plan Phase 6)
 
+Findings and their verification: `docs/audit/REVIEW_AND_FIX_PLAN_2026-10-20.md`. Order and rules: `docs/tasks/F-phase.md`. Build order: F0, F7, F8, F3, F9, F10, F2, F11, F12, F1, F4, F5, F6, F13.
+
 | # | Work | Check |
 |---|---|---|
-| F1 | Database roles, password, the Tape trigger | A write as a read role fails |
-| F2 | MCP, relay, Signer and HTTP server hardening (limits, timeouts, auth order, caps), per the private audit notes | Hardening suites pass |
-| F3 | Signer pins pump and AMM token accounts and bounds sells (1.16) | `signer-refuses` gains the new shapes |
-| F4 | Unused write tools get consumers or are deleted; one token per Bridge engine | No tool without a reader |
-| F5 | CI: typecheck, lint, `docs:check`, the fast tier | Green on a branch |
-| F6 | Consumers: duplicate names refused; senses meet on the Tape, not callbacks; Index rollup becomes a consumer | `runtime.ts` has one list, no callbacks |
+| F0 | Done 2026-10-20. Harness truth: `settle()` throws on consumer errors, an empty check list fails, the Signer key check verifies the signature, the replay offset claim matches the driver (P1-22, P1-23, P2-101, P2-102) | Each new check fails on the old code; fast tier re-run and every red fixed in code |
+| F7 | Done 2026-10-20. Tape read order: consumers read up to a commit watermark; the buffer is capped and blocks; a dedupe hit returns the stored id (P1-00, P1-07, P1-08, P2-01, P2-02) | New `tape-order`: an earlier-stamped row committed later is read by every consumer |
+| F8 | Done 2026-10-20. Paper truth: true oldest launch signature, market-less sell retried, pool-less exit refused or priced low, rollup `after` pruned, snapshots by `seen_time` (P1-10 to P1-13, P2-28 to P2-30) | `launch-filters` with >100 signatures, desk missing-market sell, fill asymmetry case |
+| F1 | Done 2026-10-20 (roles; a Postgres password is the owner's). Database roles, password, the Tape trigger, a statement-level truncate guard (P1-09) | A write or truncate as a read role fails |
+| F2 | Done 2026-10-20. MCP, relay, Signer and HTTP server hardening (limits, timeouts, auth order, caps), per the private audit notes; relay per-client queues, own search budget, bounded cache, validated `at` (P1-16 to P1-18, P2-62, P2-79, P2-81, P2-83 to P2-87) | Hardening suites pass; a stalled viewer does not stop the others |
+| F3 | Done 2026-10-20. Signer binds the order: required `order_id` and exact memo, mint in the swap, no lookup-table accounts, sells bounded, sweep room from Signer config, pump and AMM token accounts pinned (1.16; P1-01, P1-15) | `signer-refuses` gains no-order-id, wrong memo, wrong mint, lookup-table, oversized sell, caller-set room |
+| F9 | Done 2026-10-20. Order state machine: signed tx and every attempt memo stored before send, recovery searches all memos, sign and simulate retried, side in the duplicate guard, halts consume no attempts (P1-02 to P1-04, P1-14, P2-51, P2-60) | `kill` gains send-throws-after-landing: one transaction on chain |
+| F10 | Done 2026-10-20. Treasury fails closed: missing kill row is halted, reconcile skips only young in-flight orders and alerts on stale ones, operator wallet reconciled (P1-05, P1-06, P2-58, P2-61) | `books-reconcile` with a stuck order still reports drift |
+| F11 | Done 2026-10-20. Slow Bridge provenance: BettaFish deadline, parents as of the run, Bridge ids win the spread, engine-scoped claim, guarded finish, worker cleanup (P1-19 to P1-21, P2-74, P2-75, P2-123, P2-124) | `slow-caps` with a hung engine; mapper refuses a spoofed id |
+| F12 | Done 2026-10-20. Time is an input: a Tape tick drives desk exits and sweeps in quiet periods | A quiet-period exit fires live and replays the same |
+| F4 | Done 2026-10-20. Unused write tools get consumers or are deleted; one token per Bridge engine | No tool without a reader |
+| F5 | Done 2026-10-20. CI: typecheck, lint, `docs:check`, the fast tier | Green on a branch |
+| F6 | Done 2026-10-20 (two named calls remain; the rollup stays in the Scout, see SYSTEM.md). Consumers: duplicate names refused; senses meet on the Tape, not callbacks; Index rollup becomes a consumer | `runtime.ts` has one list, no callbacks |
+| F13 | Done 2026-10-20 (every finding checked; see the review table for what was kept and why). The remaining P2 and P3 findings of the 2026-10-20 line audit, as corrected in the review's verification table (P2-90, P2-113 and P3-03 dropped as wrong), one commit per area while in the file | Each area's suites stay green |
 
 ### G. Evals
 
